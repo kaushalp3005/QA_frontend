@@ -22,42 +22,6 @@ interface RCAItem {
   correctiveActions?: string[]
 }
 
-const mockRCAItems: RCAItem[] = [
-  {
-    id: 'RCA-001',
-    complaintId: 'CMP-001',
-    title: 'Physical Contamination in Rice Packaging',
-    status: 'in_progress',
-    priority: 'high',
-    assignedTo: 'Quality Team A',
-    createdDate: '2025-10-25',
-    targetDate: '2025-11-15',
-    rootCause: 'Packaging line contamination due to worn seals'
-  },
-  {
-    id: 'RCA-002', 
-    complaintId: 'CMP-003',
-    title: 'Microbial Contamination in Spice Mix',
-    status: 'open',
-    priority: 'critical',
-    assignedTo: 'Quality Team B',
-    createdDate: '2025-10-26',
-    targetDate: '2025-11-10'
-  },
-  {
-    id: 'RCA-003',
-    complaintId: 'CMP-005',
-    title: 'Printing Issue on Product Labels',
-    status: 'completed',
-    priority: 'medium',
-    assignedTo: 'Production Team',
-    createdDate: '2025-10-20',
-    targetDate: '2025-11-05',
-    rootCause: 'Printer calibration drift',
-    correctiveActions: ['Recalibrate printing equipment', 'Implement daily quality checks']
-  }
-]
-
 const statusColors = {
   open: 'bg-red-100 text-red-800',
   in_progress: 'bg-yellow-100 text-yellow-800', 
@@ -166,7 +130,9 @@ export default function RCACAPAPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total</p>
-                <p className="text-2xl font-semibold text-blue-600">{mockRCAItems.length}</p>
+                <p className="text-2xl font-semibold text-blue-600">
+                  {loading ? '-' : rcaData.length}
+                </p>
               </div>
               <Calendar className="h-8 w-8 text-blue-500" />
             </div>

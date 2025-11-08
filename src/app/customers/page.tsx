@@ -3,42 +3,6 @@
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Users, Plus, Search, Filter } from 'lucide-react'
 
-// Mock customer data
-const mockCustomers = [
-  {
-    id: '1',
-    name: 'Good Life Reliance',
-    email: 'contact@goodlife.com',
-    company: 'Reliance Retail',
-    totalComplaints: 5,
-    status: 'active'
-  },
-  {
-    id: '2', 
-    name: 'Curate Reliance',
-    email: 'support@curate.com',
-    company: 'Reliance Digital',
-    totalComplaints: 2,
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: 'Vedaka Amazon',
-    email: 'help@vedaka.com', 
-    company: 'Amazon',
-    totalComplaints: 8,
-    status: 'active'
-  },
-  {
-    id: '4',
-    name: 'Mamanourish',
-    email: 'care@mamanourish.com',
-    company: 'Mamanourish Foods',
-    totalComplaints: 1,
-    status: 'active'
-  }
-]
-
 export default function CustomersPage() {
   return (
     <DashboardLayout>
@@ -67,7 +31,7 @@ export default function CustomersPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Customers</p>
-                <p className="text-2xl font-bold text-gray-900">{mockCustomers.length}</p>
+                <p className="text-2xl font-bold text-gray-900">0</p>
               </div>
             </div>
           </div>
@@ -79,9 +43,7 @@ export default function CustomersPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Active Customers</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {mockCustomers.filter(c => c.status === 'active').length}
-                </p>
+                <p className="text-2xl font-bold text-gray-900">0</p>
               </div>
             </div>
           </div>
@@ -93,9 +55,7 @@ export default function CustomersPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Complaints</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {mockCustomers.reduce((sum, c) => sum + c.totalComplaints, 0)}
-                </p>
+                <p className="text-2xl font-bold text-gray-900">0</p>
               </div>
             </div>
           </div>
@@ -107,9 +67,7 @@ export default function CustomersPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Avg Complaints</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {(mockCustomers.reduce((sum, c) => sum + c.totalComplaints, 0) / mockCustomers.length).toFixed(1)}
-                </p>
+                <p className="text-2xl font-bold text-gray-900">0</p>
               </div>
             </div>
           </div>
@@ -162,47 +120,11 @@ export default function CustomersPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {mockCustomers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                            <Users className="h-5 w-5 text-gray-600" />
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {customer.name}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {customer.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {customer.company}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {customer.totalComplaints}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        customer.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {customer.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-blue-600 hover:text-blue-900">
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                    No customers found. Click &quot;Add Customer&quot; to get started.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

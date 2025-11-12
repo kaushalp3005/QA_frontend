@@ -1,5 +1,5 @@
 'use client'
-
+// zalee pushh
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useCompany } from '@/contexts/CompanyContext'
@@ -272,7 +272,7 @@ export default function FishbonePrintPage() {
         <div>
           <div className="logo-box">CANDOR FOODS PRIVATE LIMITED</div>
           <div className="doc-title mt8">
-            Fishbone Analysis And Corrective Actions
+            FISHBONE ANALYSIS AND CORRECTIVE/PRIVENTIVE ACTIONS
           </div>
           <div className="muted">Document No: CFPL.A.C3.F.03A</div>
         </div>
@@ -328,7 +328,7 @@ export default function FishbonePrintPage() {
       {/* Complaint Photos */}
       {complaintPhotos.length > 0 && (
         <>
-          <h3 className="sec">Complaint Photos (From Original Complaint)</h3>
+          <h3 className="sec">PICTORIAL EVIDENCE OF THE COMPLAINT</h3>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(4, 1fr)',
@@ -500,28 +500,42 @@ export default function FishbonePrintPage() {
           </div>
         )}
 
-      {/* Preventive Actions */}
-      <h3 className="sec">Preventive Actions</h3>
-      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px'}}>
-        <div>
-          <strong>Complaint Register:</strong>
-          <div className="box">{fishbone.prepared_by || 'N/A'}</div>
-        </div>
-        <div>
-          <strong>Verified By:</strong>
-          <div className="box">{fishbone.approved_by || 'N/A'}</div>
-        </div>
-        <div>
-          <strong>CAPA Prepared By:</strong>
-          <div className="box">{fishbone.capa_prepared_by || 'N/A'}</div>
-        </div>
-        <div>
-          <strong>Date Approved:</strong>
-          <div className="box">{fishbone.date_approved || 'N/A'}</div>
-        </div>
-      </div>
+      {/* Preventive Action Plan */}
+      <h3 className="sec">Preventive Action Plan</h3>
+      {fishbone.preventive_action_plan && fishbone.preventive_action_plan.length > 0 ? (
+        <table>
+            <thead>
+              <tr>
+                <th style={{ width: '5%' }}>#</th>
+                <th style={{ width: '40%' }}>Preventive Action</th>
+                <th style={{ width: '20%' }}>Responsible Person</th>
+                <th style={{ width: '15%' }}>Target Date</th>
+                <th style={{ width: '20%' }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fishbone.preventive_action_plan.map((action: any, idx: number) => (
+                <tr key={idx}>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{idx + 1}</td>
+                  <td>{action.action || 'N/A'}</td>
+                  <td>{action.responsible || 'N/A'}</td>
+                  <td>{action.deadline ? new Date(action.deadline).toLocaleDateString() : 'N/A'}</td>
+                  <td>
+                    <span className={`status-badge status-${action.status || 'pending'}`}>
+                      {(action.status || 'pending').replace('-', ' ')}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
+            No preventive actions defined
+          </div>
+        )}
 
-      {/* Evidence Submitted to Customer */}
+      {/* Control Sample Evidence */}
       {(() => {
         const photos = (fishbone as any).control_sample_photos
         const photoArray = photos 
@@ -532,7 +546,7 @@ export default function FishbonePrintPage() {
         
         return photoArray && photoArray.length > 0 ? (
           <>
-            <h3 className="sec" style={{marginTop: '24px'}}>Evidence Submitted to Customer</h3>
+            <h3 className="sec" style={{marginTop: '24px'}}>Control Sample Evidence</h3>
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px'}}>
               {photoArray.map((url: string, index: number) => (
                 <div key={index} style={{position: 'relative', border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden'}}>
@@ -551,6 +565,27 @@ export default function FishbonePrintPage() {
           </>
         ) : null
       })()}
+
+      {/* Verified and Approval By */}
+      <h3 className="sec">Verified and Approval By</h3>
+      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px'}}>
+        <div>
+          <strong>Complaint Register:</strong>
+          <div className="box">{fishbone.prepared_by || 'N/A'}</div>
+        </div>
+        <div>
+          <strong>Verified By:</strong>
+          <div className="box">{fishbone.approved_by || 'N/A'}</div>
+        </div>
+        <div>
+          <strong>CAPA Prepared By:</strong>
+          <div className="box">{fishbone.capa_prepared_by || 'N/A'}</div>
+        </div>
+        <div>
+          <strong>Date Approved:</strong>
+          <div className="box">{fishbone.date_approved || 'N/A'}</div>
+        </div>
+      </div>
     </div>
   )
 }

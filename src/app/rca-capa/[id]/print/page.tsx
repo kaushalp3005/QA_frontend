@@ -269,7 +269,7 @@ export default function RCAPrintPage() {
         <div>
           <div className="logo-box">CANDOR FOODS PRIVATE LIMITED</div>
           <div className="doc-title mt8">
-            Corrective Actions & Root Cause Analysis (RCA/CAPA)
+            ROOT CAUSE ANALYSIS & CORRECTIVE/PREVENTIVE ACTIONS
           </div>
           <div className="muted">Document No: CFPL.A.C3.F.03a</div>
         </div>
@@ -340,7 +340,7 @@ export default function RCAPrintPage() {
       {/* Complaint Photos */}
       {complaintPhotos.length > 0 && (
         <>
-          <h3 className="sec">Complaint Photos (From Original Complaint)</h3>
+          <h3 className="sec">PICTORIAL EVIDENCE OF THE COMPLAINT</h3>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(4, 1fr)',
@@ -420,10 +420,10 @@ export default function RCAPrintPage() {
       <h3 className="sec">Root Cause Description (resulting from 5 Whys)</h3>
       <div className="box">{rca.root_cause_description || 'N/A'}</div>
 
-      {/* Action Plan */}
+      {/* Corrective Actions */}
       {rca.action_plan && rca.action_plan.length > 0 && (
         <>
-          <h3 className="sec">Action Plan (Corrective Actions)</h3>
+          <h3 className="sec">Corrective Action Plan</h3>
           <table>
             <thead>
               <tr>
@@ -458,27 +458,43 @@ export default function RCAPrintPage() {
       )}
 
       {/* Preventive Actions */}
-      <h3 className="sec">Preventive Actions</h3>
-      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px'}}>
-        <div>
-          <strong>Complaint Register:</strong>
-          <div className="box">{rca.prepared_by || 'N/A'}</div>
-        </div>
-        <div>
-          <strong>Verified By:</strong>
-          <div className="box">{rca.approved_by || 'N/A'}</div>
-        </div>
-        <div>
-          <strong>CAPA Prepared By:</strong>
-          <div className="box">{rca.capa_prepared_by || 'N/A'}</div>
-        </div>
-        <div>
-          <strong>Date Approved:</strong>
-          <div className="box">{rca.date_approved || 'N/A'}</div>
-        </div>
-      </div>
+      {rca.action_plan && rca.action_plan.length > 0 && (
+        <>
+          <h3 className="sec">Preventive Action Plan</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style={{width: '28px'}}>Sr.</th>
+                <th>Future Challenges / Risk Areas</th>
+                <th>Preventive Actions</th>
+                <th>Responsibility</th>
+                <th>Status</th>
+                <th>Start Date</th>
+                <th>Completion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(typeof rca.action_plan === 'string' ? JSON.parse(rca.action_plan) : rca.action_plan).map((action: any, index: number) => (
+                <tr key={index}>
+                  <td style={{textAlign: 'center'}}>{action.srNo || index + 1}</td>
+                  <td>{action.challenges || '-'}</td>
+                  <td>{action.actionPoints || '-'}</td>
+                  <td>{action.responsibility || '-'}</td>
+                  <td className={`status ${getStatusClass(action.trafficLightStatus)}`}>
+                    {action.trafficLightStatus === 'completed' ? 'COMPLETED' : 
+                     action.trafficLightStatus === 'on_schedule' ? 'ON SCHEDULE' : 
+                     action.trafficLightStatus === 'delayed' ? 'DELAYED' : 'PENDING'}
+                  </td>
+                  <td>{action.startDate || '-'}</td>
+                  <td>{action.completionDate || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
 
-      {/* Evidence Submitted to Customer */}
+      {/* Control Sample Evidence */}
       {(() => {
         const photos = rca.control_sample_photos
         const photoArray = photos 
@@ -489,7 +505,7 @@ export default function RCAPrintPage() {
         
         return photoArray && photoArray.length > 0 ? (
           <>
-            <h3 className="sec" style={{marginTop: '24px'}}>Evidence Submitted to Customer</h3>
+            <h3 className="sec" style={{marginTop: '24px'}}>Control Sample Evidence</h3>
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px'}}>
               {photoArray.map((url: string, index: number) => (
                 <div key={index} style={{position: 'relative', border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden'}}>
@@ -508,6 +524,27 @@ export default function RCAPrintPage() {
           </>
         ) : null
       })()}
+
+      {/* Verified and Approval By */}
+      <h3 className="sec">Verified and Approval By</h3>
+      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px'}}>
+        <div>
+          <strong>Complaint Register:</strong>
+          <div className="box">{rca.prepared_by || 'N/A'}</div>
+        </div>
+        <div>
+          <strong>Verified By:</strong>
+          <div className="box">{rca.approved_by || 'N/A'}</div>
+        </div>
+        <div>
+          <strong>CAPA Prepared By:</strong>
+          <div className="box">{rca.capa_prepared_by || 'N/A'}</div>
+        </div>
+        <div>
+          <strong>Date Approved:</strong>
+          <div className="box">{rca.date_approved || 'N/A'}</div>
+        </div>
+      </div>
     </div>
   )
 }

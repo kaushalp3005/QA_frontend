@@ -73,6 +73,9 @@ export default function CreateFishbonePage() {
   const [actionPlan, setActionPlan] = useState<ActionPlanItem[]>([
     { id: 1, action: '', responsible: '', deadline: '', status: 'pending' }
   ])
+  const [preventiveActionPlan, setPreventiveActionPlan] = useState<ActionPlanItem[]>([
+    { id: 1, action: '', responsible: '', deadline: '', status: 'pending' }
+  ])
   const [isFetchingComplaint, setIsFetchingComplaint] = useState(false)
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -196,6 +199,28 @@ export default function CreateFishbonePage() {
     ))
   }
 
+  // Preventive Action Functions
+  const addPreventiveActionItem = () => {
+    const newId = Math.max(...preventiveActionPlan.map(item => item.id)) + 1
+    setPreventiveActionPlan(prev => [...prev, { 
+      id: newId, 
+      action: '', 
+      responsible: '', 
+      deadline: '', 
+      status: 'pending' 
+    }])
+  }
+
+  const removePreventiveActionItem = (id: number) => {
+    setPreventiveActionPlan(prev => prev.filter(item => item.id !== id))
+  }
+
+  const updatePreventiveActionItem = (id: number, field: string, value: string) => {
+    setPreventiveActionPlan(prev => prev.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ))
+  }
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
@@ -271,7 +296,7 @@ export default function CreateFishbonePage() {
     
     try {
       // Transform form data to API payload
-      const payload = transformFishboneDataToPayload(formData, categories, actionPlan)
+      const payload = transformFishboneDataToPayload(formData, categories, actionPlan, preventiveActionPlan)
       
       // Create fishbone analysis
       const result = await createFishbone(payload, currentCompany)
@@ -726,9 +751,116 @@ export default function CreateFishbonePage() {
           </div>
 
           {/* Preventive Actions */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Target className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Preventive Actions</h2>
+                    <p className="text-sm text-gray-600">Define preventive actions to prevent future occurrences</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={addPreventiveActionItem}
+                  className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors shadow-sm"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Preventive Action
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {preventiveActionPlan.length === 0 ? (
+                <div className="text-center py-8">
+                  <Target className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No preventive actions defined</h3>
+                  <p className="mt-1 text-sm text-gray-500">Get started by adding your first preventive action.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {preventiveActionPlan.map((item, index) => (
+                    <div key={item.id} className="bg-gray-50 border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-semibold text-purple-600">{index + 1}</span>
+                          </div>
+                          <h3 className="text-base font-medium text-gray-900">Preventive Action #{index + 1}</h3>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removePreventiveActionItem(item.id)}
+                          className="inline-flex items-center p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove preventive action item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="lg:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <span className="flex items-center">
+                              📋 Preventive Action Description *
+                            </span>
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={item.action}
+                            onChange={(e) => updatePreventiveActionItem(item.id, 'action', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-y shadow-sm"
+                            placeholder="Describe the specific preventive action to be implemented..."
+                          />
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              <span className="flex items-center">
+                                👤 Responsible Person *
+                              </span>
+                            </label>
+                            <input
+                              type="text"
+                              value={item.responsible}
+                              onChange={(e) => updatePreventiveActionItem(item.id, 'responsible', e.target.value)}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
+                              placeholder="Enter person's name or role"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              <span className="flex items-center">
+                                📅 Target Completion Date
+                              </span>
+                            </label>
+                            <input
+                              type="date"
+                              value={item.deadline}
+                              onChange={(e) => updatePreventiveActionItem(item.id, 'deadline', e.target.value)}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Approval Section */}
           <div className="bg-white rounded-lg shadow-md border border-gray-200">
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900"> Preventive Actions</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Approval & Verification</h2>
             </div>
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

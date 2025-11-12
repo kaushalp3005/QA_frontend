@@ -982,26 +982,143 @@ export default function RCAEditPage() {
           </div>
         </div>
 
-        {/* Immediate Actions */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Immediate Actions</h2>
-          </div>
-          <div className="px-6 py-4">
-            <textarea
-              value={formData.immediateActions || ''}
-              onChange={(e) => handleChange('immediateActions', e.target.value)}
-              rows={4}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Describe immediate actions taken..."
-            />
-          </div>
-        </div>
+        
 
         {/* Preventive Actions */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
+          <div className="bg-purple-50 px-6 py-4 border-b border-purple-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-purple-900">7. Preventive Actions</h2>
+              <button
+                type="button"
+                onClick={addActionPlanItem}
+                className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Preventive Action
+              </button>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="space-y-6">
+              {formData.actionPlan && formData.actionPlan.map((item, index) => (
+                <div key={index} className="bg-purple-50 rounded-lg border border-purple-200 p-6 relative">
+                  <div className="absolute top-4 right-4 flex items-center space-x-2">
+                    <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                      Preventive Action #{item.srNo || index + 1}
+                    </div>
+                    {formData.actionPlan.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeActionPlanItem(index)}
+                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Future Challenges / Risk Areas
+                      </label>
+                      <textarea
+                        value={item.challenges || ''}
+                        onChange={(e) => updateActionPlanItem(index, 'challenges', e.target.value)}
+                        rows={4}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                        placeholder="Identify potential future risks, challenges, or areas where similar issues might occur..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Preventive actions
+                      </label>
+                      <textarea
+                        value={item.actionPoints || ''}
+                        onChange={(e) => updateActionPlanItem(index, 'actionPoints', e.target.value)}
+                        rows={4}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                        placeholder="Detail the preventive measures to avoid recurrence of similar issues..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Responsibility
+                      </label>
+                      <textarea
+                        value={item.responsibility || ''}
+                        onChange={(e) => updateActionPlanItem(index, 'responsibility', e.target.value)}
+                        rows={3}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                        placeholder="Responsible person/department and contact details..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Status
+                      </label>
+                      <select
+                        value={item.trafficLightStatus || 'on_schedule'}
+                        onChange={(e) => updateActionPlanItem(index, 'trafficLightStatus', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      >
+                        <option value="completed">🟢 Completed</option>
+                        <option value="on_schedule">🟡 On Schedule</option>
+                        <option value="delayed">🔴 Delayed</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={item.startDate || ''}
+                        onChange={(e) => updateActionPlanItem(index, 'startDate', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Completion Date
+                      </label>
+                      <input
+                        type="date"
+                        value={item.completionDate || ''}
+                        onChange={(e) => updateActionPlanItem(index, 'completionDate', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {(!formData.actionPlan || formData.actionPlan.length === 0) && (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <Plus className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <p className="text-lg font-medium">No preventive actions added yet</p>
+                  <p className="text-sm">Click "Add Preventive Action" to create preventive measures</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Approval & Verification Section */}
+        <div className="bg-white rounded-lg shadow-md border border-gray-200">
           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">7. Preventive Actions</h2>
+            <h2 className="text-xl font-semibold text-gray-900">8. Approval & Verification</h2>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

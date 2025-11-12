@@ -567,7 +567,103 @@ export default function RCAViewPage() {
           </div>
         )}
 
-        {/* Preventive Actions & Approval */}
+        {/* Preventive Actions */}
+        {(() => {
+          const preventiveActions = (rca as any).preventive_action_plan
+          const actionPlan = preventiveActions 
+            ? (typeof preventiveActions === 'string' ? JSON.parse(preventiveActions) : preventiveActions)
+            : null
+          const actions = actionPlan?.preventive_actions || []
+          
+          return actions.length > 0 && (
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-medium text-gray-900">Preventive Actions</h2>
+              </div>
+              <div className="px-6 py-4 space-y-6">
+                {actions.map((action: any, index: number) => (
+                  <div key={index} className="bg-purple-50 rounded-lg border border-purple-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-purple-900">
+                        Preventive Action #{action.srNo || index + 1}
+                      </h3>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        action.trafficLightStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                        action.trafficLightStatus === 'delayed' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {action.trafficLightStatus === 'completed' ? '🟢 Completed' :
+                         action.trafficLightStatus === 'delayed' ? '🔴 Delayed' :
+                         '🟡 On Schedule'}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                      {action.challenges && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 block mb-2">
+                            Future Challenges / Risk Areas
+                          </label>
+                          <p className="text-sm text-gray-900 bg-white rounded-lg border border-gray-200 p-3">
+                            {action.challenges}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {action.actionPoints && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 block mb-2">
+                            Preventive Actions
+                          </label>
+                          <p className="text-sm text-gray-900 bg-white rounded-lg border border-gray-200 p-3">
+                            {action.actionPoints}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {action.responsibility && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 block mb-2">
+                            Responsibility
+                          </label>
+                          <p className="text-sm text-gray-900 bg-white rounded-lg border border-gray-200 p-3">
+                            {action.responsibility}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {action.startDate && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 block mb-2">
+                            Start Date
+                          </label>
+                          <p className="text-sm text-gray-900 bg-white rounded-lg border border-gray-200 p-3">
+                            {new Date(action.startDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {action.completionDate && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 block mb-2">
+                            Completion Date
+                          </label>
+                          <p className="text-sm text-gray-900 bg-white rounded-lg border border-gray-200 p-3">
+                            {new Date(action.completionDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Approval & Verification */}
         {(() => {
           const photos = (rca as any).control_sample_photos
           console.log('Raw photos from DB:', photos)
@@ -582,7 +678,7 @@ export default function RCAViewPage() {
           return (hasApprovalData || hasPhotos) && (
             <div className="bg-white shadow rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Preventive Actions & Approval</h2>
+                <h2 className="text-lg font-medium text-gray-900">Approval & Verification</h2>
               </div>
               <div className="px-6 py-4 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

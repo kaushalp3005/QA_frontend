@@ -36,7 +36,10 @@ export interface ActionPlanItem {
   action: string;
   responsible: string;
   deadline: string;
-  status: 'pending' | 'in-progress' | 'completed';
+  status: 'pending' | 'in-progress' | 'completed' | 'delayed';
+  challenges?: string;
+  preventiveAction?: string;
+  startDate?: string;
 }
 
 export interface FishboneCategory {
@@ -65,6 +68,7 @@ export interface FishboneCreatePayload {
   environment_causes?: string[];
   management_causes?: string[];
   action_plan?: any[];
+  preventive_action_plan?: any[];
   status?: string;
 }
 
@@ -276,7 +280,8 @@ export async function getFishboneByComplaint(
 export function transformFishboneDataToPayload(
   formData: any,
   categories: FishboneCategory[],
-  actionPlan: ActionPlanItem[]
+  actionPlan: ActionPlanItem[],
+  preventiveActionPlan?: ActionPlanItem[]
 ): FishboneCreatePayload {
   return {
     complaint_id: formData.complaintId || undefined,
@@ -298,6 +303,7 @@ export function transformFishboneDataToPayload(
     environment_causes: categories.find(c => c.id === 'environment')?.causes.filter(c => c.trim()) || [],
     management_causes: categories.find(c => c.id === 'management')?.causes.filter(c => c.trim()) || [],
     action_plan: actionPlan.filter(item => item.action.trim()),
+    preventive_action_plan: preventiveActionPlan?.filter(item => item.action.trim()) || [],
     status: formData.status || 'draft',
   };
 }

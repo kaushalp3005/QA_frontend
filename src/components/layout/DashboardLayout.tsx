@@ -23,24 +23,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="h-screen flex bg-gray-50">
+    <div className="h-screen flex bg-cream-100">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="bg-white shadow-sm border-b border-gray-200">
+        <header className="bg-beige-50 shadow-sm border-b border-tan-200 backdrop-blur-sm bg-opacity-95">
           <div className="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="lg:hidden p-2 rounded-md text-tan-300 hover:text-sage-400 hover:bg-beige-100 transition-colors"
             >
               <Menu className="h-6 w-6" />
             </button>
             
             <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold text-gray-900 lg:hidden">
+              <h1 className="text-xl font-semibold text-sage-700 lg:hidden">
                 QC System
               </h1>
             </div>
@@ -54,7 +54,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               
               {/* User Email */}
               {user && (
-                <span className="text-sm text-gray-600 hidden md:inline">
+                <span className="text-sm text-sage-600 hidden md:inline font-medium">
                   {user.email}
                 </span>
               )}
@@ -62,7 +62,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                className="inline-flex items-center px-4 py-2 border border-tan-200 shadow-sm text-sm leading-4 font-medium rounded-md text-sage-700 bg-cream-50 hover:bg-beige-100 hover:border-sage-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sage-300 transition-all duration-200"
                 title="Logout"
               >
                 <LogOut className="h-4 w-4 mr-2" />
@@ -73,7 +73,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
         
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 bg-cream-100">
           {children}
         </main>
       </div>

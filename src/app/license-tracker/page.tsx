@@ -1,342 +1,473 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Shield, Search, Calendar, MapPin, Building, Pencil } from 'lucide-react'
-import { getLicenses, getLicenseStats, type License, type LicenseStats } from '@/lib/api/licenses'
-
-// Helper function to check if license is expiring soon (within 6 months)
-const isExpiringSoon = (validityDate: string) => {
-  try {
-    // Parse different date formats
-    let parsedDate: Date
-    
-    if (validityDate.includes('/')) {
-      // Handle MM/dd/yyyy or dd/MM/yyyy format
-      const parts = validityDate.split('/')
-      if (parts[0].length === 1 || parts[0].length === 2) {
-        // Assume dd/MM/yyyy or MM/dd/yyyy - for Indian context, likely dd/MM/yyyy
-        parsedDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
-      } else {
-        parsedDate = new Date(validityDate)
-      }
-    } else if (validityDate.includes('-')) {
-      // Handle dd-MM-yyyy format
-      const parts = validityDate.split('-')
-      parsedDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
-    } else {
-      parsedDate = new Date(validityDate)
-    }
-    
-    const today = new Date()
-    const sixMonthsFromNow = new Date()
-    sixMonthsFromNow.setMonth(today.getMonth() + 6)
-    
-    return parsedDate <= sixMonthsFromNow && parsedDate >= today
-  } catch {
-    return false
-  }
-}
-
-// Helper function to check if license is expired
-const isExpired = (validityDate: string) => {
-  try {
-    let parsedDate: Date
-    
-    if (validityDate.includes('/')) {
-      const parts = validityDate.split('/')
-      parsedDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
-    } else if (validityDate.includes('-')) {
-      const parts = validityDate.split('-')
-      parsedDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
-    } else {
-      parsedDate = new Date(validityDate)
-    }
-    
-    return parsedDate < new Date()
-  } catch {
-    return false
-  }
-}
+import { getLicenses, getLicenseStats, deleteLicense, updateLicense, type License, type LicenseStats } from '@/lib/api/licenses'
+import { formatDateShort } from '@/lib/date-utils'
+import { Shield, Plus, Edit, Trash2, AlertTriangle, FileText, X } from 'lucide-react'
+import { cardStyles, layoutStyles, textStyles, badgeStyles, cn } from '@/lib/styles'
+import { useCompany } from '@/contexts/CompanyContext'
 
 export default function LicenseTrackerPage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState('all')
+  const { currentCompany } = useCompany()
   const [licenses, setLicenses] = useState<License[]>([])
-  const [stats, setStats] = useState<LicenseStats | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [stats, setStats] = useState<LicenseStats>({ total: 0, active: 0, expired: 0, expiring_soon: 0 })
+  const [loading, setLoading] = useState(true)
+  const [editingLicense, setEditingLicense] = useState<License | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-  // Load licenses from API
+  console.log('🎬 LicenseTrackerPage rendered - Company:', currentCompany)
+  console.log('📊 Current State - Licenses:', licenses.length, 'Loading:', loading)
+
   useEffect(() => {
-    loadData()
-  }, [])
+    console.log('⚡ useEffect triggered - Company:', currentCompany)
+    fetchLicenses()
+    fetchStats()
+  }, [currentCompany])
 
-  const loadData = async () => {
+  const fetchLicenses = async () => {
     try {
-      setIsLoading(true)
-      setError('')
-      
-      const [licensesData, statsData] = await Promise.all([
-        getLicenses({ limit: 1000 }),
-        getLicenseStats()
-      ])
-      
-      setLicenses(licensesData.licenses)
-      setStats(statsData)
-    } catch (err: any) {
-      console.error('Error loading licenses:', err)
-      setError(err.message || 'Failed to load licenses')
+      console.log('🚀 Starting fetchLicenses...')
+      console.log('📍 Current Company:', currentCompany)
+      setLoading(true)
+      const response = await getLicenses({
+        // company_name: currentCompany, // Removed filter to show all licenses
+        page: 1,
+        limit: 1000, // Load all licenses
+      })
+      console.log('📦 Response received:', response)
+      console.log('🔢 Number of licenses:', response.licenses?.length)
+      console.log('📋 Licenses array:', response.licenses)
+      setLicenses(response.licenses || [])
+      console.log('✅ State updated successfully')
+    } catch (error) {
+      console.error('❌ Error fetching licenses:', error)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
+      console.log('🏁 Loading finished')
     }
   }
 
-  // Filter licenses based on search and type
-  const filteredLicenses = licenses.filter(license => {
-    const matchesSearch = 
-      license.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      license.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      license.license_no.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesType = filterType === 'all' || license.type.toLowerCase() === filterType.toLowerCase()
-    
-    return matchesSearch && matchesType
-  })
+  const fetchStats = async () => {
+    try {
+      console.log('📊 Starting fetchStats...')
+      console.log('📍 Current Company:', currentCompany)
+      const statsData = await getLicenseStats() // Removed company filter
+      console.log('📈 Stats received:', statsData)
+      setStats(statsData)
+      console.log('✅ Stats state updated')
+    } catch (error) {
+      console.error('❌ Error fetching license stats:', error)
+    }
+  }
 
-  // Stats
-  const totalLicenses = stats?.total_licenses || 0
-  const centralLicenses = stats?.central_licenses || 0
- 
-  const expiringSoon = licenses.filter(l => isExpiringSoon(l.validity)).length
-  const expired = licenses.filter(l => isExpired(l.validity) || l.status === 'Surrender').length
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this license?')) return
+
+    try {
+      await deleteLicense(id)
+      fetchLicenses()
+      fetchStats()
+    } catch (error) {
+      console.error('Error deleting license:', error)
+      alert('Failed to delete license')
+    }
+  }
+
+  const handleEdit = (license: License) => {
+    console.log('✏️ Opening edit modal for license:', license.id)
+    setEditingLicense(license)
+    setIsEditModalOpen(true)
+  }
+
+  const handleUpdateLicense = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!editingLicense) return
+
+    try {
+      console.log('💾 Updating license:', editingLicense.id)
+      // Build a safe payload: exclude server-managed fields and invalid statuses
+      const {
+        id,
+        created_at,
+        updated_at,
+        license_no, // read-only on server
+        last_reminder_sent,
+        reminder_ignored,
+        reminder_ignored_at,
+        reminders_sent_count,
+        final_reminder_days,
+        ...payload
+      } = editingLicense
+
+      // Map UI-only statuses to DB-accepted statuses
+      if (payload.status === 'Surrendered') {
+        payload.status = 'Surrender'
+      }
+      // Drop derived statuses not accepted by DB CHECK
+      if (payload.status === 'Expired' || payload.status === 'Expiring Soon') {
+        const { status, ...payloadWithoutStatus } = payload
+        await updateLicense(editingLicense.id, payloadWithoutStatus)
+      } else {
+        await updateLicense(editingLicense.id, payload)
+      }
+      console.log('✅ License updated successfully')
+      setIsEditModalOpen(false)
+      setEditingLicense(null)
+      fetchLicenses()
+      fetchStats()
+      alert('License updated successfully!')
+    } catch (error) {
+      console.error('❌ Error updating license:', error)
+      alert('Failed to update license')
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return badgeStyles.resolved
+      case 'expired':
+        return badgeStyles.rejected
+      case 'surrendered':
+        return badgeStyles.draft
+      default:
+        return badgeStyles.draft
+    }
+  }
+
+  const isExpiringSoon = (validity: string) => {
+    const expiryDate = new Date(validity)
+    const today = new Date()
+    const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    return daysUntilExpiry <= 30 && daysUntilExpiry >= 0
+  }
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className={layoutStyles.container}>
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className={layoutStyles.flexBetween}>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-              <Shield className="w-8 h-8 mr-3 text-blue-600" />
-              License Tracker
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Monitor and track all company licenses and their validity periods
-            </p>
+            <h1 className={textStyles.h1}>License Tracker</h1>
+            <p className={textStyles.body}>Manage and track your licenses</p>
           </div>
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50"
-          >
-            <Calendar className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            {isLoading ? 'Loading...' : 'Refresh'}
+          <button className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700">
+            <Plus className="h-4 w-4" />
+            Add License
           </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center">
-              <Shield className="w-8 h-8 text-blue-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Total Licenses</p>
-                <p className="text-2xl font-semibold text-gray-900">{totalLicenses}</p>
+        {/* Stats */}
+        <div className={layoutStyles.grid4}>
+          <div className={cardStyles.base}>
+            <div className={cardStyles.body}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Licenses</p>
+                  <p className="mt-2 text-3xl font-bold text-gray-900">{stats.total}</p>
+                </div>
+                <Shield className="h-12 w-12 text-blue-500" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center">
-              <Building className="w-8 h-8 text-green-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Central</p>
-                <p className="text-2xl font-semibold text-gray-900">{centralLicenses}</p>
+          <div className={cardStyles.base}>
+            <div className={cardStyles.body}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Active</p>
+                  <p className="mt-2 text-3xl font-bold text-green-600">{stats.active}</p>
+                </div>
+                <Shield className="h-12 w-12 text-green-500" />
               </div>
             </div>
           </div>
 
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center">
-              <Calendar className="w-8 h-8 text-orange-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Expiring Soon</p>
-                <p className="text-2xl font-semibold text-orange-600">{expiringSoon}</p>
+          <div className={cardStyles.base}>
+            <div className={cardStyles.body}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Expired</p>
+                  <p className="mt-2 text-3xl font-bold text-red-600">{stats.expired}</p>
+                </div>
+                <Shield className="h-12 w-12 text-red-500" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center">
-              <Calendar className="w-8 h-8 text-red-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Expired</p>
-                <p className="text-2xl font-semibold text-red-600">{expired}</p>
+          <div className={cardStyles.base}>
+            <div className={cardStyles.body}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Expiring Soon</p>
+                  <p className="mt-2 text-3xl font-bold text-orange-600">{stats.expiring_soon}</p>
+                </div>
+                <AlertTriangle className="h-12 w-12 text-orange-500" />
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search by company, location, or license number..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Type Filter */}
-            <div className="sm:w-48">
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-              >
-                <option value="all">All Types</option>
-                <option value="central">Central</option>
-                <option value="state">State</option>
-              </select>
             </div>
           </div>
         </div>
 
         {/* Licenses Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
-              License Details ({filteredLicenses.length} of {totalLicenses})
-            </h2>
+        <div className={cardStyles.base}>
+          <div className={cardStyles.header}>
+            <h2 className={textStyles.h3}>All Licenses</h2>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sr.No.
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Company Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    License No.
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Validity
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Issuing Authority
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Remind Me In
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredLicenses.map((license, index) => {
-                  const expiringSoon = isExpiringSoon(license.validity)
-                  const expired = isExpired(license.validity) || license.status === 'Surrender'
-                  
-                  return (
-                    <tr key={license.id} className={expired ? 'bg-red-50' : expiringSoon ? 'bg-orange-50' : 'hover:bg-gray-50'}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {index + 1}
-                      </td>
+          
+          {loading ? (
+            <div className="p-8 text-center">
+              <p className="text-gray-500">Loading licenses...</p>
+            </div>
+          ) : licenses.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Company Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      License Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      License Number
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Expiry Date
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {licenses.map((license) => (
+                    <tr key={license.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {license.company_name}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {license.location}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {license.type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {license.license_no}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {license.validity}
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          license.type === 'Central' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          {license.type}
+                        <span className={cn(badgeStyles.base, getStatusBadge(license.status))}>
+                          {license.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {license.issuing_authority || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {license.remind_me_in || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {license.status === 'Surrender' ? (
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                            Surrendered
-                          </span>
-                        ) : expired ? (
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                            Expired
-                          </span>
-                        ) : expiringSoon ? (
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
-                            Expiring Soon
-                          </span>
-                        ) : (
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                            Active
-                          </span>
-                        )}
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <Link
-                          href={`/license-tracker/edit/${license.id}`}
-                          className="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
-                        >
-                          <Pencil className="w-3 h-3 mr-1" />
-                          Edit
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <span className={isExpiringSoon(license.validity) ? 'text-orange-600 font-semibold' : 'text-gray-900'}>
+                            {formatDateShort(license.validity)}
+                          </span>
+                          {isExpiringSoon(license.validity) && (
+                            <AlertTriangle className="h-4 w-4 text-orange-500" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => handleEdit(license)}
+                            className="text-green-600 hover:text-green-900 p-1 rounded"
+                            title="Edit"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(license.id)}
+                            className="text-red-600 hover:text-red-900 p-1 rounded"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-
-            {filteredLicenses.length === 0 && (
-              <div className="text-center py-12">
-                <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">No licenses found</p>
-                <p className="text-gray-400">Try adjusting your search criteria</p>
-              </div>
-            )}
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <FileText className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No licenses found</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Get started by adding your first license.
+              </p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {isEditModalOpen && editingLicense && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-xl font-semibold">Edit License</h2>
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false)
+                  setEditingLicense(null)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateLicense} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editingLicense.company_name}
+                    onChange={(e) => setEditingLicense({ ...editingLicense, company_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={editingLicense.location}
+                    onChange={(e) => setEditingLicense({ ...editingLicense, location: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    License Number
+                  </label>
+                  <input
+                    type="text"
+                    value={editingLicense.license_no}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                    disabled
+                    readOnly
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Validity (Expiry Date)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingLicense.validity}
+                    onChange={(e) => setEditingLicense({ ...editingLicense, validity: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="DD/MM/YYYY"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    License Type
+                  </label>
+                  <select
+                    value={editingLicense.type}
+                    onChange={(e) => setEditingLicense({ ...editingLicense, type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="Central">Central</option>
+                    <option value="State">State</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editingLicense.status}
+                    onChange={(e) => setEditingLicense({ ...editingLicense, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Expired">Expired</option>
+                    <option value="Surrendered">Surrendered</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Issuing Authority
+                  </label>
+                  <input
+                    type="text"
+                    value={editingLicense.issuing_authority || ''}
+                    onChange={(e) => setEditingLicense({ ...editingLicense, issuing_authority: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Remind Me In
+                  </label>
+                  <select
+                    value={editingLicense.remind_me_in || ''}
+                    onChange={(e) => setEditingLicense({ ...editingLicense, remind_me_in: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select reminder</option>
+                    <option value="5 days">5 days</option>
+                    <option value="15 days">15 days</option>
+                    <option value="30 days">30 days</option>
+                    <option value="60 days">60 days</option>
+                    <option value="90 days">90 days</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false)
+                    setEditingLicense(null)
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }

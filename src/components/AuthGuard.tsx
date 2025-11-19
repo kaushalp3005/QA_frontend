@@ -42,10 +42,10 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   // Show loading while checking authentication
   if (isChecking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-cream-100">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-tan-200 border-t-sage-300 mx-auto"></div>
+          <p className="mt-4 text-sage-600 font-medium">Loading...</p>
         </div>
       </div>
     )

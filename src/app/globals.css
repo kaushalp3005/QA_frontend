@@ -8,7 +8,8 @@
   }
   
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-cream-100 text-sage-900 antialiased;
+    background-color: #F5F5F0;
   }
 }
 
@@ -20,11 +21,11 @@
   
   /* Form Elements */
   .input-base {
-    @apply block w-full rounded-md border-gray-300 shadow-sm transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500 sm:text-sm;
+    @apply block w-full rounded-md border-tan-200 bg-cream-50 shadow-sm transition-colors focus:border-sage-300 focus:ring-1 focus:ring-sage-300 sm:text-sm text-sage-900 placeholder:text-tan-300;
   }
   
   .label-base {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium text-sage-700 mb-1;
   }
   
   /* Status Indicators */

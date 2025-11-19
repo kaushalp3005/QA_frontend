@@ -1,6 +1,4 @@
-// License Tracker API functions
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
 export interface License {
   id: number
@@ -8,181 +6,143 @@ export interface License {
   location: string
   license_no: string
   validity: string
-  type: 'Central' | 'State'
-  status?: 'Active' | 'Surrender'
-  business_types: string[]
+  type: string
+  status: string
+  business_types?: string[]
   issuing_authority?: string
   remind_me_in?: string
+  // Reminder tracking fields
+  last_reminder_sent?: string
+  reminder_ignored?: boolean
+  reminder_ignored_at?: string
+  reminders_sent_count?: number
+  final_reminder_days?: any
+  // Timestamps
   created_at: string
   updated_at: string
 }
 
 export interface LicenseListResponse {
-  total: number
   licenses: License[]
+  total: number
+  page: number
+  limit: number
 }
 
 export interface LicenseStats {
-  total_licenses: number
-  central_licenses: number
-  state_licenses: number
-  active_licenses: number
-  surrendered_licenses: number
+  total: number
+  active: number
+  expired: number
+  expiring_soon: number
 }
 
-export interface LicenseCreatePayload {
-  company_name: string
-  location: string
-  license_no: string
-  validity: string
-  type: 'Central' | 'State'
-  status?: 'Active' | 'Surrender'
-  business_types?: string[]
-  issuing_authority?: string
-  remind_me_in?: string
-}
-
-export interface LicenseUpdatePayload {
+export interface LicenseFilters {
   company_name?: string
-  location?: string
-  validity?: string
-  type?: 'Central' | 'State'
-  status?: 'Active' | 'Surrender'
-  business_types?: string[]
-  issuing_authority?: string
-  remind_me_in?: string
-}
-
-// Get auth token from localStorage
-const getAuthToken = (): string | null => {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('access_token')
-}
-
-// Get auth headers
-const getAuthHeaders = () => {
-  const token = getAuthToken()
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-  }
-}
-
-/**
- * Get all licenses with optional filters
- */
-export async function getLicenses(params?: {
-  search?: string
-  type?: string
   status?: string
-  skip?: number
+  page?: number
   limit?: number
-}): Promise<LicenseListResponse> {
-  const queryParams = new URLSearchParams()
-  if (params?.search) queryParams.append('search', params.search)
-  if (params?.type) queryParams.append('type', params.type)
-  if (params?.status) queryParams.append('status', params.status)
-  if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString())
-  if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString())
+}
 
-  const url = `${API_BASE_URL}/api/licenses${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+export async function getLicenses(filters?: LicenseFilters): Promise<LicenseListResponse> {
+  console.log('🔍 getLicenses called with filters:', filters)
+  const params = new URLSearchParams()
   
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  })
-
+  if (filters?.company_name) params.append('company_name', filters.company_name)
+  if (filters?.status) params.append('status', filters.status)
+  if (filters?.page) params.append('page', filters.page.toString())
+  if (filters?.limit) params.append('limit', filters.limit.toString())
+  
+  const url = `${API_BASE_URL}/api/licenses?${params.toString()}`
+  console.log('📡 Fetching from URL:', url)
+  
+  const response = await fetch(url)
+  console.log('📥 Response status:', response.status, response.statusText)
+  
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to fetch licenses' }))
-    throw new Error(error.detail || 'Failed to fetch licenses')
+    console.error('❌ Response not OK:', response.status)
+    throw new Error('Failed to fetch licenses')
   }
-
-  return response.json()
+  
+  const data = await response.json()
+  console.log('✅ Received data:', data)
+  console.log('📋 Data.licenses:', data.licenses)
+  console.log('📏 Data.licenses length:', data.licenses?.length)
+  console.log('🔑 Data keys:', Object.keys(data))
+  return data
 }
 
-/**
- * Get license statistics
- */
-export async function getLicenseStats(): Promise<LicenseStats> {
-  const response = await fetch(`${API_BASE_URL}/api/licenses/stats`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  })
-
+export async function getLicenseStats(company_name?: string): Promise<LicenseStats> {
+  console.log('📊 getLicenseStats called with company:', company_name)
+  const params = new URLSearchParams()
+  if (company_name) params.append('company_name', company_name)
+  
+  const url = `${API_BASE_URL}/api/licenses/stats?${params.toString()}`
+  console.log('📡 Fetching stats from URL:', url)
+  
+  const response = await fetch(url)
+  console.log('📥 Stats response status:', response.status, response.statusText)
+  
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to fetch statistics' }))
-    throw new Error(error.detail || 'Failed to fetch statistics')
+    console.error('❌ Stats response not OK:', response.status)
+    throw new Error('Failed to fetch license stats')
   }
-
-  return response.json()
+  
+  const data = await response.json()
+  console.log('✅ Received stats:', data)
+  return data
 }
 
-/**
- * Get a single license by ID
- */
 export async function getLicenseById(id: number): Promise<License> {
-  const response = await fetch(`${API_BASE_URL}/api/licenses/${id}`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  })
-
+  const response = await fetch(`${API_BASE_URL}/api/licenses/${id}`)
+  
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'License not found' }))
-    throw new Error(error.detail || 'License not found')
+    throw new Error('Failed to fetch license')
   }
-
+  
   return response.json()
 }
 
-/**
- * Create a new license
- */
-export async function createLicense(payload: LicenseCreatePayload): Promise<License> {
+export async function createLicense(data: Omit<License, 'id' | 'created_at' | 'updated_at'>): Promise<License> {
   const response = await fetch(`${API_BASE_URL}/api/licenses`, {
     method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(payload),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
   })
-
+  
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to create license' }))
-    throw new Error(error.detail || 'Failed to create license')
+    throw new Error('Failed to create license')
   }
-
+  
   return response.json()
 }
 
-/**
- * Update a license
- */
-export async function updateLicense(id: number, payload: LicenseUpdatePayload): Promise<License> {
+export async function updateLicense(
+  id: number,
+  data: Partial<Omit<License, 'id' | 'created_at' | 'updated_at'>>
+): Promise<License> {
   const response = await fetch(`${API_BASE_URL}/api/licenses/${id}`, {
     method: 'PUT',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(payload),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
   })
-
+  
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to update license' }))
-    throw new Error(JSON.stringify(error.detail || error))
+    throw new Error('Failed to update license')
   }
-
+  
   return response.json()
 }
 
-/**
- * Delete a license
- */
-export async function deleteLicense(id: number): Promise<{ message: string; id: number }> {
+export async function deleteLicense(id: number): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/licenses/${id}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
   })
-
+  
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to delete license' }))
-    throw new Error(error.detail || 'Failed to delete license')
+    throw new Error('Failed to delete license')
   }
-
-  return response.json()
 }

@@ -77,19 +77,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-50 w-72 bg-beige-50 shadow-xl border-r border-tan-200 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-5 border-b border-tan-200 bg-cream-50">
             <div className="flex items-center justify-between">
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-sage-700 tracking-wide">
                 Q.A. System
               </h1>
               <button
                 onClick={onClose}
-                className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                className="lg:hidden p-2 rounded-md text-tan-300 hover:text-sage-400 hover:bg-beige-100 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -97,16 +97,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
+          <nav className="flex-1 px-4 py-6 space-y-1">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                  "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200",
                   pathname === item.href
-                    ? "bg-primary-100 text-primary-700"
-                    : "text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                    ? "bg-sage-300 text-sage-900 shadow-sm border-l-4 border-sage-400"
+                    : "text-sage-700 hover:text-sage-900 hover:bg-beige-100 hover:border-l-4 hover:border-tan-200"
                 )}
                 onClick={onClose}
               >
@@ -117,14 +117,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </nav>
 
           {/* Footer */}
-          <div className="px-4 py-4 border-t border-gray-200">
+          <div className="px-4 py-4 border-t border-tan-200 bg-cream-50">
             <div className="flex items-center px-3 py-2">
-              <div className="flex-shrink-0 h-8 w-8 bg-primary-600 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-white">JD</span>
+              <div className="flex-shrink-0 h-10 w-10 bg-sage-300 rounded-full flex items-center justify-center shadow-sm">
+                <span className="text-sm font-semibold text-sage-900">JD</span>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700">John Doe</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+                <p className="text-sm font-medium text-sage-700">John Doe</p>
+                <p className="text-xs text-sage-500">Administrator</p>
               </div>
             </div>
           </div>

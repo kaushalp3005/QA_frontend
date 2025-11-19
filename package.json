@@ -4,8 +4,8 @@
   "description": "Frontend for Complaint Module with AI extraction capabilities",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "set NODE_OPTIONS=--max-old-space-size=4096 && next dev",
+    "build": "set NODE_OPTIONS=--max-old-space-size=4096 && next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit"

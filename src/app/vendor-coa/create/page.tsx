@@ -116,7 +116,7 @@ export default function CreateVendorCOAPage() {
       formDataToSend.append('file', formData.uploadedFile)
 
       // Call API to save vendor COA
-      const response = await fetch('http://localhost:8000/api/vendor-coa/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/vendor-coa/`, {
         method: 'POST',
         body: formDataToSend,
       })

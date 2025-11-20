@@ -86,7 +86,7 @@ export default function LicenseTrackerPage() {
 
     try {
       console.log('💾 Updating license:', editingLicense.id)
-      // Build a safe payload: exclude server-managed fields and invalid statuses
+      // Build a safe payload: exclude server-managed fields
       const {
         id,
         created_at,
@@ -100,17 +100,24 @@ export default function LicenseTrackerPage() {
         ...payload
       } = editingLicense
 
-      // Map UI-only statuses to DB-accepted statuses
-      if (payload.status === 'Surrendered') {
-        payload.status = 'Surrender'
+      // Map UI statuses to DB-accepted statuses
+      let finalStatus = payload.status
+      if (finalStatus === 'Surrendered') {
+        finalStatus = 'Surrender'
+      } else if (finalStatus === 'State Surrender') {
+        finalStatus = 'Surrender' // Map to DB value
       }
-      // Drop derived statuses not accepted by DB CHECK
-      if (payload.status === 'Expired' || payload.status === 'Expiring Soon') {
+
+      // Only send status if it's a valid DB status (Active, Surrender)
+      // Drop derived statuses (Expired, Expiring Soon) as they're calculated by DB
+      if (finalStatus === 'Expired' || finalStatus === 'Expiring Soon') {
         const { status, ...payloadWithoutStatus } = payload
         await updateLicense(editingLicense.id, payloadWithoutStatus)
       } else {
-        await updateLicense(editingLicense.id, payload)
+        // Send the payload with mapped status
+        await updateLicense(editingLicense.id, { ...payload, status: finalStatus })
       }
+      
       console.log('✅ License updated successfully')
       setIsEditModalOpen(false)
       setEditingLicense(null)
@@ -412,6 +419,7 @@ export default function LicenseTrackerPage() {
                     <option value="Active">Active</option>
                     <option value="Expired">Expired</option>
                     <option value="Surrendered">Surrendered</option>
+                    <option value="State Surrender">State Surrender</option>
                   </select>
                 </div>
 

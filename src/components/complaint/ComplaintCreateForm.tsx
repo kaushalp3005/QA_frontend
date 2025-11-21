@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { cn, buttonStyles, formStyles, cardStyles, layoutStyles } from '@/lib/styles'
 import CustomerDropdown from '@/components/ui/CustomerDropdown'
+import ItemCategoryDropdown from '@/components/ui/ItemCategoryDropdown'
 import ItemSubcategoryDropdown from '@/components/ui/ItemSubcategoryDropdown'
 import ItemDescriptionDropdown from '@/components/ui/ItemDescriptionDropdown'
 import { useCompany } from '@/contexts/CompanyContext'
@@ -619,16 +620,17 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
                       <label className="block text-sm font-medium text-gray-700">
                         Item Category *
                       </label>
-                      <input
-                        type="text"
-                        {...register(`articles.${index}.category`)}
-                        className={cn(
-                          "w-full px-3 py-2 border rounded-md",
-                          errors.articles?.[index]?.category
-                            ? "border-red-500 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        )}
-                        placeholder="Enter item category..."
+                      <ItemCategoryDropdown
+                        value={watch(`articles.${index}.category`) || ''}
+                        onChange={(value) => {
+                          setValue(`articles.${index}.category`, value)
+                          // Reset subcategory and item description when category changes
+                          setValue(`articles.${index}.subcategory`, '')
+                          setValue(`articles.${index}.itemDescription`, '')
+                        }}
+                        company={currentCompany}
+                        placeholder="Select item category..."
+                        error={!!errors.articles?.[index]?.category}
                       />
                       {errors.articles?.[index]?.category && (
                         <p className="text-sm text-red-600">{errors.articles[index].category?.message}</p>

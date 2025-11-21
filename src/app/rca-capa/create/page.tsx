@@ -139,7 +139,7 @@ interface RCAFormData {
   why5Applied: string
   
   // Summary and Corrective Actions
-  source: string
+  source: string[]
   possibleCause: string
   rootCauseDescription: string
   
@@ -250,7 +250,7 @@ export default function CreateRCACAPAPage() {
     why5Applied: '',
     
     // Summary and Corrective Actions
-    source: '',
+    source: [],
     possibleCause: '',
     rootCauseDescription: '',
     
@@ -576,7 +576,7 @@ export default function CreateRCACAPAPage() {
           why5CauseDetailsOther: formData.why5CauseDetailsOther || undefined,
           why5StandardExists: formData.why5StandardExists || undefined,
           why5Applied: formData.why5Applied || undefined,
-          source: formData.source || undefined,
+          source: formData.source.length > 0 ? formData.source.join(', ') : undefined,
           possibleCause: formData.possibleCause || undefined,
           rootCauseDescription: formData.rootCauseDescription || undefined,
           actionPlan: formData.actionPlan.filter(item => item.challenges || item.actionPoints),
@@ -1179,22 +1179,30 @@ export default function CreateRCACAPAPage() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Source *
+                    Source * (Select one or more)
                   </label>
-                  <select
-                    value={formData.source}
-                    onChange={(e) => setFormData(prev => ({ ...prev, source: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  >
-                    <option value="">Select source category</option>
-                    <option value="Material">Material</option>
-                    <option value="Method">Method</option>
-                    <option value="Machine">Machine</option>
-                    <option value="Personnel">Personnel</option>
-                    <option value="Measurements">Measurements</option>
-                    <option value="Environment">Environment</option>
-                  </select>
+                  <div className="space-y-2 p-3 border border-gray-300 rounded-md bg-gray-50">
+                    {['Material', 'Method', 'Machine', 'Personnel', 'Measurements', 'Environment'].map((option) => (
+                      <label key={option} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 p-2 rounded">
+                        <input
+                          type="checkbox"
+                          checked={formData.source.includes(option)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData(prev => ({ ...prev, source: [...prev.source, option] }))
+                            } else {
+                              setFormData(prev => ({ ...prev, source: prev.source.filter(s => s !== option) }))
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {formData.source.length === 0 && (
+                    <p className="mt-1 text-sm text-gray-500">Please select at least one source</p>
+                  )}
                 </div>
                 
 

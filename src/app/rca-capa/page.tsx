@@ -6,6 +6,7 @@ import Link from 'next/link'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDateShort } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getRCAList, RCAResponse } from '@/lib/api/rca'
 import { toast } from 'react-hot-toast'
 
@@ -38,6 +39,7 @@ const severityColors = {
 
 export default function RCACAPAPage() {
   const { currentCompany } = useCompany()
+  const { canCreate, canEdit } = usePermissions()
   const [searchTerm, setSearchTerm] = useState('')
   const [severityFilter, setSeverityFilter] = useState('')
   const [rcaData, setRcaData] = useState<RCAResponse[]>([])
@@ -82,13 +84,16 @@ export default function RCACAPAPage() {
             <h1 className="text-2xl font-semibold text-gray-900">RCA/CAPA Management</h1>
             <p className="text-gray-600 mt-1">Root Cause Analysis & Corrective Action Preventive Action</p>
           </div>
-          <Link 
-            href="/rca-capa/create"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New RCA/CAPA
-          </Link>
+          {/* New RCA/CAPA Button - Only show if user can create */}
+          {canCreate('rca') && (
+            <Link 
+              href="/rca-capa/create"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New RCA/CAPA
+            </Link>
+          )}
         </div>
 
         {/* Stats Cards */}

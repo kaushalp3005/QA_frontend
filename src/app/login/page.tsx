@@ -55,6 +55,26 @@ export default function LoginPage() {
       // Default to first company if available
       if (data.companies && data.companies.length > 0) {
         localStorage.setItem('company', data.companies[0].code)
+        
+        // Fetch user permissions for the selected company
+        try {
+          const permissionsResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/auth/permissions/${data.companies[0].code}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${data.access_token}`
+              }
+            }
+          )
+          
+          if (permissionsResponse.ok) {
+            const permissionsData = await permissionsResponse.json()
+            localStorage.setItem('permissions', JSON.stringify(permissionsData.permissions || {}))
+          }
+        } catch (permError) {
+          console.error('Failed to fetch permissions:', permError)
+          // Continue with login even if permissions fetch fails
+        }
       }
       
       // Redirect to dashboard

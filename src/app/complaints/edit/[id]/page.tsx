@@ -8,11 +8,13 @@ import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react'
 import { getComplaintById, updateComplaint, type ComplaintResponse } from '@/lib/api/complaints'
 import { toast } from 'react-hot-toast'
 import { useCompany } from '@/contexts/CompanyContext'
+import { usePermissions } from '@/hooks/usePermissions'
 
 export default function EditComplaintPage() {
   const params = useParams()
   const router = useRouter()
   const { currentCompany } = useCompany()
+  const { canEdit } = usePermissions()
   const complaintId = params.id as string
 
   const [complaint, setComplaint] = useState<ComplaintResponse | null>(null)
@@ -21,6 +23,13 @@ export default function EditComplaintPage() {
   const [updatedComplaintId, setUpdatedComplaintId] = useState<string | null>(null)
 
   useEffect(() => {
+    // Check permission first
+    if (!canEdit('complaints')) {
+      toast.error('You do not have permission to edit complaints')
+      router.push('/complaints')
+      return
+    }
+
     if (complaintId) {
       // Load complaint data from API
       const loadComplaint = async () => {
@@ -41,7 +50,12 @@ export default function EditComplaintPage() {
       
       loadComplaint()
     }
-  }, [complaintId, router, currentCompany])
+  }, [complaintId, router, currentCompany, canEdit])
+
+  // Don't render if no permission
+  if (!canEdit('complaints')) {
+    return null
+  }
 
   const handleSubmit = async (data: any) => {
     setIsSaving(true)

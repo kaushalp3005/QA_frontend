@@ -6,11 +6,13 @@ import { Plus, Search, Filter, Edit3, FileText, Printer } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDateShort } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getFishboneAnalyses } from '@/lib/api/fishbone'
 import { toast } from 'react-hot-toast'
 
 export default function FishbonePage() {
   const { currentCompany } = useCompany()
+  const { canCreate, canEdit } = usePermissions()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [fishboneData, setFishboneData] = useState<any[]>([])
@@ -95,13 +97,16 @@ export default function FishbonePage() {
             <h1 className="text-2xl font-semibold text-gray-900">FishBone Method</h1>
             <p className="text-gray-600 mt-1">Cause and Effect Analysis using Ishikawa Diagram</p>
           </div>
-          <Link
-            href="/fishbone/create"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create FishBone Analysis
-          </Link>
+          {/* Create Fishbone Button - Only show if user can create */}
+          {canCreate('fishbone') && (
+            <Link
+              href="/fishbone/create"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create FishBone Analysis
+            </Link>
+          )}
         </div>
 
         {/* Filters */}

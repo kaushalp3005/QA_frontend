@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import ComplaintCreateForm from '@/components/complaint/ComplaintCreateForm'
 import { createComplaint } from '@/lib/api/complaints'
 import { useCompany } from '@/contexts/CompanyContext'
+import { usePermissions } from '@/hooks/usePermissions'
 import { CheckCircle } from 'lucide-react'
 
 
@@ -40,6 +41,20 @@ export default function CreateComplaintPage() {
   const [createdComplaintId, setCreatedComplaintId] = useState<string | null>(null)
   const router = useRouter()
   const { currentCompany } = useCompany()
+  const { canCreate } = usePermissions()
+
+  // Redirect if user doesn't have create permission
+  useEffect(() => {
+    if (!canCreate('complaints')) {
+      toast.error('You do not have permission to create complaints')
+      router.push('/complaints')
+    }
+  }, [canCreate, router])
+
+  // Don't render form if no permission
+  if (!canCreate('complaints')) {
+    return null
+  }
 
   const handleSubmit = async (data: any) => {
     setIsLoading(true)

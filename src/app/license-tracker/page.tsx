@@ -7,9 +7,11 @@ import { formatDateShort } from '@/lib/date-utils'
 import { Shield, Plus, Edit, Trash2, AlertTriangle, FileText, X } from 'lucide-react'
 import { cardStyles, layoutStyles, textStyles, badgeStyles, cn } from '@/lib/styles'
 import { useCompany } from '@/contexts/CompanyContext'
+import { usePermissions } from '@/hooks/usePermissions'
 
 export default function LicenseTrackerPage() {
   const { currentCompany } = useCompany()
+  const { canCreate, canEdit, canDelete } = usePermissions()
   const [licenses, setLicenses] = useState<License[]>([])
   const [stats, setStats] = useState<LicenseStats>({ total: 0, active: 0, expired: 0, expiring_soon: 0 })
   const [loading, setLoading] = useState(true)
@@ -159,10 +161,13 @@ export default function LicenseTrackerPage() {
             <h1 className={textStyles.h1}>License Tracker</h1>
             <p className={textStyles.body}>Manage and track your licenses</p>
           </div>
-          <button className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700">
-            <Plus className="h-4 w-4" />
-            Add License
-          </button>
+          {/* Add License Button - Only show if user can create */}
+          {canCreate('license') && (
+            <button className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700">
+              <Plus className="h-4 w-4" />
+              Add License
+            </button>
+          )}
         </div>
 
         {/* Stats */}
@@ -286,20 +291,26 @@ export default function LicenseTrackerPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
-                          <button
-                            onClick={() => handleEdit(license)}
-                            className="text-green-600 hover:text-green-900 p-1 rounded"
-                            title="Edit"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(license.id)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {/* Edit Button - Only show if user can edit */}
+                          {canEdit('license') && (
+                            <button
+                              onClick={() => handleEdit(license)}
+                              className="text-green-600 hover:text-green-900 p-1 rounded"
+                              title="Edit"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          )}
+                          {/* Delete Button - Only show if user can delete */}
+                          {canDelete('license') && (
+                            <button
+                              onClick={() => handleDelete(license.id)}
+                              className="text-red-600 hover:text-red-900 p-1 rounded"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

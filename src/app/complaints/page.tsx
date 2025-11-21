@@ -3,10 +3,11 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Plus, Edit, Clock, AlertCircle, Video, X } from 'lucide-react'
-import { getComplaints, uploadSampleVideo, deleteSampleVideo, type ComplaintResponse } from '@/lib/api/complaints'
+import { Plus, Edit, Clock, AlertCircle, Video, X, Trash2 } from 'lucide-react'
+import { getComplaints, uploadSampleVideo, deleteSampleVideo, deleteComplaint, type ComplaintResponse } from '@/lib/api/complaints'
 import { formatDateTime } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -32,6 +33,7 @@ const getStatusBadge = (status: string) => {
 export default function ComplaintsPage() {
   const router = useRouter()
   const { currentCompany } = useCompany()
+  const { canCreate, canEdit, canDelete } = usePermissions()
   const [complaints, setComplaints] = useState<ComplaintResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [uploadingVideo, setUploadingVideo] = useState<string | null>(null)
@@ -143,6 +145,24 @@ export default function ComplaintsPage() {
     router.push(`/fishbone/create?complaintId=${complaintId}`)
   }
 
+  const handleDeleteComplaint = async (id: number, complaintId: string) => {
+    if (!confirm(`Are you sure you want to delete complaint ${complaintId}? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      await deleteComplaint(id, currentCompany)
+      
+      // Remove from state
+      setComplaints(prev => prev.filter(c => c.id !== id))
+      
+      alert('Complaint deleted successfully!')
+    } catch (error) {
+      console.error('Error deleting complaint:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete complaint. Please try again.')
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -155,14 +175,16 @@ export default function ComplaintsPage() {
             </p>
           </div>
           
-          {/* Create Complaint Button */}
-          <button
-            onClick={handleCreateComplaint}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Complaint
-          </button>
+          {/* Create Complaint Button - Only show if user can create */}
+          {canCreate('complaints') && (
+            <button
+              onClick={handleCreateComplaint}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Complaint
+            </button>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -305,16 +327,19 @@ export default function ComplaintsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleEditComplaint(complaint.id.toString())}
-                          className="inline-flex items-center text-blue-600 hover:text-blue-900"
-                        >
-                          <Edit className="w-4 h-4 mr-1" />
-                          Edit
-                        </button>
+                        {/* Edit Button - Only show if user can edit */}
+                        {canEdit('complaints') && (
+                          <button
+                            onClick={() => handleEditComplaint(complaint.id.toString())}
+                            className="inline-flex items-center text-blue-600 hover:text-blue-900"
+                          >
+                            <Edit className="w-4 h-4 mr-1" />
+                            Edit
+                          </button>
+                        )}
                         
-                        {/* RCA/CAPA Button - Only show if measuresToResolve is 'rca_capa' */}
-                        {complaint.measuresToResolve === 'rca_capa' && (
+                        {/* RCA/CAPA Button - Only show if measuresToResolve is 'rca_capa' and user can create RCA */}
+                        {complaint.measuresToResolve === 'rca_capa' && canCreate('rca') && (
                           <button
                             onClick={() => handleRcaCapa(complaint.complaintId)}
                             className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -324,14 +349,25 @@ export default function ComplaintsPage() {
                           </button>
                         )}
                         
-                        {/* Fishbone Button - Only show if measuresToResolve is 'fishbone' */}
-                        {complaint.measuresToResolve === 'fishbone' && (
+                        {/* Fishbone Button - Only show if measuresToResolve is 'fishbone' and user can create fishbone */}
+                        {complaint.measuresToResolve === 'fishbone' && canCreate('fishbone') && (
                           <button
                             onClick={() => handleFishbone(complaint.complaintId)}
                             className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
                           >
                             <AlertCircle className="w-3 h-3 mr-1" />
                             Fishbone
+                          </button>
+                        )}
+                        
+                        {/* Delete Button - Only show if user can delete */}
+                        {canDelete('complaints') && (
+                          <button
+                            onClick={() => handleDeleteComplaint(complaint.id, complaint.complaintId)}
+                            className="inline-flex items-center text-red-600 hover:text-red-900"
+                            title="Delete Complaint"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>

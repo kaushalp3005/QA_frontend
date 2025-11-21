@@ -58,8 +58,8 @@ const navigation = [
     current: false,
   },
   {
-    name: 'Reports',
-    href: '/reports',
+    name: 'LabReports',
+    href: '/lab-reports',
     icon: BarChart3,
     current: false,
   },
@@ -115,19 +115,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               </Link>
             ))}
           </nav>
-
-          {/* Footer */}
-          <div className="px-4 py-4 border-t border-tan-200 bg-cream-50">
-            <div className="flex items-center px-3 py-2">
-              <div className="flex-shrink-0 h-10 w-10 bg-sage-300 rounded-full flex items-center justify-center shadow-sm">
-                <span className="text-sm font-semibold text-sage-900">JD</span>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-sage-700">John Doe</p>
-                <p className="text-xs text-sage-500">Administrator</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </>

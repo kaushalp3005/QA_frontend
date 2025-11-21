@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, FileText, Image as ImageIcon, Eye, Download, Search } from 'lucide-react'
+import { Plus, FileText, Image as ImageIcon, Eye, Download, Search, Trash2 } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 
 interface VendorCOA {
@@ -42,6 +42,29 @@ export default function VendorCOAPage() {
       alert('Failed to load COA records. Please try again.')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: number, vendorName: string) => {
+    if (!confirm(`Are you sure you want to delete COA record for "${vendorName}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/vendor-coa/${id}`,
+        { method: 'DELETE' }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to delete COA record')
+      }
+
+      alert('COA record deleted successfully')
+      fetchCOARecords() // Refresh the list
+    } catch (error) {
+      console.error('Error deleting COA record:', error)
+      alert('Failed to delete COA record. Please try again.')
     }
   }
 
@@ -208,13 +231,25 @@ export default function VendorCOAPage() {
                             </button>
                             <button
                               onClick={() => {
-                                // TODO: Implement download
-                                alert('Download functionality to be implemented')
+                                const link = document.createElement('a')
+                                link.href = record.file_url
+                                link.download = record.file_name
+                                link.target = '_blank'
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
                               }}
                               className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors"
                               title="Download Document"
                             >
                               <Download className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(record.id, record.vendor_name)}
+                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                              title="Delete Record"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </td>

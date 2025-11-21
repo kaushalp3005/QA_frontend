@@ -78,16 +78,26 @@ export default function LicenseTrackerPage() {
 
   const handleEdit = (license: License) => {
     console.log('✏️ Opening edit modal for license:', license.id)
-    setEditingLicense(license)
+    console.log('📋 License data:', license)
+    // Create a deep copy to avoid mutation issues
+    setEditingLicense({ ...license })
     setIsEditModalOpen(true)
+    console.log('✅ Edit modal opened')
   }
 
   const handleUpdateLicense = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!editingLicense) return
+    console.log('🚀 handleUpdateLicense called')
+    
+    if (!editingLicense) {
+      console.log('❌ No editingLicense found')
+      return
+    }
 
     try {
       console.log('💾 Updating license:', editingLicense.id)
+      console.log('📄 Full editingLicense object:', editingLicense)
+      
       // Build a safe payload: exclude server-managed fields
       const {
         id,
@@ -102,22 +112,33 @@ export default function LicenseTrackerPage() {
         ...payload
       } = editingLicense
 
+      console.log('📦 Payload after removing server fields:', payload)
+
       // Map UI statuses to DB-accepted statuses
       let finalStatus = payload.status
+      console.log('🔄 Original status:', finalStatus)
+      
       if (finalStatus === 'Surrendered') {
         finalStatus = 'Surrender'
+        console.log('🔄 Mapped Surrendered → Surrender')
       } else if (finalStatus === 'State Surrender') {
         finalStatus = 'Surrender' // Map to DB value
+        console.log('🔄 Mapped State Surrender → Surrender')
       }
+
+      console.log('✅ Final status to send:', finalStatus)
 
       // Only send status if it's a valid DB status (Active, Surrender)
       // Drop derived statuses (Expired, Expiring Soon) as they're calculated by DB
       if (finalStatus === 'Expired' || finalStatus === 'Expiring Soon') {
+        console.log('⚠️ Skipping computed status:', finalStatus)
         const { status, ...payloadWithoutStatus } = payload
+        console.log('📤 Sending payload WITHOUT status:', payloadWithoutStatus)
         await updateLicense(editingLicense.id, payloadWithoutStatus)
       } else {
-        // Send the payload with mapped status
-        await updateLicense(editingLicense.id, { ...payload, status: finalStatus })
+        const finalPayload = { ...payload, status: finalStatus }
+        console.log('📤 Sending payload WITH status:', finalPayload)
+        await updateLicense(editingLicense.id, finalPayload)
       }
       
       console.log('✅ License updated successfully')
@@ -423,14 +444,15 @@ export default function LicenseTrackerPage() {
                   </label>
                   <select
                     value={editingLicense.status}
-                    onChange={(e) => setEditingLicense({ ...editingLicense, status: e.target.value })}
+                    onChange={(e) => {
+                      console.log('🔄 Status changed:', e.target.value)
+                      setEditingLicense({ ...editingLicense, status: e.target.value })
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
                     <option value="Active">Active</option>
-                    <option value="Expired">Expired</option>
-                    <option value="Surrendered">Surrendered</option>
-                    <option value="State Surrender">State Surrender</option>
+                    <option value="Surrender">Surrender</option>
                   </select>
                 </div>
 

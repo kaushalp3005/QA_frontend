@@ -122,19 +122,29 @@ export async function updateLicense(
   id: number,
   data: Partial<Omit<License, 'id' | 'created_at' | 'updated_at'>>
 ): Promise<License> {
+  const token = localStorage.getItem('access_token')
+  console.log('🔧 updateLicense API called:', { id, data })
+  
   const response = await fetch(`${API_BASE_URL}/api/licenses/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(data),
   })
   
+  console.log('📡 Response status:', response.status)
+  
   if (!response.ok) {
-    throw new Error('Failed to update license')
+    const errorData = await response.json().catch(() => null)
+    console.error('❌ Update failed:', errorData)
+    throw new Error(errorData?.detail || 'Failed to update license')
   }
   
-  return response.json()
+  const result = await response.json()
+  console.log('✅ Update successful:', result)
+  return result
 }
 
 export async function deleteLicense(id: number): Promise<void> {

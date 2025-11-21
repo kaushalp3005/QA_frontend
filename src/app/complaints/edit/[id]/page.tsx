@@ -14,7 +14,7 @@ export default function EditComplaintPage() {
   const params = useParams()
   const router = useRouter()
   const { currentCompany } = useCompany()
-  const { canEdit } = usePermissions()
+  const { canEdit, permissions } = usePermissions()
   const complaintId = params.id as string
 
   const [complaint, setComplaint] = useState<ComplaintResponse | null>(null)
@@ -23,7 +23,12 @@ export default function EditComplaintPage() {
   const [updatedComplaintId, setUpdatedComplaintId] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check permission first
+    // Wait for permissions to load
+    if (Object.keys(permissions).length === 0) {
+      return
+    }
+
+    // Check permission
     if (!canEdit('complaints')) {
       toast.error('You do not have permission to edit complaints')
       router.push('/complaints')
@@ -50,7 +55,18 @@ export default function EditComplaintPage() {
       
       loadComplaint()
     }
-  }, [complaintId, router, currentCompany, canEdit])
+  }, [complaintId, router, currentCompany, permissions])
+
+  // Show loading while permissions are being fetched
+  if (Object.keys(permissions).length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-gray-500">Loading permissions...</div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   // Don't render if no permission
   if (!canEdit('complaints')) {

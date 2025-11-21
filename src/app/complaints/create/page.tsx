@@ -41,15 +41,27 @@ export default function CreateComplaintPage() {
   const [createdComplaintId, setCreatedComplaintId] = useState<string | null>(null)
   const router = useRouter()
   const { currentCompany } = useCompany()
-  const { canCreate } = usePermissions()
+  const { canCreate, permissions } = usePermissions()
 
   // Redirect if user doesn't have create permission
   useEffect(() => {
-    if (!canCreate('complaints')) {
+    // Wait for permissions to load
+    if (Object.keys(permissions).length > 0 && !canCreate('complaints')) {
       toast.error('You do not have permission to create complaints')
       router.push('/complaints')
     }
-  }, [canCreate, router])
+  }, [permissions, router])
+
+  // Show loading while permissions are being fetched
+  if (Object.keys(permissions).length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-gray-500">Loading permissions...</div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   // Don't render form if no permission
   if (!canCreate('complaints')) {

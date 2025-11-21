@@ -143,8 +143,19 @@ interface RCAFormData {
   possibleCause: string
   rootCauseDescription: string
   
-  // Action Plan
+  // Action Plan - Corrective Actions
   actionPlan: Array<{
+    srNo: number
+    challenges: string
+    actionPoints: string
+    responsibility: string
+    trafficLightStatus: 'completed' | 'on_schedule' | 'delayed'
+    startDate: string
+    completionDate: string
+  }>
+  
+  // Preventive Actions
+  preventiveActions: Array<{
     srNo: number
     challenges: string
     actionPoints: string
@@ -254,8 +265,19 @@ export default function CreateRCACAPAPage() {
     possibleCause: '',
     rootCauseDescription: '',
     
-    // Action Plan
+    // Action Plan - Corrective Actions
     actionPlan: [{
+      srNo: 1,
+      challenges: '',
+      actionPoints: '',
+      responsibility: '',
+      trafficLightStatus: 'on_schedule',
+      startDate: '',
+      completionDate: ''
+    }],
+    
+    // Preventive Actions
+    preventiveActions: [{
       srNo: 1,
       challenges: '',
       actionPoints: '',
@@ -661,6 +683,44 @@ export default function CreateRCACAPAPage() {
     setFormData(prev => ({
       ...prev,
       actionPlan: prev.actionPlan.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    }))
+  }
+
+  // Preventive Actions handlers
+  const addPreventiveAction = () => {
+    const newSrNo = formData.preventiveActions.length + 1
+    setFormData(prev => ({
+      ...prev,
+      preventiveActions: [...prev.preventiveActions, {
+        srNo: newSrNo,
+        challenges: '',
+        actionPoints: '',
+        responsibility: '',
+        trafficLightStatus: 'on_schedule',
+        startDate: '',
+        completionDate: ''
+      }]
+    }))
+  }
+
+  const removePreventiveAction = (index: number) => {
+    if (formData.preventiveActions.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        preventiveActions: prev.preventiveActions.filter((_, i) => i !== index).map((item, i) => ({
+          ...item,
+          srNo: i + 1
+        }))
+      }))
+    }
+  }
+
+  const updatePreventiveAction = (index: number, field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      preventiveActions: prev.preventiveActions.map((item, i) => 
         i === index ? { ...item, [field]: value } : item
       )
     }))
@@ -1376,7 +1436,7 @@ export default function CreateRCACAPAPage() {
                 <h2 className="text-xl font-semibold text-purple-900">7. Preventive Actions</h2>
                 <button
                   type="button"
-                  onClick={addActionPlanItem}
+                  onClick={addPreventiveAction}
                   className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -1386,16 +1446,16 @@ export default function CreateRCACAPAPage() {
             </div>
             <div className="p-6">
               <div className="space-y-6">
-                {formData.actionPlan.map((item, index) => (
+                {formData.preventiveActions.map((item, index) => (
                   <div key={index} className="bg-purple-50 rounded-lg border border-purple-200 p-6 relative">
                     <div className="absolute top-4 right-4 flex items-center space-x-2">
                       <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
                         Preventive Action #{item.srNo}
                       </div>
-                      {formData.actionPlan.length > 1 && (
+                      {formData.preventiveActions.length > 1 && (
                         <button
                           type="button"
-                          onClick={() => removeActionPlanItem(index)}
+                          onClick={() => removePreventiveAction(index)}
                           className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full transition-colors"
                         >
                           <X className="h-4 w-4" />
@@ -1410,7 +1470,7 @@ export default function CreateRCACAPAPage() {
                         </label>
                         <textarea
                           value={item.challenges}
-                          onChange={(e) => updateActionPlanItem(index, 'challenges', e.target.value)}
+                          onChange={(e) => updatePreventiveAction(index, 'challenges', e.target.value)}
                           rows={4}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                           placeholder="Identify potential future risks, challenges, or areas where similar issues might occur..."
@@ -1423,7 +1483,7 @@ export default function CreateRCACAPAPage() {
                         </label>
                         <textarea
                           value={item.actionPoints}
-                          onChange={(e) => updateActionPlanItem(index, 'actionPoints', e.target.value)}
+                          onChange={(e) => updatePreventiveAction(index, 'actionPoints', e.target.value)}
                           rows={4}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                           placeholder="Detail the preventive measures to avoid recurrence of similar issues..."
@@ -1438,7 +1498,7 @@ export default function CreateRCACAPAPage() {
                         </label>
                         <textarea
                           value={item.responsibility}
-                          onChange={(e) => updateActionPlanItem(index, 'responsibility', e.target.value)}
+                          onChange={(e) => updatePreventiveAction(index, 'responsibility', e.target.value)}
                           rows={3}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                           placeholder="Responsible person/department and contact details..."
@@ -1451,7 +1511,7 @@ export default function CreateRCACAPAPage() {
                         </label>
                         <select
                           value={item.trafficLightStatus}
-                          onChange={(e) => updateActionPlanItem(index, 'trafficLightStatus', e.target.value)}
+                          onChange={(e) => updatePreventiveAction(index, 'trafficLightStatus', e.target.value)}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                         >
                           <option value="completed">🟢 Completed</option>
@@ -1467,7 +1527,7 @@ export default function CreateRCACAPAPage() {
                         <input
                           type="date"
                           value={item.startDate}
-                          onChange={(e) => updateActionPlanItem(index, 'startDate', e.target.value)}
+                          onChange={(e) => updatePreventiveAction(index, 'startDate', e.target.value)}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                         />
                       </div>
@@ -1479,7 +1539,7 @@ export default function CreateRCACAPAPage() {
                         <input
                           type="date"
                           value={item.completionDate}
-                          onChange={(e) => updateActionPlanItem(index, 'completionDate', e.target.value)}
+                          onChange={(e) => updatePreventiveAction(index, 'completionDate', e.target.value)}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                         />
                       </div>
@@ -1487,7 +1547,7 @@ export default function CreateRCACAPAPage() {
                   </div>
                 ))}
 
-                {formData.actionPlan.length === 0 && (
+                {formData.preventiveActions.length === 0 && (
                   <div className="text-center py-12 text-gray-500">
                     <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                       <Plus className="h-8 w-8 text-gray-400" />

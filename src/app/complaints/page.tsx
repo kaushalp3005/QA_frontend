@@ -328,7 +328,7 @@ export default function ComplaintsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         {/* Edit Button - Only show if user can edit */}
-                        {canEdit('complaints') && (
+                        {(canEdit('complaints') || canDelete('complaints')) && (
                           <button
                             onClick={() => handleEditComplaint(complaint.id.toString())}
                             className="inline-flex items-center text-blue-600 hover:text-blue-900"

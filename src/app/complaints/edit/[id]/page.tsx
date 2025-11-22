@@ -82,6 +82,31 @@ export default function EditComplaintPage() {
         return
       }
 
+      // Map complaintCategory to the format expected by backend
+      // 'food_safety' -> 'Food Safety' (generates CCFS prefix)
+      // 'non_food_safety' -> 'Non Food Safety' (generates CCNFS prefix)
+      console.log('🔍 Edit Complaint - Form Data:', {
+        complaintCategory: data.complaintCategory,
+        currentComplaintNature: complaint.complaintNature,
+        currentComplaintId: complaint.complaintId
+      })
+      
+      let mappedComplaintNature = complaint.complaintNature || 'Non Food Safety' // Default to existing or Non Food Safety
+      if (data.complaintCategory) {
+        if (data.complaintCategory === 'food_safety') {
+          mappedComplaintNature = 'Food Safety'
+        } else if (data.complaintCategory === 'non_food_safety') {
+          mappedComplaintNature = 'Non Food Safety'
+        }
+      }
+      
+      console.log('🔄 Edit Complaint - Mapped Values:', {
+        originalCategory: data.complaintCategory,
+        mappedComplaintNature: mappedComplaintNature,
+        previousComplaintNature: complaint.complaintNature,
+        categoryChanged: mappedComplaintNature !== complaint.complaintNature
+      })
+
       // Prepare complaint data for API
       const complaintData = {
         id: complaint.id,
@@ -97,7 +122,7 @@ export default function EditComplaintPage() {
         quantityRejected: data.quantityRejected || complaint.quantityRejected,
         quantityApproved: data.quantityApproved || complaint.quantityApproved,
         uom: data.articles?.[0]?.uom || complaint.uom,
-        complaintNature: data.complaintCategory || complaint.complaintNature,
+        complaintNature: mappedComplaintNature, // Use mapped value
         otherComplaintNature: data.complaintSubcategory || '',
         qaAssessment: data.qaAssessment || complaint.qaAssessment,
         justifiedStatus: data.justifiedStatus || complaint.justifiedStatus,
@@ -115,8 +140,21 @@ export default function EditComplaintPage() {
         updatedBy: 'qa_user_1' // TODO: Get from auth context
       }
 
+      console.log('📤 Edit Complaint - Sending to API:', {
+        id: complaintData.id,
+        complaintId: complaintData.complaintId,
+        complaintNature: complaintData.complaintNature,
+        company: complaintData.company
+      })
+
       // Update complaint using API
       const updatedComplaint = await updateComplaint(complaint.id, complaintData)
+      
+      console.log('✅ Edit Complaint - Response from API:', {
+        updatedComplaintId: updatedComplaint.complaintId,
+        updatedComplaintNature: updatedComplaint.complaintNature,
+        idChanged: updatedComplaint.complaintId !== complaint.complaintId
+      })
       setUpdatedComplaintId(updatedComplaint.complaintId)
       toast.success(`Complaint ${updatedComplaint.complaintId} updated successfully!`)
       
@@ -188,7 +226,9 @@ export default function EditComplaintPage() {
     measuresToResolve: (complaint.measuresToResolve || 'rca_capa') as 'rtv' | 'rca_capa' | 'fishbone' | 'replacement' | 'refund' | 'other',
     remarks: complaint.remarks || '',
     communicationMethod: 'email' as const,
-    proofImages: complaint.proofImages || [],
+    proofImages: Array.isArray(complaint.proofImages) 
+      ? [...new Set(complaint.proofImages.filter(img => img && img.trim()))] // Remove duplicates and empty strings
+      : [],
     articles: (complaint.articles && Array.isArray(complaint.articles) && complaint.articles.length > 0)
       ? complaint.articles.map(article => ({
           category: article.itemCategory || '',

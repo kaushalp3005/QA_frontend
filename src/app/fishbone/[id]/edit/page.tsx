@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Save, Plus, Trash2, Eye, Target, Upload, X, ImageIcon } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useCompany } from '@/contexts/CompanyContext'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getFishboneById, updateFishbone, transformFishboneDataToPayload, type ActionPlanItem } from '@/lib/api/fishbone'
 import { toast } from 'react-hot-toast'
 import { cn } from '@/lib/styles'
@@ -45,6 +46,7 @@ export default function EditFishbonePage() {
   const router = useRouter()
   const fishboneId = params.id as string
   const { currentCompany } = useCompany()
+  const { canEdit, permissions } = usePermissions()
   
   const [formData, setFormData] = useState({
     complaintId: '',
@@ -78,11 +80,24 @@ export default function EditFishbonePage() {
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const [controlSamplePhotos, setControlSamplePhotos] = useState<string[]>([])
 
+  // Check permissions
+  useEffect(() => {
+    if (Object.keys(permissions).length === 0) {
+      return
+    }
+
+    if (!canEdit('fishbone')) {
+      toast.error('You do not have permission to edit Fishbone analyses')
+      router.push(`/fishbone/${fishboneId}`)
+      return
+    }
+  }, [permissions, canEdit, router, fishboneId])
+
   // Fetch fishbone data
   useEffect(() => {
     const fetchFishbone = async () => {
-      if (!fishboneId || !currentCompany) {
-        console.log('Missing fishboneId or currentCompany', { fishboneId, currentCompany })
+      if (!fishboneId || !currentCompany || !canEdit('fishbone')) {
+        console.log('Missing fishboneId or currentCompany or no edit permission', { fishboneId, currentCompany })
         return
       }
 
@@ -385,6 +400,22 @@ export default function EditFishbonePage() {
       default:
         return 'border-gray-200 bg-gray-50'
     }
+  }
+
+  // Show loading while permissions are being fetched
+  if (Object.keys(permissions).length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-gray-500">Loading permissions...</div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Don't render if no permission
+  if (!canEdit('fishbone')) {
+    return null
   }
 
   if (isLoading) {

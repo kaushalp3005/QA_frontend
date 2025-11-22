@@ -94,8 +94,11 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
   // Update uploadedFiles when initialData changes (for edit mode)
   useEffect(() => {
     if (initialData?.proofImages && initialData.proofImages.length > 0) {
-      console.log('Updating uploadedFiles from initialData:', initialData.proofImages)
-      setUploadedFiles(initialData.proofImages)
+      // Remove duplicates and empty strings
+      const uniqueImages = [...new Set(initialData.proofImages.filter(img => img && img.trim()))]
+      console.log('Updating uploadedFiles from initialData (deduplicated):', uniqueImages)
+      console.log('Original images count:', initialData.proofImages.length, 'Deduplicated count:', uniqueImages.length)
+      setUploadedFiles(uniqueImages)
     }
   }, [initialData?.proofImages])
   
@@ -121,7 +124,9 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
       measuresToResolve: initialData?.measuresToResolve || 'rtv',
       remarks: initialData?.remarks || '',
       communicationMethod: initialData?.communicationMethod || 'email',
-      proofImages: initialData?.proofImages || [],
+      proofImages: initialData?.proofImages 
+        ? [...new Set(initialData.proofImages.filter(img => img && img.trim()))] // Remove duplicates
+        : [],
     }
   })
 
@@ -170,8 +175,10 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
       // Upload files directly to S3
       const s3Urls = await uploadComplaintImages(validFiles, currentCompany as 'CDPL' | 'CFPL')
       
-      // Store S3 URLs
-      const newUploadedFiles = [...uploadedFiles, ...s3Urls]
+      // Store S3 URLs - remove duplicates
+      const existingUrls = new Set(uploadedFiles)
+      const newUrls = s3Urls.filter(url => url && !existingUrls.has(url))
+      const newUploadedFiles = [...uploadedFiles, ...newUrls]
       setUploadedFiles(newUploadedFiles)
       setValue('proofImages', newUploadedFiles)
       

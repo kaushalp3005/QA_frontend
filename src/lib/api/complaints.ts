@@ -208,6 +208,14 @@ export async function updateComplaint(
   id: string | number,
   data: Partial<ComplaintFormData> & { id: number; complaintId: string }
 ): Promise<ComplaintResponse> {
+  console.log('📤 API - updateComplaint called:', {
+    id,
+    complaintId: data.complaintId,
+    complaintNature: data.complaintNature,
+    company: data.company,
+    fullData: data
+  })
+  
   const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/${id}`, {
     method: 'PUT',
     headers: {
@@ -216,13 +224,20 @@ export async function updateComplaint(
     body: JSON.stringify(data),
   })
 
+  console.log('📥 API - updateComplaint response status:', response.status, response.statusText)
+
   if (!response.ok) {
     const error = await response.json()
-    console.error('Update complaint error:', error)
+    console.error('❌ API - Update complaint error:', error)
     throw new Error(error.detail || error.message || 'Failed to update complaint')
   }
 
   const result = await response.json()
+  console.log('✅ API - updateComplaint result:', {
+    complaintId: result.complaintId,
+    complaintNature: result.complaintNature,
+    id: result.id
+  })
   return result
 }
 

@@ -2,7 +2,7 @@
 // zale pushh
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Filter, Edit3, FileText, Printer } from 'lucide-react'
+import { Plus, Search, Filter, Edit3, FileText, Printer, Eye } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDateShort } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
@@ -208,12 +208,21 @@ export default function FishbonePage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
                           <Link
-                            href={`/fishbone/${item.id}/edit`}
-                            className="text-green-600 hover:text-green-900 p-1 rounded"
-                            title="Edit"
+                            href={`/fishbone/${item.id}`}
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                            title="View"
                           >
-                            <Edit3 className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                           </Link>
+                          {canEdit('fishbone') && (
+                            <Link
+                              href={`/fishbone/${item.id}/edit`}
+                              className="text-green-600 hover:text-green-900 p-1 rounded"
+                              title="Edit"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </Link>
+                          )}
                           <Link
                             href={`/fishbone/${item.id}/print`}
                             target="_blank"

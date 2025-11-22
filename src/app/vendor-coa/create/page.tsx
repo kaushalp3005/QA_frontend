@@ -1,25 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload, FileText, Image, X, ArrowLeft } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import { usePermissions } from '@/hooks/usePermissions'
+import { toast } from 'react-hot-toast'
 
 interface VendorCOAForm {
   vendorName: string
   lotBatchNumber: string
   itemName: string
   itemSubcategory: string
+  itemType: string
   uploadedFile: File | null
 }
 
 export default function CreateVendorCOAPage() {
   const router = useRouter()
+  const { canCreate, permissions } = usePermissions()
   const [formData, setFormData] = useState<VendorCOAForm>({
     vendorName: '',
     lotBatchNumber: '',
     itemName: '',
     itemSubcategory: '',
+    itemType: '',
     uploadedFile: null
   })
   const [filePreview, setFilePreview] = useState<string | null>(null)
@@ -28,7 +33,31 @@ export default function CreateVendorCOAPage() {
 
   const currentDate = new Date().toLocaleDateString('en-GB')
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // Check permissions on mount
+  useEffect(() => {
+    if (Object.keys(permissions).length > 0 && !canCreate('vendor_coa')) {
+      toast.error('You do not have permission to create vendor COA records')
+      router.push('/vendor-coa')
+    }
+  }, [permissions, canCreate, router])
+
+  // Show loading while permissions are being fetched
+  if (Object.keys(permissions).length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-gray-500">Loading permissions...</div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Don't render form if no permission
+  if (!canCreate('vendor_coa')) {
+    return null
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
@@ -93,7 +122,7 @@ export default function CreateVendorCOAPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.vendorName || !formData.lotBatchNumber || !formData.itemName || !formData.itemSubcategory) {
+    if (!formData.vendorName || !formData.lotBatchNumber || !formData.itemName || !formData.itemSubcategory || !formData.itemType) {
       alert('Please fill in all required fields')
       return
     }
@@ -106,14 +135,25 @@ export default function CreateVendorCOAPage() {
     setIsSubmitting(true)
 
     try {
+      // Debug: Log the form data before sending
+      console.log('Form data before submission:', {
+        itemType: formData.itemType,
+        vendorName: formData.vendorName,
+        itemName: formData.itemName
+      })
+      
       // Create FormData for API call
       const formDataToSend = new FormData()
       formDataToSend.append('vendor_name', formData.vendorName)
       formDataToSend.append('lot_batch_number', formData.lotBatchNumber)
       formDataToSend.append('item_name', formData.itemName)
       formDataToSend.append('item_subcategory', formData.itemSubcategory)
+      formDataToSend.append('item_type', formData.itemType || '') // Ensure it's always sent
       formDataToSend.append('date', currentDate)
       formDataToSend.append('file', formData.uploadedFile)
+      
+      // Debug: Log what's being sent
+      console.log('item_type being sent:', formData.itemType)
 
       // Call API to save vendor COA
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/vendor-coa/`, {
@@ -137,6 +177,7 @@ export default function CreateVendorCOAPage() {
         lotBatchNumber: '',
         itemName: '',
         itemSubcategory: '',
+        itemType: '',
         uploadedFile: null
       })
       setFilePreview(null)
@@ -261,6 +302,25 @@ export default function CreateVendorCOAPage() {
                 />
               </div>
 
+              {/* Item Type Dropdown (RM/PM) */}
+              <div>
+                <label htmlFor="itemType" className="block text-sm font-medium text-gray-700 mb-2">
+                  Item Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="itemType"
+                  name="itemType"
+                  value={formData.itemType}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select Item Type</option>
+                  <option value="RM">RM (Raw Material)</option>
+                  <option value="PM">PM (Packaging Material)</option>
+                </select>
+              </div>
+
               {/* File Upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -350,6 +410,7 @@ export default function CreateVendorCOAPage() {
                       lotBatchNumber: '',
                       itemName: '',
                       itemSubcategory: '',
+                      itemType: '',
                       uploadedFile: null
                     })
                     setFilePreview(null)

@@ -77,8 +77,16 @@ export default function LoginPage() {
         }
       }
       
-      // Redirect to dashboard
-      router.push('/dashboard')
+      // Check for return URL in query params
+      const urlParams = new URLSearchParams(window.location.search)
+      const returnUrl = urlParams.get('returnUrl')
+      
+      // Redirect to return URL if provided, otherwise to dashboard
+      if (returnUrl) {
+        router.push(decodeURIComponent(returnUrl))
+      } else {
+        router.push('/dashboard')
+      }
       
     } catch (error: any) {
       setError(error.message || 'Login failed. Please check your credentials.')

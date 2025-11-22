@@ -3,9 +3,10 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Plus, Edit, Clock, AlertCircle, Video, X, Trash2 } from 'lucide-react'
+import { Plus, Edit, Clock, AlertCircle, Video, X, Trash2, Eye } from 'lucide-react'
+import Link from 'next/link'
 import { getComplaints, uploadSampleVideo, deleteSampleVideo, deleteComplaint, type ComplaintResponse } from '@/lib/api/complaints'
-import { formatDateTime } from '@/lib/date-utils'
+import { formatDateShort } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
 import { usePermissions } from '@/hooks/usePermissions'
 
@@ -33,7 +34,7 @@ const getStatusBadge = (status: string) => {
 export default function ComplaintsPage() {
   const router = useRouter()
   const { currentCompany } = useCompany()
-  const { canCreate, canEdit, canDelete } = usePermissions()
+  const { canCreate, canEdit, canDelete, canView } = usePermissions()
   const [complaints, setComplaints] = useState<ComplaintResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [uploadingVideo, setUploadingVideo] = useState<string | null>(null)
@@ -212,10 +213,7 @@ export default function ComplaintsPage() {
                     Title
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
+                    Receive Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Sample Video
@@ -237,13 +235,8 @@ export default function ComplaintsPage() {
                     <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
                       {complaint.remarks || complaint.itemDescription}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(complaint.justifiedStatus.toLowerCase())}`}>
-                        {complaint.justifiedStatus}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDateTime(complaint.createdAt)}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatDateShort(complaint.receivedDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {complaint.sampleVideo ? (
@@ -288,6 +281,17 @@ export default function ComplaintsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
+                        {/* View Button - Always visible if user can view */}
+                        {canView('complaints') && (
+                          <Link
+                            href={`/complaints/${complaint.id}`}
+                            className="inline-flex items-center text-green-600 hover:text-green-900"
+                            title="View Complaint"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </Link>
+                        )}
                         {/* Edit Button - Only show if user can edit */}
                         {(canEdit('complaints') || canDelete('complaints')) && (
                           <button

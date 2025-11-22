@@ -23,13 +23,22 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       
       // If not authenticated and trying to access protected route
       if (!isAuthenticated() && !isPublicRoute) {
-        router.push('/login')
+        // Store the current path as return URL for redirect after login
+        const returnUrl = pathname + (typeof window !== 'undefined' ? window.location.search : '')
+        router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`)
         return
       }
       
-      // If authenticated and trying to access login page, redirect to dashboard
+      // If authenticated and trying to access login page, check for return URL
       if (isAuthenticated() && pathname === '/login') {
-        router.push('/dashboard')
+        // Check for return URL in query params
+        const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+        const returnUrl = urlParams.get('returnUrl')
+        if (returnUrl) {
+          router.push(returnUrl)
+        } else {
+          router.push('/dashboard')
+        }
         return
       }
       

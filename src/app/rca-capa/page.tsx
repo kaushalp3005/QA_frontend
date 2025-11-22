@@ -307,13 +307,15 @@ export default function RCACAPAPage() {
                         <FileText className="h-3 w-3 mr-1" />
                         View
                       </Link>
-                      <Link
-                        href={`/rca-capa/${item.id}/edit`}
-                        className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors whitespace-nowrap"
-                      >
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
-                      </Link>
+                      {canEdit('rca') && (
+                        <Link
+                          href={`/rca-capa/${item.id}/edit`}
+                          className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors whitespace-nowrap"
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>

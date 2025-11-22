@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, FileText, Image as ImageIcon, Eye, Download, Search, Trash2 } from 'lucide-react'
+import Link from 'next/link'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface VendorCOA {
   id: number
@@ -11,6 +13,7 @@ interface VendorCOA {
   lot_batch_number: string
   item_name: string
   item_subcategory: string
+  item_type?: string
   date: string
   file_name: string
   file_type: string
@@ -19,6 +22,7 @@ interface VendorCOA {
 
 export default function VendorCOAPage() {
   const router = useRouter()
+  const { canCreate, canDelete, canView } = usePermissions()
   const [searchQuery, setSearchQuery] = useState('')
   const [coaRecords, setCoaRecords] = useState<VendorCOA[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -88,13 +92,15 @@ export default function VendorCOAPage() {
                   View and manage vendor Certificate of Analysis documents
                 </p>
               </div>
-              <button
-                onClick={() => router.push('/vendor-coa/create')}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-5 w-5" />
-                Upload New COA
-              </button>
+              {canCreate('vendor_coa') && (
+                <button
+                  onClick={() => router.push('/vendor-coa/create')}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                  Upload New COA
+                </button>
+              )}
             </div>
           </div>
 
@@ -162,6 +168,9 @@ export default function VendorCOAPage() {
                       Item Subcategory
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Item Type
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Document
                     </th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -172,7 +181,7 @@ export default function VendorCOAPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-2 py-3 text-center">
+                      <td colSpan={9} className="px-2 py-3 text-center">
                         <div className="flex flex-col items-center justify-center text-gray-500">
                           <FileText className="h-12 w-12 mb-3 text-gray-400" />
                           <p className="text-sm font-medium">No COA records found</p>
@@ -209,6 +218,15 @@ export default function VendorCOAPage() {
                           {record.item_subcategory}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                          {record.item_type ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                              {record.item_type}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
                           <div className="flex items-center gap-2">
                             {record.file_type.startsWith('image/') ? (
                               <ImageIcon className="h-5 w-5 text-blue-600" />
@@ -222,12 +240,19 @@ export default function VendorCOAPage() {
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/vendor-coa/${record.id}`}
+                              className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-md transition-colors"
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Link>
                             <button
                               onClick={() => window.open(record.file_url, '_blank')}
                               className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
                               title="View Document"
                             >
-                              <Eye className="h-4 w-4" />
+                              <FileText className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => {
@@ -244,13 +269,15 @@ export default function VendorCOAPage() {
                             >
                               <Download className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => handleDelete(record.id, record.vendor_name)}
-                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
-                              title="Delete Record"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {canDelete('vendor_coa') && (
+                              <button
+                                onClick={() => handleDelete(record.id, record.vendor_name)}
+                                className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                                title="Delete Record"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

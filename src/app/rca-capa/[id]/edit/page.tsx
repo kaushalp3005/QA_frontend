@@ -9,6 +9,7 @@ import ItemCategoryDropdown from '@/components/ui/ItemCategoryDropdown'
 import ItemSubcategoryDropdown from '@/components/ui/ItemSubcategoryDropdown'
 import ItemDescriptionDropdown from '@/components/ui/ItemDescriptionDropdown'
 import { useCompany } from '@/contexts/CompanyContext'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getRCAById, updateRCA, RCAData } from '@/lib/api/rca'
 import { generateRootCauseDescription } from '@/lib/api/openai'
 import { toast } from 'react-hot-toast'
@@ -27,6 +28,7 @@ export default function RCAEditPage() {
   const params = useParams()
   const router = useRouter()
   const { currentCompany } = useCompany()
+  const { canEdit, permissions } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<any>({})
@@ -36,11 +38,24 @@ export default function RCAEditPage() {
 
   const rcaId = params.id as string
 
+  // Check permissions
   useEffect(() => {
-    if (rcaId) {
+    if (Object.keys(permissions).length === 0) {
+      return
+    }
+
+    if (!canEdit('rca')) {
+      toast.error('You do not have permission to edit RCA/CAPA records')
+      router.push(`/rca-capa/${rcaId}`)
+      return
+    }
+  }, [permissions, canEdit, router, rcaId])
+
+  useEffect(() => {
+    if (rcaId && canEdit('rca')) {
       fetchRCAData()
     }
-  }, [rcaId, currentCompany])
+  }, [rcaId, currentCompany, canEdit])
 
   const fetchRCAData = async () => {
     try {
@@ -311,6 +326,22 @@ export default function RCAEditPage() {
         i === index ? { ...item, [field]: value } : item
       )
     }))
+  }
+
+  // Show loading while permissions are being fetched
+  if (Object.keys(permissions).length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-gray-500">Loading permissions...</div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Don't render if no permission
+  if (!canEdit('rca')) {
+    return null
   }
 
   if (loading) {

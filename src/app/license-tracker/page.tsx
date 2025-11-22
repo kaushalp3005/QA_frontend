@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { getLicenses, getLicenseStats, deleteLicense, updateLicense, type License, type LicenseStats } from '@/lib/api/licenses'
 import { formatDateShort } from '@/lib/date-utils'
-import { Shield, Plus, Edit, Trash2, AlertTriangle, FileText, X } from 'lucide-react'
+import { Shield, Plus, Edit, Trash2, AlertTriangle, FileText, X, Eye } from 'lucide-react'
+import Link from 'next/link'
 import { cardStyles, layoutStyles, textStyles, badgeStyles, cn } from '@/lib/styles'
 import { useCompany } from '@/contexts/CompanyContext'
 import { usePermissions } from '@/hooks/usePermissions'
 
 export default function LicenseTrackerPage() {
   const { currentCompany } = useCompany()
-  const { canCreate, canEdit, canDelete } = usePermissions()
+  const { canCreate, canEdit, canDelete, canView } = usePermissions()
   const [licenses, setLicenses] = useState<License[]>([])
   const [stats, setStats] = useState<LicenseStats>({ total: 0, active: 0, expired: 0, expiring_soon: 0 })
   const [loading, setLoading] = useState(true)
@@ -312,6 +313,16 @@ export default function LicenseTrackerPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
+                          {/* View Button - Always visible if user can view */}
+                          {canView('license') && (
+                            <Link
+                              href={`/license-tracker/${license.id}`}
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                              title="View"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Link>
+                          )}
                           {/* Edit Button - Only show if user can edit */}
                           {canEdit('license') && (
                             <button

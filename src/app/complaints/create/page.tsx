@@ -85,7 +85,14 @@ export default function CreateComplaintPage() {
         quantityRejected: data.quantityRejected || 0,
         quantityApproved: data.quantityApproved || 0,
         uom: data.articles?.[0]?.uom || 'pieces',
-        complaintNature: data.complaintCategory || 'Quality Issue',
+        // Map complaintCategory to the format expected by backend
+        // 'food_safety' -> 'Food Safety' (generates CCFS prefix)
+        // 'non_food_safety' -> 'Non Food Safety' (generates CCNFS prefix)
+        complaintNature: data.complaintCategory === 'food_safety' 
+          ? 'Food Safety' 
+          : data.complaintCategory === 'non_food_safety'
+          ? 'Non Food Safety'
+          : 'Non Food Safety', // Default to Non Food Safety
         otherComplaintNature: data.complaintSubcategory || '',
         qaAssessment: data.qaAssessment || 'Pending',
         justifiedStatus: data.justifiedStatus || 'Under Review',

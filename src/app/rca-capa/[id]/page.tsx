@@ -20,24 +20,38 @@ import Link from 'next/link'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDateShort } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getRCAById, deleteRCA } from '@/lib/api/rca'
+import { isAuthenticated } from '@/lib/api/auth'
 import { toast } from 'react-hot-toast'
 
 export default function RCAViewPage() {
   const params = useParams()
   const router = useRouter()
   const { currentCompany } = useCompany()
+  const { canEdit, canDelete } = usePermissions()
   const [rca, setRca] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
   const rcaId = params.id as string
 
+  // Check authentication first
   useEffect(() => {
-    if (rcaId) {
+    if (!isAuthenticated()) {
+      const returnUrl = `/rca-capa/${rcaId}`
+      router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`)
+      return
+    }
+    setCheckingAuth(false)
+  }, [rcaId, router])
+
+  useEffect(() => {
+    if (!checkingAuth && rcaId && currentCompany) {
       fetchRCAData()
     }
-  }, [rcaId, currentCompany])
+  }, [checkingAuth, rcaId, currentCompany])
 
   const fetchRCAData = async () => {
     try {
@@ -73,7 +87,7 @@ export default function RCAViewPage() {
     }
   }
 
-  if (loading) {
+  if (checkingAuth || loading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-screen">
@@ -136,18 +150,21 @@ export default function RCAViewPage() {
               <Printer className="h-4 w-4 mr-2" />
               Print
             </Link>
-            <Link
-              href={`/rca-capa/${rcaId}/edit`}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Link>
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="inline-flex items-center px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50"
-            >
+            {canEdit('rca') && (
+              <Link
+                href={`/rca-capa/${rcaId}/edit`}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Link>
+            )}
+            {canDelete('rca') && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="inline-flex items-center px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50"
+              >
               {deleting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -159,7 +176,8 @@ export default function RCAViewPage() {
                   Delete
                 </>
               )}
-            </button>
+              </button>
+            )}
           </div>
         </div>
 

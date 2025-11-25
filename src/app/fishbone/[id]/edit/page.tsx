@@ -79,6 +79,8 @@ export default function EditFishbonePage() {
   const [fishboneNumber, setFishboneNumber] = useState('')
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const [controlSamplePhotos, setControlSamplePhotos] = useState<string[]>([])
+  const [redirected, setRedirected] = useState(false)
+  const [dataFetched, setDataFetched] = useState(false)
 
   // Check permissions
   useEffect(() => {
@@ -86,21 +88,24 @@ export default function EditFishbonePage() {
       return
     }
 
-    if (!canEdit('fishbone')) {
+    if (!canEdit('fishbone') && !redirected) {
       toast.error('You do not have permission to edit Fishbone analyses')
+      setRedirected(true)
+      setIsLoading(false)
       router.push(`/fishbone/${fishboneId}`)
       return
     }
-  }, [permissions, canEdit, router, fishboneId])
+  }, [permissions, canEdit, router, fishboneId, redirected])
 
   // Fetch fishbone data
   useEffect(() => {
     const fetchFishbone = async () => {
-      if (!fishboneId || !currentCompany || !canEdit('fishbone')) {
-        console.log('Missing fishboneId or currentCompany or no edit permission', { fishboneId, currentCompany })
+      if (!fishboneId || !currentCompany || !canEdit('fishbone') || dataFetched || redirected) {
+        console.log('Missing fishboneId or currentCompany or no edit permission', { fishboneId, currentCompany, dataFetched, redirected })
         return
       }
 
+      setDataFetched(true)
       setIsLoading(true)
       console.log('Fetching fishbone:', { fishboneId, currentCompany })
       
@@ -208,7 +213,7 @@ export default function EditFishbonePage() {
     }
 
     fetchFishbone()
-  }, [fishboneId, currentCompany, router])
+  }, [fishboneId, currentCompany])
 
   const handleFormChange = (field: string, value: string) => {
     setFormData(prev => ({

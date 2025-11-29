@@ -40,38 +40,37 @@ export default function RCAEditPage() {
 
   // Prevent multiple redirects
   const [redirected, setRedirected] = useState(false);
-  const [dataFetched, setDataFetched] = useState(false);
 
   // Check permissions
   useEffect(() => {
-    console.log('Permission check:', { permissions, redirected, canEditRCA: canEdit('rca') })
-    if (Object.keys(permissions).length === 0) {
+    if (Object.keys(permissions).length === 0 || redirected) {
       return;
     }
 
-    if (!canEdit('rca') && !redirected) {
-      console.log('No edit permission - redirecting')
+    if (!canEdit('rca')) {
       toast.error('You do not have permission to edit RCA/CAPA records');
       setRedirected(true);
-      setLoading(false);
       router.push(`/rca-capa/${rcaId}`);
     }
   }, [permissions, canEdit, router, rcaId, redirected]);
 
   useEffect(() => {
-    console.log('Fetch check:', { rcaId, canEditRCA: canEdit('rca'), currentCompany, dataFetched, loading, redirected })
-    if (rcaId && canEdit('rca') && currentCompany && !dataFetched && !redirected) {
-      console.log('Calling fetchRCAData...')
+    // Only fetch if we have permissions loaded
+    if (!rcaId) return;
+    
+    // Wait for permissions to load
+    if (Object.keys(permissions).length === 0) return;
+    
+    // Check permission and fetch
+    if (canEdit('rca')) {
       fetchRCAData()
-      setDataFetched(true)
     }
-  }, [rcaId, currentCompany, canEdit])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rcaId, currentCompany, permissions])
 
   const fetchRCAData = async () => {
-    console.log('fetchRCAData started')
     try {
       setLoading(true)
-      console.log('Fetching RCA data for ID:', rcaId, 'Company:', currentCompany)
       const data: any = await getRCAById(parseInt(rcaId), currentCompany)
       console.log('RCA Data for Edit:', data)
       
@@ -157,13 +156,11 @@ export default function RCAEditPage() {
       }
       
       setFormData(formattedData)
-      console.log('Form data set successfully')
     } catch (error) {
       console.error('Error fetching RCA:', error)
       toast.error('Failed to load RCA/CAPA record')
       router.push('/rca-capa')
     } finally {
-      console.log('Setting loading to false')
       setLoading(false)
     }
   }

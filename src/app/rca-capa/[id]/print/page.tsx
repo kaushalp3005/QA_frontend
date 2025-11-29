@@ -35,8 +35,11 @@ export default function RCAPrintPage() {
           const complaintData: any = await getComplaintByComplaintId((data as any).complaint_id, currentCompany)
           console.log('Complaint data:', complaintData)
           if (complaintData.proofImages && Array.isArray(complaintData.proofImages)) {
-            setComplaintPhotos(complaintData.proofImages)
-            console.log('Complaint photos loaded:', complaintData.proofImages.length)
+            // Remove duplicates using Set
+            const originalCount = complaintData.proofImages.length
+            const uniqueImages = [...new Set(complaintData.proofImages)]
+            setComplaintPhotos(uniqueImages)
+            console.log(`RCA Print - Deduplicated complaint photos: ${originalCount} → ${uniqueImages.length}`)
           }
         } catch (error) {
           console.error('Error fetching complaint photos:', error)

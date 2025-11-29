@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+// Prefer server-only secret; fallback to NEXT_PUBLIC for compatibility (not recommended)
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY
+if (!process.env.OPENAI_API_KEY && process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
+  console.warn('[openai] Using NEXT_PUBLIC_OPENAI_API_KEY as fallback. Prefer server-only OPENAI_API_KEY.')
+}
 
 interface GenerateRootCauseRequest {
   problemStatement: string

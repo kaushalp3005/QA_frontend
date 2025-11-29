@@ -81,7 +81,7 @@ export default function VendorCOAPage() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gray-50 ">
+      <div className="min-h-full bg-gray-50">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="bg-white rounded-lg shadow-sm p-4 mb-4">

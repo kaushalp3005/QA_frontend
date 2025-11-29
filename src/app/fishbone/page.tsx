@@ -2,17 +2,17 @@
 // zale pushh
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Filter, Edit3, FileText, Printer, Eye } from 'lucide-react'
+import { Plus, Search, Filter, Edit3, FileText, Printer, Eye, Trash2 } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDateShort } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
 import { usePermissions } from '@/hooks/usePermissions'
-import { getFishboneAnalyses } from '@/lib/api/fishbone'
+import { getFishboneAnalyses, deleteFishbone } from '@/lib/api/fishbone'
 import { toast } from 'react-hot-toast'
 
 export default function FishbonePage() {
   const { currentCompany } = useCompany()
-  const { canCreate, canEdit } = usePermissions()
+  const { canCreate, canEdit, canDelete } = usePermissions()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [fishboneData, setFishboneData] = useState<any[]>([])
@@ -61,6 +61,29 @@ export default function FishbonePage() {
   }, [searchTerm])
 
   const filteredData = fishboneData
+
+  const handleDelete = async (id: number) => {
+    if (!canDelete('fishbone')) {
+      toast.error('You do not have permission to delete')
+      return
+    }
+    const confirmed = window.confirm('Are you sure you want to delete this fishbone record? This cannot be undone.')
+    if (!confirmed) return
+    try {
+      await deleteFishbone(id, currentCompany)
+      toast.success('Fishbone record deleted')
+      // Refresh list; if now-empty page, move to previous page
+      const isLastItemOnPage = fishboneData.length === 1 && currentPage > 1
+      if (isLastItemOnPage) {
+        setCurrentPage(currentPage - 1)
+      } else {
+        fetchFishboneData()
+      }
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || 'Failed to delete record')
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -231,6 +254,15 @@ export default function FishbonePage() {
                           >
                             <Printer className="h-4 w-4" />
                           </Link>
+                          {canDelete('fishbone') && (
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              className="text-red-600 hover:text-red-800 p-1 rounded"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

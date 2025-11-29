@@ -90,7 +90,7 @@ export default function VendorCOAViewPage() {
   if (checkingAuth || loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-full">
           <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
         </div>
       </DashboardLayout>

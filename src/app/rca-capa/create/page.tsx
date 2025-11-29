@@ -10,7 +10,7 @@ import ItemSubcategoryDropdown from '@/components/ui/ItemSubcategoryDropdown'
 import ItemDescriptionDropdown from '@/components/ui/ItemDescriptionDropdown'
 import { useCompany } from '@/contexts/CompanyContext'
 import { cn } from '@/lib/styles'
-import { getComplaints, getComplaintById } from '@/lib/api/complaints'
+import { getComplaints, getComplaintById, getComplaintByComplaintId } from '@/lib/api/complaints'
 import { createRCA, generateRCANumber } from '@/lib/api/rca'
 import { generateRootCauseDescription } from '@/lib/api/openai'
 import { uploadComplaintImages, validateImageFile, deleteComplaintImage } from '@/lib/api/s3Upload'
@@ -290,7 +290,7 @@ export default function CreateRCACAPAPage() {
     // Approval
     preparedBy: 'Naimat Rizvi',
     capaPreparedBy: 'Naimat Rizvi',
-    approvedBy: 'Pooja Parker',
+    approvedBy: 'Pooja Parkar',
     dateApproved: '',
     controlSamplePhotos: []
   })
@@ -368,28 +368,25 @@ export default function CreateRCACAPAPage() {
 
     setIsFetchingComplaint(true)
     try {
-      // Step 1: Fetch complaints list and find the numeric ID
-      const response = await getComplaints({
-        company: currentCompany,
-        page: 1,
-        limit: 100
-      })
-
-      console.log('Fetched complaints:', response.data)
-
-      const complaintListItem = response.data.find(
-        c => c.complaintId.toLowerCase() === formData.complaintId.toLowerCase()
-      )
-
-      if (!complaintListItem) {
-        toast.error(`Complaint ${formData.complaintId} not found`)
-        return
+      // Prefer direct lookup by complaintId string first
+      let complaint
+      try {
+        complaint = await getComplaintByComplaintId(formData.complaintId.trim(), currentCompany)
+      } catch (e) {
+        // Fallback: if input looks numeric, try by numeric id; else search list
+        const asNumber = Number(formData.complaintId)
+        if (!Number.isNaN(asNumber)) {
+          complaint = await getComplaintById(asNumber, currentCompany)
+        } else {
+          const response = await getComplaints({ company: currentCompany, page: 1, limit: 100 })
+          const found = response.data.find(c => c.complaintId.toLowerCase() === formData.complaintId.toLowerCase())
+          if (!found) {
+            toast.error(`Complaint ${formData.complaintId} not found`)
+            return
+          }
+          complaint = await getComplaintById(found.id, currentCompany)
+        }
       }
-
-      console.log('Found complaint in list:', complaintListItem)
-
-      // Step 2: Fetch full complaint details using numeric ID
-      const complaint = await getComplaintById(complaintListItem.id, currentCompany)
       
       console.log('Fetched full complaint details:', complaint)
       console.log('Item Category:', complaint.itemCategory)
@@ -417,6 +414,7 @@ export default function CreateRCACAPAPage() {
         nameOfCustomerOther: complaint.customerName || '',
         summaryOfIncident: complaint.remarks || '',
         problemDescription: complaint.remarks || '',
+        problemStatement: complaint.remarks || '',
       }))
 
       // Force re-render dropdowns to show new values
@@ -438,8 +436,24 @@ export default function CreateRCACAPAPage() {
     if (complaintId) {
       const fetchComplaintData = async () => {
         try {
-          // Fetch from API instead of localStorage
-          const complaint = await getComplaintById(complaintId, currentCompany)
+          // Try fetching by complaintId string first, then fall back
+          let complaint
+          try {
+            complaint = await getComplaintByComplaintId(String(complaintId), currentCompany)
+          } catch (e) {
+            const numeric = Number(complaintId)
+            if (!Number.isNaN(numeric)) {
+              complaint = await getComplaintById(numeric, currentCompany)
+            } else {
+              const list = await getComplaints({ company: currentCompany, page: 1, limit: 100 })
+              const found = list.data.find(c => c.complaintId.toLowerCase() === String(complaintId).toLowerCase())
+              if (!found) {
+                console.log('[RCA] Complaint not found:', complaintId)
+                return
+              }
+              complaint = await getComplaintById(found.id, currentCompany)
+            }
+          }
           
           if (complaint) {
             console.log('[RCA] Found complaint:', complaint)
@@ -448,10 +462,11 @@ export default function CreateRCACAPAPage() {
             setFormData(prev => ({
               ...prev,
               complaintId: complaint.complaintId,
-              itemCategory: complaint.articles?.[0]?.itemCategory || '',
-              itemSubcategory: complaint.articles?.[0]?.itemSubcategory || '',
-              itemDescription: complaint.articles?.[0]?.itemDescription || '',
+              itemCategory: complaint.articles?.[0]?.itemCategory || complaint.itemCategory || '',
+              itemSubcategory: complaint.articles?.[0]?.itemSubcategory || complaint.itemSubcategory || '',
+              itemDescription: complaint.articles?.[0]?.itemDescription || complaint.itemDescription || '',
               dateOfComplaintReceive: complaint.receivedDate || '',
+              dateOfPacking: complaint.manufacturingDate || '',
               batchCode: complaint.batchCode || '',
               nameOfCustomerOther: complaint.customerName || '',
               problemStatement: complaint.remarks || '',
@@ -533,6 +548,16 @@ export default function CreateRCACAPAPage() {
     if (!formData.complaintId) newErrors.complaintId = 'Complaint ID is required'
     if (!formData.summaryOfIncident) newErrors.summaryOfIncident = 'Summary of Incident is required'
     if (!formData.nameOfCustomer) newErrors.nameOfCustomer = 'Customer Name is required'
+
+    // Mandatory: All 5 Whys and Root Cause Summary
+    const whyFields = [formData.why1, formData.why2, formData.why3, formData.why4, formData.why5]
+    const emptyWhys = whyFields.filter(why => !why || !why.trim())
+    if (emptyWhys.length > 0) {
+      newErrors.whys = 'Please fill all 5 Whys'
+    }
+    if (!formData.rootCauseDescription || !formData.rootCauseDescription.trim()) {
+      newErrors.rootCauseDescription = 'Root Cause Summary is required'
+    }
 
     setErrors(newErrors)
 
@@ -622,7 +647,8 @@ export default function CreateRCACAPAPage() {
       }
     } else {
       console.log('Form validation failed:', newErrors)
-      toast.error('Please fill in all required fields')
+      const msg = newErrors.rootCauseDescription || newErrors.whys || newErrors.summaryOfIncident || newErrors.complaintId || 'Please fill in all required fields'
+      toast.error(msg)
     }
   }
 
@@ -1226,6 +1252,9 @@ export default function CreateRCACAPAPage() {
                     </div>
                   </div>
                 ))}
+                {errors.whys && (
+                  <p className="text-sm text-red-600">{errors.whys}</p>
+                )}
               </div>
             </div>
           </div>
@@ -1293,6 +1322,9 @@ export default function CreateRCACAPAPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Provide the final root cause description based on the comprehensive 5 Whys analysis conducted above, or click 'Generate with AI' to auto-generate..."
                   />
+                  {errors.rootCauseDescription && (
+                    <p className="text-sm text-red-600">{errors.rootCauseDescription}</p>
+                  )}
                 </div>
               </div>
             </div>

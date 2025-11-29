@@ -66,6 +66,14 @@ export default function ComplaintViewPage() {
     try {
       setLoading(true)
       const data = await getComplaintById(complaintId, currentCompany)
+      
+      // Remove duplicate images using Set
+      if (data.proofImages && Array.isArray(data.proofImages)) {
+        const originalCount = data.proofImages.length
+        data.proofImages = [...new Set(data.proofImages)]
+        console.log(`View page - Deduplicated images: ${originalCount} → ${data.proofImages.length}`)
+      }
+      
       setComplaint(data)
     } catch (error) {
       console.error('Error fetching complaint:', error)

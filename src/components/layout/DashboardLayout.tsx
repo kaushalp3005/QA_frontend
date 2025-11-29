@@ -23,12 +23,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="h-screen flex bg-cream-100">
+    <div className="fixed inset-0 flex bg-cream-100 overflow-hidden">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         {/* Top bar */}
         <header className="bg-beige-50 shadow-sm border-b border-tan-200 backdrop-blur-sm bg-opacity-95">
           <div className="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8">

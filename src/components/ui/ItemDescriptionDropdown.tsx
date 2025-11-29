@@ -45,7 +45,7 @@ export default function ItemDescriptionDropdown({
       console.log('Adding current value to items list:', value)
       setItems(prev => [value, ...prev])
     }
-  }, [value, items])
+  }, [value])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

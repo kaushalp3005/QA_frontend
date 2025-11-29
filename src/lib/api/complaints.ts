@@ -165,11 +165,14 @@ export async function getComplaints(params: {
  * Get complaint by ID
  */
 export async function getComplaintById(id: string | number, company: string): Promise<ComplaintResponse> {
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/${id}?company=${company}`, {
+  const token = localStorage.getItem('access_token')
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/${id}?company=${company}&_t=${Date.now()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
     },
+    cache: 'no-store'
   })
 
   const result = await response.json()

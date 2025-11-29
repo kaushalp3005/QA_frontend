@@ -21,6 +21,7 @@ export async function uploadComplaintImages(
   files: File[],
   company: 'CDPL' | 'CFPL'
 ): Promise<string[]> {
+  console.log('🚀 uploadComplaintImages CALLED with', files.length, 'files')
   try {
     if (!files || files.length === 0) {
       throw new Error('No files provided')
@@ -47,6 +48,7 @@ export async function uploadComplaintImages(
     files.forEach((file) => {
       formData.append('files', file)
     })
+    console.log('📦 FormData created with', files.length, 'files')
 
     // Get auth token
     const token = localStorage.getItem('access_token')
@@ -55,6 +57,7 @@ export async function uploadComplaintImages(
     }
 
     // Upload to backend
+    console.log('🌐 Sending POST request to backend...')
     const response = await fetch(
       `${API_BASE_URL}/api/upload-complaint-images?company=${company}`,
       {
@@ -65,6 +68,7 @@ export async function uploadComplaintImages(
         body: formData,
       }
     )
+    console.log('📡 Response received, status:', response.status)
 
     if (!response.ok) {
       const error = await response.json()
@@ -72,6 +76,8 @@ export async function uploadComplaintImages(
     }
 
     const data: UploadImageResponse = await response.json()
+    console.log('📥 Response data:', data)
+    console.log('📥 URLs received:', data.urls)
     
     if (!data.success || !data.urls) {
       throw new Error(data.message || 'Failed to upload images')

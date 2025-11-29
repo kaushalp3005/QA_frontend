@@ -21,7 +21,7 @@ import ItemCategoryDropdown from '@/components/ui/ItemCategoryDropdown'
 import ItemSubcategoryDropdown from '@/components/ui/ItemSubcategoryDropdown'
 import ItemDescriptionDropdown from '@/components/ui/ItemDescriptionDropdown'
 import { useCompany } from '@/contexts/CompanyContext'
-import { uploadComplaintImages, validateImageFile } from '@/lib/api/s3Upload'
+import { uploadComplaintImages, validateImageFile, deleteComplaintImage } from '@/lib/api/s3Upload'
 
 // Validation schema
 const complaintFormSchema = z.object({
@@ -79,28 +79,24 @@ interface ComplaintCreateFormProps {
   isLoading?: boolean
   initialData?: Partial<ComplaintFormData>
   isEditing?: boolean
+  // Callback should return latest proofImages after server refresh
+  onImageDeleted?: () => Promise<string[]> | string[]
 }
 
-function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: ComplaintCreateFormProps) {
+function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing, onImageDeleted }: ComplaintCreateFormProps) {
   const { currentCompany } = useCompany()
   const [selectedImages, setSelectedImages] = useState<File[]>([])
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>(initialData?.proofImages || [])
+  // Filter duplicates when setting initial state
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>(
+    initialData?.proofImages ? [...new Set(initialData.proofImages)] : []
+  )
   const [isUploading, setIsUploading] = useState(false)
   
   console.log('ComplaintCreateForm - initialData:', initialData)
   console.log('ComplaintCreateForm - initialData.proofImages:', initialData?.proofImages)
-  console.log('ComplaintCreateForm - uploadedFiles state:', uploadedFiles)
-  
-  // Update uploadedFiles when initialData changes (for edit mode)
-  useEffect(() => {
-    if (initialData?.proofImages && initialData.proofImages.length > 0) {
-      // Remove duplicates and empty strings
-      const uniqueImages = [...new Set(initialData.proofImages.filter(img => img && img.trim()))]
-      console.log('Updating uploadedFiles from initialData (deduplicated):', uniqueImages)
-      console.log('Original images count:', initialData.proofImages.length, 'Deduplicated count:', uniqueImages.length)
-      setUploadedFiles(uniqueImages)
-    }
-  }, [initialData?.proofImages])
+  console.log('ComplaintCreateForm - initialData.proofImages.length:', initialData?.proofImages?.length)
+  console.log('ComplaintCreateForm - uploadedFiles state (after dedup):', uploadedFiles)
+  console.log('ComplaintCreateForm - uploadedFiles.length:', uploadedFiles.length)
   
   const {
     register,
@@ -109,6 +105,7 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
     watch,
     formState: { errors },
     setValue,
+    reset,
   } = useForm<ComplaintFormData>({
     resolver: zodResolver(complaintFormSchema),
     defaultValues: {
@@ -124,9 +121,7 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
       measuresToResolve: initialData?.measuresToResolve || 'rtv',
       remarks: initialData?.remarks || '',
       communicationMethod: initialData?.communicationMethod || 'email',
-      proofImages: initialData?.proofImages 
-        ? [...new Set(initialData.proofImages.filter(img => img && img.trim()))] // Remove duplicates
-        : [],
+      proofImages: [],
     }
   })
 
@@ -134,6 +129,30 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
     control,
     name: 'articles'
   })
+
+  // Update uploadedFiles when initialData changes (for edit mode)
+  useEffect(() => {
+    console.log('🔄 useEffect triggered! initialData:', initialData)
+    console.log('🔄 useEffect - proofImages:', initialData?.proofImages)
+    
+    if (initialData?.proofImages && initialData.proofImages.length > 0) {
+      // Remove duplicates using Set
+      const uniqueImages = [...new Set(initialData.proofImages)]
+      console.log('✅ useEffect - initialData.proofImages.length:', initialData.proofImages.length)
+      console.log('✅ useEffect - After deduplication:', uniqueImages.length)
+      console.log('✅ useEffect - Updating uploadedFiles with unique images:', uniqueImages)
+      setUploadedFiles(uniqueImages)
+      // Also update form value to ensure react-hook-form has the correct data
+      setValue('proofImages', uniqueImages)
+      console.log('✅ useEffect - setValue called with', uniqueImages.length, 'images')
+    } else if (initialData && (!initialData.proofImages || initialData.proofImages.length === 0)) {
+      console.log('⚠️ useEffect - No images in initialData, clearing uploadedFiles')
+      setUploadedFiles([])
+      setValue('proofImages', [])
+    } else {
+      console.log('❌ useEffect - initialData is null or undefined')
+    }
+  }, [initialData])
 
   // Watch complaint category for conditional subcategories
   const watchedCategory = watch('complaintCategory')
@@ -148,7 +167,9 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
 
   // Handle image selection and upload (images only)
   const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🎯 handleImageSelect CALLED')
     const files = Array.from(event.target.files || [])
+    console.log('📂 Files selected:', files.length, files.map(f => f.name))
     
     // Validate files
     const validFiles: File[] = []
@@ -163,27 +184,38 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
       }
     }
     
+    console.log('✅ Valid files:', validFiles.length)
+    
     if (errors.length > 0) {
       alert(`Some files were rejected:\n${errors.join('\n')}`)
     }
     
     if (validFiles.length === 0) return
     
+    // Show local previews while uploading
+    setSelectedImages(validFiles)
     setIsUploading(true)
     
     try {
       // Upload files directly to S3
+      console.log('📤 Starting upload of', validFiles.length, 'files to S3...')
+      console.log('📤 Current uploadedFiles before upload:', uploadedFiles)
       const s3Urls = await uploadComplaintImages(validFiles, currentCompany as 'CDPL' | 'CFPL')
+      console.log('✅ Upload successful, received URLs:', s3Urls)
+      console.log('✅ Number of URLs received:', s3Urls.length)
       
-      // Store S3 URLs - remove duplicates
-      const existingUrls = new Set(uploadedFiles)
-      const newUrls = s3Urls.filter(url => url && !existingUrls.has(url))
-      const newUploadedFiles = [...uploadedFiles, ...newUrls]
-      setUploadedFiles(newUploadedFiles)
-      setValue('proofImages', newUploadedFiles)
+      // Store S3 URLs - remove duplicates using Set
+      const combinedUrls = [...uploadedFiles, ...s3Urls]
+      const uniqueUrls = [...new Set(combinedUrls)]
+      console.log('📊 Before combine - uploadedFiles:', uploadedFiles.length, uploadedFiles)
+      console.log('📊 Before combine - s3Urls:', s3Urls.length, s3Urls)
+      console.log('📊 After combine - combinedUrls:', combinedUrls.length, '→ Unique:', uniqueUrls.length)
       
-      // Keep file objects for preview
-      setSelectedImages(prev => [...prev, ...validFiles])
+      setUploadedFiles(uniqueUrls)
+      setValue('proofImages', uniqueUrls)
+      
+      // Clear local previews after successful upload to avoid duplicate tiles
+      setSelectedImages([])
       
       alert(`${validFiles.length} file(s) uploaded successfully to S3!`)
     } catch (error) {
@@ -196,13 +228,53 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
     }
   }
 
-  // Remove selected file
-  const removeImage = (index: number) => {
+  // Remove selected file and delete from S3 if it's an uploaded file
+  const removeImage = async (index: number) => {
+    const imageUrl = uploadedFiles[index]
+    console.log('🗑️ REMOVE IMAGE CLICKED')
+    console.log('  Index:', index)
+    console.log('  Image URL:', imageUrl)
+    console.log('  Current uploadedFiles count:', uploadedFiles.length)
+    console.log('  All uploaded files:', uploadedFiles)
+    
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this image?\n\n' +
+      'This will permanently delete the image from both the database and S3 storage.'
+    )
+    
+    if (!confirmed) {
+      console.log('❌ Image deletion cancelled by user')
+      return
+    }
+    
+    // If it's an uploaded file (has S3 URL), delete from S3
+    if (imageUrl && imageUrl.startsWith('https://')) {
+      try {
+        console.log('🗑️ Deleting image from S3 and database:', imageUrl)
+        const deleted = await deleteComplaintImage(imageUrl)
+        if (deleted) {
+          console.log('✅ Image deleted from S3 and database successfully')
+          alert('Image deleted successfully from S3 and database!')
+        } else {
+          console.warn('⚠️ Failed to delete image from S3')
+          alert('Warning: Image could not be deleted from server')
+          return // Don't remove from state if deletion failed
+        }
+      } catch (error) {
+        console.error('❌ Error deleting image:', error)
+        alert('Error deleting image from server')
+        return // Don't remove from state if deletion failed
+      }
+    }
+    
+    // Simple local removal post successful delete
     const newImages = selectedImages.filter((_, i) => i !== index)
     const newUploadedFiles = uploadedFiles.filter((_, i) => i !== index)
     setSelectedImages(newImages)
     setUploadedFiles(newUploadedFiles)
     setValue('proofImages', newUploadedFiles)
+    console.log('✅ Image removed from local state')
   }
 
   return (
@@ -529,17 +601,19 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing }: Co
                             className="w-full h-full object-cover rounded"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
-                              target.src = '/placeholder-image.png'
+                              // Remove the image element to prevent infinite loop
+                              target.style.display = 'none'
+                              // Show error message
+                              const parent = target.parentElement
+                              if (parent) {
+                                parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-red-500 text-xs">Failed to load image</div>'
+                              }
                             }}
                           />
                         </div>
                         <button
                           type="button"
-                          onClick={() => {
-                            const newUploadedFiles = uploadedFiles.filter((_, i) => i !== index)
-                            setUploadedFiles(newUploadedFiles)
-                            setValue('proofImages', newUploadedFiles)
-                          }}
+                          onClick={() => removeImage(index)}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           ×

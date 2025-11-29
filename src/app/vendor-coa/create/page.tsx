@@ -30,6 +30,8 @@ export default function CreateVendorCOAPage() {
   const [filePreview, setFilePreview] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [extractionMessage, setExtractionMessage] = useState<string>('')
 
   const currentDate = new Date().toLocaleDateString('en-GB')
 
@@ -62,18 +64,21 @@ export default function CreateVendorCOAPage() {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleFileUpload = (file: File) => {
-    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
+  const handleFileUpload = async (file: File) => {
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 
+                        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
     
     if (!validTypes.includes(file.type)) {
-      alert('Please upload only images (JPG, PNG) or PDF files')
+      alert('Please upload only images (JPG, PNG), PDF, or Excel files')
       return
     }
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      alert('File size should be less than 10MB')
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      alert('File size should be less than 50MB')
       return
     }
+
+    // Item Type not required for extraction; user can select later
 
     setFormData(prev => ({ ...prev, uploadedFile: file }))
 
@@ -87,13 +92,71 @@ export default function CreateVendorCOAPage() {
     } else {
       setFilePreview(null)
     }
+
+    // Auto-extract data from uploaded file
+    setIsExtracting(true)
+    setExtractionMessage('Extracting data from COA...')
+    
+    try {
+      const formDataToSend = new FormData()
+      formDataToSend.append('file', file)
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/vendor-coa/extract?mode=ai`,
+        {
+          method: 'POST',
+          body: formDataToSend,
+        }
+      )
+
+      if (response.ok) {
+        const result = await response.json()
+        
+        if (result.extraction_success) {
+          // Auto-fill the form with extracted data
+          if (result.data.vendor_name) {
+            setFormData(prev => ({ ...prev, vendorName: result.data.vendor_name }))
+          }
+          if (result.data.lot_batch_number) {
+            setFormData(prev => ({ ...prev, lotBatchNumber: result.data.lot_batch_number }))
+          }
+          if (result.data.item_name) {
+            setFormData(prev => ({ ...prev, itemName: result.data.item_name }))
+          }
+          
+          setExtractionMessage('✓ AI extracted data successfully! Please verify the fields.')
+          toast.success('Data extracted successfully! Please verify the fields.')
+        } else {
+          setExtractionMessage('⚠ AI could not extract all data. Please fill the fields manually.')
+          toast.error('Could not extract all data. Please fill the fields manually.')
+        }
+      } else {
+        let msg = 'Extraction failed. Please fill the fields manually.'
+        try {
+          const err = await response.json()
+          if (err?.detail) msg = `Extraction failed: ${err.detail}`
+        } catch {}
+        setExtractionMessage(`⚠ ${msg}`)
+        toast.error(msg)
+      }
+    } catch (error) {
+      console.error('Error extracting COA data:', error)
+      setExtractionMessage('⚠ Extraction failed. Please fill the fields manually.')
+      toast.error('Extraction failed. Please fill the fields manually.')
+    } finally {
+      setIsExtracting(false)
+      // Clear message after 5 seconds
+      setTimeout(() => setExtractionMessage(''), 5000)
+    }
   }
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      handleFileUpload(file)
+      await handleFileUpload(file)
     }
+    // allow selecting the same file again
+    if (e.target) e.target.value = ''
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -105,12 +168,12 @@ export default function CreateVendorCOAPage() {
     setIsDragging(false)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files[0]
     if (file) {
-      handleFileUpload(file)
+      await handleFileUpload(file)
     }
   }
 
@@ -122,7 +185,7 @@ export default function CreateVendorCOAPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.vendorName || !formData.lotBatchNumber || !formData.itemName || !formData.itemSubcategory || !formData.itemType) {
+    if (!formData.vendorName || !formData.lotBatchNumber || !formData.itemName || !formData.itemType) {
       alert('Please fill in all required fields')
       return
     }
@@ -197,7 +260,7 @@ export default function CreateVendorCOAPage() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gray-50 ">
+      <div className="min-h-full bg-gray-50">
         <div className="max-w-3xl mx-auto">
           {/* Back Button */}
           <button
@@ -288,7 +351,7 @@ export default function CreateVendorCOAPage() {
               {/* Item Subcategory */}
               <div>
                 <label htmlFor="itemSubcategory" className="block text-sm font-medium text-gray-700 mb-2">
-                  Item Subcategory <span className="text-red-500">*</span>
+                  Item Subcategory
                 </label>
                 <input
                   type="text"
@@ -296,13 +359,12 @@ export default function CreateVendorCOAPage() {
                   name="itemSubcategory"
                   value={formData.itemSubcategory}
                   onChange={handleInputChange}
-                  placeholder="Enter item subcategory"
+                  placeholder="Enter item subcategory (optional)"
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
                 />
               </div>
 
-              {/* Item Type Dropdown (RM/PM) */}
+              {/* Item Type Dropdown (RM/PM) - Move before file upload */}
               <div>
                 <label htmlFor="itemType" className="block text-sm font-medium text-gray-700 mb-2">
                   Item Type <span className="text-red-500">*</span>
@@ -319,6 +381,7 @@ export default function CreateVendorCOAPage() {
                   <option value="RM">RM (Raw Material)</option>
                   <option value="PM">PM (Packaging Material)</option>
                 </select>
+                <p className="text-xs text-gray-500 mt-1">Please select item type before uploading COA</p>
               </div>
 
               {/* File Upload */}
@@ -326,6 +389,17 @@ export default function CreateVendorCOAPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Upload COA Document <span className="text-red-500">*</span>
                 </label>
+                
+                {/* Extraction status message */}
+                {extractionMessage && (
+                  <div className={`mb-3 p-3 rounded-md text-sm ${
+                    extractionMessage.includes('✓') 
+                      ? 'bg-green-50 text-green-800 border border-green-200' 
+                      : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+                  }`}>
+                    {extractionMessage}
+                  </div>
+                )}
                 
                 {!formData.uploadedFile ? (
                   <div
@@ -350,13 +424,14 @@ export default function CreateVendorCOAPage() {
                         id="file-upload"
                         name="file-upload"
                         type="file"
-                        accept="image/jpeg,image/png,image/jpg,application/pdf"
+                        accept="image/jpeg,image/png,image/jpg,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         onChange={handleFileInputChange}
+                        disabled={isExtracting}
                         className="sr-only"
                       />
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Images (JPG, PNG) or PDF up to 10MB
+                      Images (JPG, PNG), PDF, or Excel up to 50MB
                     </p>
                   </div>
                 ) : (

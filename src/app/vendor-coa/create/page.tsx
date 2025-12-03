@@ -102,7 +102,7 @@ export default function CreateVendorCOAPage() {
       formDataToSend.append('file', file)
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/vendor-coa/extract?mode=ai`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/vendor-coa/extract?mode=ai`,
         {
           method: 'POST',
           body: formDataToSend,
@@ -219,7 +219,7 @@ export default function CreateVendorCOAPage() {
       console.log('item_type being sent:', formData.itemType)
 
       // Call API to save vendor COA
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/vendor-coa/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/vendor-coa/`, {
         method: 'POST',
         body: formDataToSend,
       })

@@ -80,7 +80,7 @@ export default function CustomerDropdown({
         ...(search && { search })
       })
 
-      const url = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/dropdown/customers?${params}`
+      const url = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/dropdown/customers?${params}`
       console.log('Fetching customers from:', url) // Debug log
       
       const response = await fetch(url)

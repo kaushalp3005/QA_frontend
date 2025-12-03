@@ -52,7 +52,7 @@ export async function getLicenses(filters?: LicenseFilters): Promise<LicenseList
   if (filters?.page) params.append('page', filters.page.toString())
   if (filters?.limit) params.append('limit', filters.limit.toString())
   
-  const url = `${API_BASE_URL}/api/licenses?${params.toString()}`
+  const url = `${API_BASE_URL}/licenses?${params.toString()}`
   console.log('📡 Fetching from URL:', url)
   
   const response = await fetch(url)
@@ -76,7 +76,7 @@ export async function getLicenseStats(company_name?: string): Promise<LicenseSta
   const params = new URLSearchParams()
   if (company_name) params.append('company_name', company_name)
   
-  const url = `${API_BASE_URL}/api/licenses/stats?${params.toString()}`
+  const url = `${API_BASE_URL}/licenses/stats?${params.toString()}`
   console.log('📡 Fetching stats from URL:', url)
   
   const response = await fetch(url)
@@ -93,7 +93,7 @@ export async function getLicenseStats(company_name?: string): Promise<LicenseSta
 }
 
 export async function getLicenseById(id: number): Promise<License> {
-  const response = await fetch(`${API_BASE_URL}/api/licenses/${id}`)
+  const response = await fetch(`${API_BASE_URL}/licenses/${id}`)
   
   if (!response.ok) {
     throw new Error('Failed to fetch license')
@@ -103,7 +103,7 @@ export async function getLicenseById(id: number): Promise<License> {
 }
 
 export async function createLicense(data: Omit<License, 'id' | 'created_at' | 'updated_at'>): Promise<License> {
-  const response = await fetch(`${API_BASE_URL}/api/licenses`, {
+  const response = await fetch(`${API_BASE_URL}/licenses`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ export async function updateLicense(
   const token = localStorage.getItem('access_token')
   console.log('🔧 updateLicense API called:', { id, data })
   
-  const response = await fetch(`${API_BASE_URL}/api/licenses/${id}`, {
+  const response = await fetch(`${API_BASE_URL}/licenses/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ export async function updateLicense(
 }
 
 export async function deleteLicense(id: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/licenses/${id}`, {
+  const response = await fetch(`${API_BASE_URL}/licenses/${id}`, {
     method: 'DELETE',
   })
   

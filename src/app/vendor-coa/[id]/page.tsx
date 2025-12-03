@@ -70,7 +70,7 @@ export default function VendorCOAViewPage() {
     try {
       setLoading(true)
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/vendor-coa/${coaId}`
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/vendor-coa/${coaId}`
       )
       if (!response.ok) {
         throw new Error('Failed to fetch COA record')

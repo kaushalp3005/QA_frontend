@@ -6,4 +6,4 @@
   package = "@netlify/plugin-nextjs"
 
 [build.environment]
-  NEXT_PUBLIC_API_BASE_URL = "https://8t5xoom6k6.execute-api.ap-south-1.amazonaws.com"
+  NEXT_PUBLIC_API_BASE_URL = "https://cau0qqgw2h.execute-api.ap-south-1.amazonaws.com"

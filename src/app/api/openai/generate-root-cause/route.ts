@@ -22,12 +22,19 @@ interface GenerateRootCauseRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if API key is configured
     if (!OPENAI_API_KEY) {
+      console.error('OpenAI API key is not configured')
+      console.error('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Set (hidden)' : 'Not set')
+      console.error('NEXT_PUBLIC_OPENAI_API_KEY:', process.env.NEXT_PUBLIC_OPENAI_API_KEY ? 'Set (hidden)' : 'Not set')
       return NextResponse.json(
-        { error: 'OpenAI API key is not configured' },
+        { error: 'OpenAI API key is not configured. Please check your environment variables.' },
         { status: 500 }
       )
     }
+    
+    // Log that we're using an API key (but not the actual key)
+    console.log('Using OpenAI API key:', OPENAI_API_KEY.substring(0, 10) + '...' + OPENAI_API_KEY.substring(OPENAI_API_KEY.length - 4))
 
     const data: GenerateRootCauseRequest = await request.json()
 
@@ -75,10 +82,15 @@ Root Cause Description:`
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
       console.error('OpenAI API error:', errorData)
+      console.error('Response status:', response.status)
+      console.error('Response statusText:', response.statusText)
+      
+      // Return more detailed error message
+      const errorMessage = errorData.error?.message || errorData.error || 'Failed to generate root cause description'
       return NextResponse.json(
-        { error: 'Failed to generate root cause description' },
+        { error: errorMessage, details: errorData },
         { status: response.status }
       )
     }

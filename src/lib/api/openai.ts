@@ -31,8 +31,10 @@ export async function generateRootCauseDescription(data: GenerateRootCauseReques
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to generate root cause description')
+      const error = await response.json().catch(() => ({ error: 'Unknown error occurred' }))
+      console.error('OpenAI API Error Details:', error)
+      const errorMessage = error.error || error.message || 'Failed to generate root cause description'
+      throw new Error(errorMessage)
     }
 
     const result = await response.json()

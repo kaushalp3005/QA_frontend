@@ -627,6 +627,7 @@ export default function CreateRCACAPAPage() {
           possibleCause: formData.possibleCause || undefined,
           rootCauseDescription: formData.rootCauseDescription || undefined,
           actionPlan: formData.actionPlan.filter(item => item.challenges || item.actionPoints),
+          preventiveActionPlan: formData.preventiveActions.filter(item => item.challenges || item.actionPoints),
           preparedBy: formData.preparedBy || undefined,
           capaPreparedBy: formData.capaPreparedBy || undefined,
           approvedBy: formData.approvedBy || undefined,

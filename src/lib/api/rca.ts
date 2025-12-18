@@ -98,8 +98,11 @@ export interface RCAData {
   possibleCause?: string
   rootCauseDescription?: string
   
-  // Action Plan
+  // Action Plan - Corrective Actions
   actionPlan?: ActionPlanItem[]
+  
+  // Preventive Action Plan
+  preventiveActionPlan?: ActionPlanItem[]
   
   // Approval
   preparedBy?: string
@@ -129,7 +132,7 @@ export interface RCAListResponse {
  * Generate next RCA number in format RCA-YYYY-MM-0001
  */
 export async function generateRCANumber(company: string): Promise<{ rcaNumber: string }> {
-  const response = await fetch(`${API_BASE_URL}/rca/generate-number?company=${company}`, {
+  const response = await fetch(`${API_BASE_URL}/api/rca/generate-number?company=${company}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -148,7 +151,7 @@ export async function generateRCANumber(company: string): Promise<{ rcaNumber: s
  * Create a new RCA/CAPA record
  */
 export async function createRCA(data: RCAData, company: string): Promise<RCAResponse> {
-  const response = await fetch(`${API_BASE_URL}/rca/?company=${company}`, {
+  const response = await fetch(`${API_BASE_URL}/api/rca/?company=${company}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -188,7 +191,7 @@ export async function getRCAList(params: {
     queryParams.append('severity', params.severity)
   }
   
-  const response = await fetch(`${API_BASE_URL}/rca/?${queryParams.toString()}`)
+  const response = await fetch(`${API_BASE_URL}/api/rca/?${queryParams.toString()}`)
   
   if (!response.ok) {
     const error = await response.json()
@@ -202,7 +205,7 @@ export async function getRCAList(params: {
  * Get a specific RCA/CAPA record by ID
  */
 export async function getRCAById(id: number, company: string): Promise<RCAResponse> {
-  const response = await fetch(`${API_BASE_URL}/rca/${id}?company=${company}`)
+  const response = await fetch(`${API_BASE_URL}/api/rca/${id}?company=${company}`)
   
   if (!response.ok) {
     const error = await response.json()
@@ -216,7 +219,7 @@ export async function getRCAById(id: number, company: string): Promise<RCARespon
  * Update an existing RCA/CAPA record
  */
 export async function updateRCA(id: number, data: Partial<RCAData>, company: string): Promise<RCAResponse> {
-  const response = await fetch(`${API_BASE_URL}/rca/${id}?company=${company}`, {
+  const response = await fetch(`${API_BASE_URL}/api/rca/${id}?company=${company}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -236,7 +239,7 @@ export async function updateRCA(id: number, data: Partial<RCAData>, company: str
  * Delete an RCA/CAPA record
  */
 export async function deleteRCA(id: number, company: string): Promise<{ message: string }> {
-  const response = await fetch(`${API_BASE_URL}/rca/${id}?company=${company}`, {
+  const response = await fetch(`${API_BASE_URL}/api/rca/${id}?company=${company}`, {
     method: 'DELETE',
   })
   

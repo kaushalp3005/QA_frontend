@@ -459,7 +459,7 @@ export default function RCAPrintPage() {
       )}
 
       {/* Preventive Actions */}
-      {rca.action_plan && rca.action_plan.length > 0 && (
+      {rca.preventive_action_plan && (typeof rca.preventive_action_plan === 'string' ? JSON.parse(rca.preventive_action_plan) : rca.preventive_action_plan).length > 0 && (
         <>
           <h3 className="sec">Preventive Action Plan</h3>
           <table>
@@ -475,7 +475,7 @@ export default function RCAPrintPage() {
               </tr>
             </thead>
             <tbody>
-              {(typeof rca.action_plan === 'string' ? JSON.parse(rca.action_plan) : rca.action_plan).map((action: any, index: number) => (
+              {(typeof rca.preventive_action_plan === 'string' ? JSON.parse(rca.preventive_action_plan) : rca.preventive_action_plan).map((action: any, index: number) => (
                 <tr key={index}>
                   <td style={{textAlign: 'center'}}>{action.srNo || index + 1}</td>
                   <td>{action.challenges || '-'}</td>

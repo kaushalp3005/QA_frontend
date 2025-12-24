@@ -41,6 +41,10 @@ export default function ComplaintsPage() {
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null)
   const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const limit = 20
 
   useEffect(() => {
     // Load complaints from API
@@ -48,10 +52,12 @@ export default function ComplaintsPage() {
       try {
         const response = await getComplaints({
           company: currentCompany,
-          page: 1,
-          limit: 100
+          page,
+          limit
         })
         setComplaints(response.data)
+        setTotalPages(response.meta.totalPages)
+        setTotal(response.meta.total)
       } catch (error) {
         console.error('Error loading complaints:', error)
       } finally {
@@ -60,7 +66,7 @@ export default function ComplaintsPage() {
     }
 
     loadComplaints()
-  }, [currentCompany])
+  }, [currentCompany, page])
 
   const handleVideoUpload = async (complaintId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -358,6 +364,34 @@ export default function ComplaintsPage() {
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create your first complaint
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {!isLoading && totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} complaints
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-700">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={page === totalPages}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
                 </button>
               </div>
             </div>

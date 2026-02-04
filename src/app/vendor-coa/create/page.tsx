@@ -65,16 +65,24 @@ export default function CreateVendorCOAPage() {
   }
 
   const handleFileUpload = async (file: File) => {
-    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 
-                        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+    const validTypes = [
+      'image/jpeg', 
+      'image/png', 
+      'image/jpg', 
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  // .docx
+      'application/msword',  // .doc
+      'application/vnd.ms-excel',  // .xls
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'  // .xlsx
+    ]
     
     if (!validTypes.includes(file.type)) {
-      alert('Please upload only images (JPG, PNG), PDF, or Excel files')
+      toast.error('Invalid file type. Allowed formats: JPG, PNG, PDF, DOCX, DOC, XLS, XLSX')
       return
     }
 
     if (file.size > 50 * 1024 * 1024) { // 50MB limit
-      alert('File size should be less than 50MB')
+      toast.error('File size should be less than 50MB')
       return
     }
 
@@ -232,7 +240,7 @@ export default function CreateVendorCOAPage() {
       const result = await response.json()
       console.log('COA saved successfully:', result)
 
-      alert('Vendor COA saved successfully!')
+      toast.success('Vendor COA saved successfully!')
       
       // Reset form
       setFormData({
@@ -252,7 +260,7 @@ export default function CreateVendorCOAPage() {
 
     } catch (error) {
       console.error('Error saving COA:', error)
-      alert(error instanceof Error ? error.message : 'Failed to save COA. Please try again.')
+      toast.error(error instanceof Error ? error.message : 'Failed to save COA. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -424,14 +432,14 @@ export default function CreateVendorCOAPage() {
                         id="file-upload"
                         name="file-upload"
                         type="file"
-                        accept="image/jpeg,image/png,image/jpg,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        accept="image/jpeg,image/png,image/jpg,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         onChange={handleFileInputChange}
                         disabled={isExtracting}
                         className="sr-only"
                       />
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Images (JPG, PNG), PDF, or Excel up to 50MB
+                      Supported formats: JPG, PNG, PDF, DOCX, DOC, XLS, XLSX (up to 50MB)
                     </p>
                   </div>
                 ) : (

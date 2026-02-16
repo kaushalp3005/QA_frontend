@@ -71,7 +71,7 @@ export default function ItemDescriptionDropdown({
 
       const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/sku/dropdown?${params}`
       console.log('Fetching items from:', url)
-      
+
       const response = await fetch(url)
       
       if (!response.ok) {
@@ -125,7 +125,7 @@ export default function ItemDescriptionDropdown({
 
       const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/sku/dropdown?${params}`
       console.log('Searching items from:', url)
-      
+
       const response = await fetch(url)
       
       if (!response.ok) {

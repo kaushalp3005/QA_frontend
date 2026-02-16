@@ -59,7 +59,7 @@ export default function ItemSubcategoryDropdown({
 
       const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/sku/dropdown?${params}`
       console.log('Fetching subcategories from:', url)
-      
+
       const response = await fetch(url)
       
       if (!response.ok) {

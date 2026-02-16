@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Prefer server-only secret; fallback to NEXT_PUBLIC for compatibility (not recommended)
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY
-if (!process.env.OPENAI_API_KEY && process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
-  console.warn('[openai] Using NEXT_PUBLIC_OPENAI_API_KEY as fallback. Prefer server-only OPENAI_API_KEY.')
+// For Netlify, environment variables are available at runtime
+// We need to read them inside the function, not at module level
+function getOpenAIApiKey(): string | undefined {
+  // Try multiple possible environment variable names
+  return process.env.OPENAI_API_KEY 
+    || process.env.NEXT_PUBLIC_OPENAI_API_KEY
+    || process.env.OPENAI_KEY
 }
 
 interface GenerateRootCauseRequest {
@@ -22,19 +25,58 @@ interface GenerateRootCauseRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Get API key at runtime (important for Netlify serverless functions)
+    const OPENAI_API_KEY = getOpenAIApiKey()
+    
+    // Enhanced logging for debugging
+    console.log('=== OpenAI API Route Debug ===')
+    console.log('Environment check:')
+    console.log('- OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY)
+    console.log('- NEXT_PUBLIC_OPENAI_API_KEY exists:', !!process.env.NEXT_PUBLIC_OPENAI_API_KEY)
+    console.log('- OPENAI_KEY exists:', !!process.env.OPENAI_KEY)
+    console.log('- All env keys:', Object.keys(process.env).filter(k => k.includes('OPENAI')))
+    console.log('- OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length || 0)
+    console.log('- OPENAI_API_KEY starts with sk-:', process.env.OPENAI_API_KEY?.startsWith('sk-') || false)
+    
     // Check if API key is configured
     if (!OPENAI_API_KEY) {
-      console.error('OpenAI API key is not configured')
+      console.error('❌ OpenAI API key is not configured')
       console.error('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Set (hidden)' : 'Not set')
       console.error('NEXT_PUBLIC_OPENAI_API_KEY:', process.env.NEXT_PUBLIC_OPENAI_API_KEY ? 'Set (hidden)' : 'Not set')
       return NextResponse.json(
-        { error: 'OpenAI API key is not configured. Please check your environment variables.' },
+        { 
+          error: 'OpenAI API key is not configured. Please check your environment variables.',
+          debug: {
+            OPENAI_API_KEY_set: !!process.env.OPENAI_API_KEY,
+            NEXT_PUBLIC_OPENAI_API_KEY_set: !!process.env.NEXT_PUBLIC_OPENAI_API_KEY
+          }
+        },
+        { status: 500 }
+      )
+    }
+    
+    // Trim whitespace from API key
+    const trimmedApiKey = OPENAI_API_KEY.trim()
+    
+    // Validate API key format (should start with sk-)
+    if (!trimmedApiKey.startsWith('sk-')) {
+      console.error('❌ Invalid OpenAI API key format. Key should start with "sk-"')
+      console.error('Key preview:', trimmedApiKey.substring(0, 20) + '...')
+      return NextResponse.json(
+        { 
+          error: 'Invalid OpenAI API key format. Please check your API key. It should start with "sk-".',
+          debug: {
+            keyLength: trimmedApiKey.length,
+            keyStartsWith: trimmedApiKey.substring(0, 3)
+          }
+        },
         { status: 500 }
       )
     }
     
     // Log that we're using an API key (but not the actual key)
-    console.log('Using OpenAI API key:', OPENAI_API_KEY.substring(0, 10) + '...' + OPENAI_API_KEY.substring(OPENAI_API_KEY.length - 4))
+    console.log('✅ Using OpenAI API key:', trimmedApiKey.substring(0, 10) + '...' + trimmedApiKey.substring(trimmedApiKey.length - 4))
+    console.log('Key length:', trimmedApiKey.length)
 
     const data: GenerateRootCauseRequest = await request.json()
 
@@ -62,7 +104,7 @@ Root Cause Description:`
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
+        'Authorization': `Bearer ${trimmedApiKey}`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
@@ -83,14 +125,26 @@ Root Cause Description:`
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-      console.error('OpenAI API error:', errorData)
-      console.error('Response status:', response.status)
-      console.error('Response statusText:', response.statusText)
+      console.error('❌ OpenAI API error:')
+      console.error('- Status:', response.status)
+      console.error('- StatusText:', response.statusText)
+      console.error('- Error data:', JSON.stringify(errorData, null, 2))
+      console.error('- API key used:', trimmedApiKey.substring(0, 10) + '...' + trimmedApiKey.substring(trimmedApiKey.length - 4))
       
       // Return more detailed error message
       const errorMessage = errorData.error?.message || errorData.error || 'Failed to generate root cause description'
+      const errorType = errorData.error?.type || errorData.error?.code || 'unknown'
+      
       return NextResponse.json(
-        { error: errorMessage, details: errorData },
+        { 
+          error: errorMessage,
+          errorType: errorType,
+          details: errorData,
+          debug: {
+            status: response.status,
+            apiKeyFormat: trimmedApiKey.substring(0, 3) + '...' + trimmedApiKey.substring(trimmedApiKey.length - 4)
+          }
+        },
         { status: response.status }
       )
     }

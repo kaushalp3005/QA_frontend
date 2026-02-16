@@ -37,7 +37,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         if (returnUrl) {
           router.push(returnUrl)
         } else {
-          router.push('/dashboard')
+        router.push('/dashboard')
         }
         return
       }

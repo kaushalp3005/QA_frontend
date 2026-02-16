@@ -370,7 +370,7 @@ export default function ComplaintsPage() {
           )}
           
           {/* Pagination */}
-          {!isLoading && totalPages > 1 && (
+          {!isLoading && complaints.length > 0 && (
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
               <div className="text-sm text-gray-700">
                 Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} complaints

@@ -46,6 +46,7 @@ export default function RCACAPAPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
   const limit = 15
 
   // Fetch RCA data
@@ -67,6 +68,7 @@ export default function RCACAPAPage() {
       console.log('RCA Data Items:', response.data)
       setRcaData(response.data)
       setTotalPages(response.totalPages)
+      setTotal(response.total)
     } catch (error) {
       console.error('Error fetching RCA data:', error)
       toast.error('Failed to load RCA/CAPA records')
@@ -324,25 +326,30 @@ export default function RCACAPAPage() {
           </div>
           
           {/* Pagination */}
-          {!loading && totalPages > 1 && (
+          {!loading && rcaData.length > 0 && (
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-              <button
-                onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-gray-700">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={page === totalPages}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
+              <div className="text-sm text-gray-700">
+                Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} records
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-700">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={page === totalPages}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -11,7 +11,8 @@ import {
   X,
   Shield,
   Search,
-  ClipboardCheck
+  ClipboardCheck,
+  BookOpen
 } from 'lucide-react'
 import { cn } from '@/lib/styles'
 
@@ -61,6 +62,12 @@ const navigation = [
     name: 'LabReports',
     href: '/lab-reports',
     icon: BarChart3,
+    current: false,
+  },
+  {
+    name: 'Documentations',
+    href: '/documentations',
+    icon: BookOpen,
     current: false,
   },
 ]

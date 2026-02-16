@@ -31,7 +31,7 @@ export interface ChangePasswordData {
  * Login user with email and password
  */
 export async function login(credentials: LoginCredentials, company: 'CDPL' | 'CFPL'): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -52,7 +52,7 @@ export async function login(credentials: LoginCredentials, company: 'CDPL' | 'CF
  * Verify JWT token
  */
 export async function verifyToken(token: string, company: 'CDPL' | 'CFPL'): Promise<User> {
-  const response = await fetch(`${API_BASE_URL}/auth/verify`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -75,7 +75,7 @@ export async function changePassword(
   token: string,
   company: 'CDPL' | 'CFPL'
 ): Promise<{ message: string; success: boolean }> {
-  const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

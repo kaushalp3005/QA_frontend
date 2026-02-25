@@ -174,10 +174,26 @@ export default function MetalDetectorPage() {
     window.print()
   }
 
-  const getPrintRows = (entries: MDEntry[]) => {
+  const getPrintRows = (entries: MDEntry[], minRows = 10) => {
     const rows: (MDEntry | null)[] = [...entries]
-    while (rows.length < 10) rows.push(null)
+    while (rows.length < minRows) rows.push(null)
     return rows
+  }
+
+  const groupEntriesByIdentification = (entries: MDEntry[]) => {
+    const groups: Record<string, MDEntry[]> = {}
+    entries.forEach(entry => {
+      const key = entry.identification_no || 'Unknown'
+      if (!groups[key]) groups[key] = []
+      groups[key].push(entry)
+    })
+    return Object.entries(groups)
+  }
+
+  const W202_IDENTIFICATIONS = ['CCP-1', 'CCP-1A', 'CCP-1B', 'CCP-1C']
+
+  const getDocNumber = (identificationNo: string) => {
+    return W202_IDENTIFICATIONS.includes(identificationNo) ? 'CFPLA.C2.F.24' : 'CFPLB.C2.F.18'
   }
 
   const handleDeleteRecord = async (recordId: number) => {
@@ -868,7 +884,7 @@ export default function MetalDetectorPage() {
 
       {/* Print Preview Overlay */}
       {(printRecord || printLoading) && (
-        <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
+        <div className="print-overlay fixed inset-0 z-[60] bg-white overflow-y-auto">
           {/* Print Controls - hidden during print */}
           <div className="no-print sticky top-0 z-10 bg-gray-100 border-b border-gray-300 px-6 py-3 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-800">Print Preview</h3>
@@ -896,174 +912,176 @@ export default function MetalDetectorPage() {
             </div>
           ) : printRecord ? (
             <div className="print-content" style={{ padding: '20px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
-              {/* ===== DOCUMENT START ===== */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000' }}>
-                {/* Company Header */}
-                <thead>
-                  <tr>
-                    <td rowSpan={4} style={{ border: '1px solid #000', padding: '8px', textAlign: 'center', width: '150px', verticalAlign: 'middle' }}>
-                      <img src="/candor-logo.jpg" alt="Candor Foods" style={{ width: '140px', height: '80px', objectFit: 'contain' }} />
-                    </td>
-                    <td rowSpan={2} style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px' }}>
-                      CANDOR FOODS PRIVATE LIMITED
-                    </td>
-                    <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px', width: '120px' }}>Issue Date:</td>
-                    <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px', width: '110px' }}>05/02/2023</td>
-                  </tr>
-                  <tr>
-                    <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>Issue No:</td>
-                    <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>02</td>
-                  </tr>
-                  <tr>
-                    <td rowSpan={2} style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontSize: '12px' }}>
-                      <div style={{ fontWeight: 'bold' }}>Format : CCP calibration, Monitoring and Verification Record</div>
-                      <div style={{ fontWeight: 'bold' }}>(Metal Detector)</div>
-                      <div style={{ fontSize: '11px', marginTop: '2px' }}>Document No: CFPLA.C2.F.24a</div>
-                    </td>
-                    <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>Revision Date:</td>
-                    <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>01/10/2025</td>
-                  </tr>
-                  <tr>
-                    <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>Revision No.:</td>
-                    <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>01</td>
-                  </tr>
-                </thead>
-              </table>
+              {groupEntriesByIdentification(printRecord.entries).map(([identificationNo, groupEntries], groupIndex, allGroups) => (
+                <div key={identificationNo} className="print-page" style={{ pageBreakAfter: groupIndex < allGroups.length - 1 ? 'always' : 'auto' }}>
+                  {/* ===== DOCUMENT START ===== */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000' }}>
+                    {/* Company Header */}
+                    <thead>
+                      <tr>
+                        <td rowSpan={4} style={{ border: '1px solid #000', padding: '8px', textAlign: 'center', width: '150px', verticalAlign: 'middle' }}>
+                          <img src="/candor-logo.jpg" alt="Candor Foods" style={{ width: '140px', height: '80px', objectFit: 'contain' }} />
+                        </td>
+                        <td rowSpan={2} style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px' }}>
+                          CANDOR FOODS PRIVATE LIMITED
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px', width: '120px' }}>Issue Date:</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px', width: '110px' }}>05/02/2023</td>
+                      </tr>
+                      <tr>
+                        <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>Issue No:</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>02</td>
+                      </tr>
+                      <tr>
+                        <td rowSpan={2} style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontSize: '12px' }}>
+                          <div style={{ fontWeight: 'bold' }}>Format : CCP calibration, Monitoring and Verification Record</div>
+                          <div style={{ fontWeight: 'bold' }}>(Metal Detector)</div>
+                          <div style={{ fontSize: '11px', marginTop: '2px' }}>Document No: {getDocNumber(identificationNo)}</div>
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>Revision Date:</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>01/10/2025</td>
+                      </tr>
+                      <tr>
+                        <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>Revision No.:</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>01</td>
+                      </tr>
+                    </thead>
+                  </table>
 
-              {/* Frequency Line */}
-              <div style={{ padding: '8px 4px', fontSize: '12px' }}>
-                Frequency: Start - Mid - End (Every Hour)
-              </div>
+                  {/* Frequency Line */}
+                  <div style={{ padding: '8px 4px', fontSize: '12px' }}>
+                    Frequency: Start - Mid - End (Every Hour)
+                  </div>
 
-              {/* Machine Details Row */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px', fontWeight: 'bold', backgroundColor: '#d9d9d9', width: '140px' }}>
-                      MACHINE DETAILS
-                    </td>
-                    <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px', width: '200px' }}>
-                      {printRecord.entries[0]?.machine_details || 'METAL DETECTOR-CCP-1'}
-                    </td>
-                    <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px' }}>
-                      <strong>LOCATION:</strong> {printRecord.location || printRecord.entries[0]?.location || ''}
-                    </td>
-                    <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px', textAlign: 'right' }}>
-                      <strong>Identification No:</strong>{printRecord.identification_no}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                  {/* Machine Details Row */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px', fontWeight: 'bold', backgroundColor: '#d9d9d9', width: '140px' }}>
+                          MACHINE DETAILS
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px', width: '200px' }}>
+                          {groupEntries[0]?.machine_details || 'METAL DETECTOR'}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px' }}>
+                          <strong>LOCATION:</strong> {groupEntries[0]?.location || ''}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px', textAlign: 'right' }}>
+                          <strong>Identification No:</strong> {identificationNo}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
 
-              {/* Main Data Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000', marginTop: '-2px' }}>
-                <thead>
-                  {/* Header Row 1 */}
-                  <tr>
-                    <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '80px', verticalAlign: 'middle' }}>
-                      DATE
-                    </th>
-                    <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '60px', verticalAlign: 'middle' }}>
-                      TIME
-                    </th>
-                    <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '110px', verticalAlign: 'middle' }}>
-                      PRODUCT NAME
-                    </th>
-                    <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '80px', verticalAlign: 'middle' }}>
-                      BATCH/LOT<br />NO.
-                    </th>
-                    <th colSpan={3} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold' }}>
-                      SENSITIVITIES
-                    </th>
-                    <th colSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', lineHeight: '1.3' }}>
-                      IF METAL DETECTOR IS NOT<br />WORKING, CORRECTIVE ACTION<br />TAKEN ON
-                    </th>
-                    <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '85px', verticalAlign: 'middle' }}>
-                      CALIBRATED/<br />MONITORED<br />BY
-                    </th>
-                    <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '70px', verticalAlign: 'middle' }}>
-                      VERIFIED<br />BY
-                    </th>
-                    <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '75px', verticalAlign: 'middle' }}>
-                      REMARKS
-                    </th>
-                  </tr>
-                  {/* Header Row 2 - Sub-headers */}
-                  <tr>
-                    <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '55px' }}>
-                      FE<br /><span style={{ fontWeight: 'normal' }}>{printRecord.entries[0]?.sensitivity_fe || '1 mm'}</span>
-                    </th>
-                    <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '55px' }}>
-                      NFE<br /><span style={{ fontWeight: 'normal' }}>{printRecord.entries[0]?.sensitivity_nfe || '1.2 mm'}</span>
-                    </th>
-                    <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '55px' }}>
-                      SS<br /><span style={{ fontWeight: 'normal' }}>{printRecord.entries[0]?.sensitivity_ss || '1.7 mm'}</span>
-                    </th>
-                    <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '90px' }}>
-                      ON METAL<br />DETECTOR
-                    </th>
-                    <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '90px' }}>
-                      ON PRODUCT<br />PASSED
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getPrintRows(printRecord.entries).map((entry, index) => (
-                    <tr key={index}>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center', height: '28px' }}>
-                        {entry?.entry_date || ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                        {entry?.entry_time || ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                        {entry?.product_name || ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                        {entry?.batch_lot_no || ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '12px', textAlign: 'center' }}>
-                        {entry ? (entry.sensitivity_fe_checked ? '\u2713' : '') : ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '12px', textAlign: 'center' }}>
-                        {entry ? (entry.sensitivity_nfe_checked ? '\u2713' : '') : ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '12px', textAlign: 'center' }}>
-                        {entry ? (entry.sensitivity_ss_checked ? '\u2713' : '') : ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                        {entry?.corrective_action_on_detector || ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                        {entry?.corrective_action_on_product || ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                        {entry?.calibrated_by || ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                        {entry?.verified_by || ''}
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                        {entry?.remarks || ''}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                  {/* Main Data Table */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000', marginTop: '-2px' }}>
+                    <thead>
+                      <tr>
+                        <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '80px', verticalAlign: 'middle' }}>
+                          DATE
+                        </th>
+                        <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '60px', verticalAlign: 'middle' }}>
+                          TIME
+                        </th>
+                        <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '110px', verticalAlign: 'middle' }}>
+                          PRODUCT NAME
+                        </th>
+                        <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '80px', verticalAlign: 'middle' }}>
+                          BATCH/LOT<br />NO.
+                        </th>
+                        <th colSpan={3} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold' }}>
+                          SENSITIVITIES
+                        </th>
+                        <th colSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', lineHeight: '1.3' }}>
+                          IF METAL DETECTOR IS NOT<br />WORKING, CORRECTIVE ACTION<br />TAKEN ON
+                        </th>
+                        <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '85px', verticalAlign: 'middle' }}>
+                          CALIBRATED/<br />MONITORED<br />BY
+                        </th>
+                        <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '70px', verticalAlign: 'middle' }}>
+                          VERIFIED<br />BY
+                        </th>
+                        <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '75px', verticalAlign: 'middle' }}>
+                          REMARKS
+                        </th>
+                      </tr>
+                      <tr>
+                        <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '55px' }}>
+                          FE<br /><span style={{ fontWeight: 'normal' }}>{groupEntries[0]?.sensitivity_fe || '1 mm'}</span>
+                        </th>
+                        <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '55px' }}>
+                          NFE<br /><span style={{ fontWeight: 'normal' }}>{groupEntries[0]?.sensitivity_nfe || '1.2 mm'}</span>
+                        </th>
+                        <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '55px' }}>
+                          SS<br /><span style={{ fontWeight: 'normal' }}>{groupEntries[0]?.sensitivity_ss || '1.7 mm'}</span>
+                        </th>
+                        <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '90px' }}>
+                          ON METAL<br />DETECTOR
+                        </th>
+                        <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '90px' }}>
+                          ON PRODUCT<br />PASSED
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getPrintRows(groupEntries).map((entry, index) => (
+                        <tr key={index}>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center', height: '28px' }}>
+                            {entry?.entry_date || ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                            {entry?.entry_time || ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                            {entry?.product_name || ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                            {entry?.batch_lot_no || ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '12px', textAlign: 'center' }}>
+                            {entry ? (entry.sensitivity_fe_checked ? '\u2713' : '') : ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '12px', textAlign: 'center' }}>
+                            {entry ? (entry.sensitivity_nfe_checked ? '\u2713' : '') : ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '12px', textAlign: 'center' }}>
+                            {entry ? (entry.sensitivity_ss_checked ? '\u2713' : '') : ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                            {entry?.corrective_action_on_detector || ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                            {entry?.corrective_action_on_product || ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                            {entry?.calibrated_by || ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                            {entry?.verified_by || ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                            {entry?.remarks || ''}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-              {/* Footer */}
-              <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', paddingLeft: '20px', paddingRight: '20px' }}>
-                <div>
-                  <strong>Prepared By:</strong> FST
+                  {/* Footer */}
+                  <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', paddingLeft: '20px', paddingRight: '20px' }}>
+                    <div>
+                      <strong>Prepared By:</strong> FST
+                    </div>
+                    <div style={{ border: '2px solid #000', padding: '4px 16px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center' }}>
+                      CONTROLLED<br />COPY
+                    </div>
+                    <div>
+                      <strong>Approved By:</strong> FSTL
+                    </div>
+                  </div>
+                  {/* ===== DOCUMENT END ===== */}
                 </div>
-                <div style={{ border: '2px solid #000', padding: '4px 16px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center' }}>
-                  CONTROLLED<br />COPY
-                </div>
-                <div>
-                  <strong>Approved By:</strong> FSTL
-                </div>
-              </div>
-              {/* ===== DOCUMENT END ===== */}
+              ))}
             </div>
           ) : null}
         </div>
@@ -1072,27 +1090,64 @@ export default function MetalDetectorPage() {
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
-          body * {
-            visibility: hidden;
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
-          .print-content,
-          .print-content * {
-            visibility: visible;
+          /* Hide ALL top-level elements */
+          body > * {
+            display: none !important;
+          }
+          /* Show the ancestor chain - use * instead of div to also match <main>, <aside>, etc. */
+          body > *:has(.print-content) {
+            display: block !important;
+          }
+          /* Reset ALL ancestor containers (div, main, section, etc.) to normal flow */
+          *:has(.print-content) {
+            display: block !important;
+            position: static !important;
+            overflow: visible !important;
+            height: auto !important;
+            width: 100% !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            background: none !important;
+          }
+          /* Hide siblings at every level (sidebar, header, page content, etc.) */
+          *:has(.print-content) > *:not(:has(.print-content)):not(.print-content) {
+            display: none !important;
           }
           .print-content {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            padding: 10px !important;
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
             max-width: 100% !important;
+          }
+          /* Force each identification group onto a separate page */
+          .print-page {
+            page-break-after: always;
+            break-after: page;
+          }
+          .print-page:last-child {
+            page-break-after: auto;
+            break-after: auto;
           }
           .no-print {
             display: none !important;
           }
           @page {
             size: landscape;
-            margin: 10mm;
+            margin: 0;
+          }
+          .print-page {
+            padding: 10mm;
           }
         }
       `}</style>

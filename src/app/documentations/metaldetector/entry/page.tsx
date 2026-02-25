@@ -436,7 +436,7 @@ export default function MetalDetectorEntryPage() {
             </h3>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-1 gap-1">
               <p className="text-xs sm:text-sm text-blue-100">
-                CFPLA.C2.F.24a | Every Hour
+                {selectedWarehouse === 'W202' ? 'CFPLA.C2.F.24' : 'CFPLB.C2.F.18'} | Every Hour
               </p>
               <div className="flex items-center text-xs text-blue-100">
                 <div className="w-1.5 h-1.5 bg-green-300 rounded-full mr-1.5 animate-pulse"></div>

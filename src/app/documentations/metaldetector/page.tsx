@@ -66,6 +66,7 @@ export default function MetalDetectorPage() {
   const [editLoading, setEditLoading] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
   const [editFormData, setEditFormData] = useState<{
+    entry_date: string
     entry_time: string
     customer_name: string
     batch_lot_no: string
@@ -234,6 +235,7 @@ export default function MetalDetectorPage() {
         const data: MDRecordWithEntries = await response.json()
         setEditRecord(data)
         setEditFormData({
+          entry_date: data.entry_date || '',
           entry_time: data.entry_time || '',
           customer_name: data.customer_name || '',
           batch_lot_no: data.batch_lot_no || '',
@@ -672,6 +674,15 @@ export default function MetalDetectorPage() {
                     <div>
                       <h4 className="text-md font-semibold text-gray-800 mb-3">Record Details</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                          <input
+                            type="date"
+                            value={editFormData.entry_date}
+                            onChange={(e) => setEditFormData(prev => prev ? { ...prev, entry_date: e.target.value } : prev)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
                           <input

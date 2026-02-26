@@ -512,8 +512,9 @@ export default function MetalDetectorEntryPage() {
                   type="date"
                   name="date"
                   value={formData.date}
-                  className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                  readOnly
+                  onChange={isAuthorized ? handleInputChange : undefined}
+                  className={`w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
+                  readOnly={!isAuthorized}
                 />
               </div>
               <div>

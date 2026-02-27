@@ -292,9 +292,9 @@ export default function MetalDetectorEntryPage() {
     try {
       console.log('🚀 Starting save process...')
       
-      // Generate batch ID in format MDYYYYMMHH##
+      // Generate batch ID in format MDYYYYMMDDHHMMSS
       const now = new Date()
-      const baseId = `MD${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}`
+      const baseId = `MD${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
       
       // Create summary record for md_records table
       const summaryRecord = {

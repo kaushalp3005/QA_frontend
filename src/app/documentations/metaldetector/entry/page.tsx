@@ -164,12 +164,9 @@ export default function MetalDetectorEntryPage() {
     if (savedFormData) {
       try {
         const parsed = JSON.parse(savedFormData)
-        // Update date and time to current if it's a different day
-        const currentDate = new Date().toISOString().split('T')[0]
-        if (parsed.date !== currentDate) {
-          parsed.date = currentDate
-          parsed.time = new Date().toTimeString().slice(0, 5)
-        }
+        // Always update date and time to current on page load/refresh
+        parsed.date = new Date().toISOString().split('T')[0]
+        parsed.time = new Date().toTimeString().slice(0, 5)
         return parsed
       } catch (error) {
         console.error('Error parsing saved form data:', error)

@@ -2,19 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { 
-  ArrowLeft, 
-  Edit, 
-  Calendar, 
-  User, 
-  Package, 
+import {
+  ArrowLeft,
+  Edit,
+  Calendar,
+  User,
   AlertCircle,
   FileText,
   Clock,
-  CheckCircle,
   Loader2,
   Video,
-  Image as ImageIcon
+  Image as ImageIcon,
+  MessageSquare,
+  Package
 } from 'lucide-react'
 import Link from 'next/link'
 import DashboardLayout from '@/components/layout/DashboardLayout'
@@ -207,69 +207,18 @@ export default function ComplaintViewPage() {
                   <dt className="text-sm font-medium text-gray-500">Company</dt>
                   <dd className="mt-1 text-sm text-gray-900">{complaint.company}</dd>
                 </div>
-              </dl>
-            </div>
-
-            {/* Dates */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center">
-                <Calendar className="h-4 w-4 mr-2" />
-                Dates
-              </h3>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Received Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDateShort(complaint.receivedDate)}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Manufacturing Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDateShort(complaint.manufacturingDate)}</dd>
-                </div>
-              </dl>
-            </div>
-
-            {/* Item Information */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center">
-                <Package className="h-4 w-4 mr-2" />
-                Item Information
-              </h3>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Category</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{complaint.itemCategory}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Subcategory</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{complaint.itemSubcategory}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Description</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{complaint.itemDescription}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Batch Code</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{complaint.batchCode}</dd>
-                </div>
-              </dl>
-            </div>
-
-            {/* Quantities */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-3">Quantities</h3>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Quantity Rejected</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{complaint.quantityRejected} {complaint.uom}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Quantity Approved</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{complaint.quantityApproved} {complaint.uom}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Unit of Measure</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{complaint.uom}</dd>
-                </div>
+                {complaint.customerEmail && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Email Address</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{complaint.customerEmail}</dd>
+                  </div>
+                )}
+                {complaint.customerAddress && (
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500">Address</dt>
+                    <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{complaint.customerAddress}</dd>
+                  </div>
+                )}
               </dl>
             </div>
 
@@ -280,31 +229,64 @@ export default function ComplaintViewPage() {
                 Complaint Details
               </h3>
               <dl className="grid grid-cols-1 gap-4">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Complaint Nature</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{complaint.complaintNature}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">QA Assessment</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{complaint.qaAssessment}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Remarks</dt>
-                  <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{complaint.remarks || 'No remarks'}</dd>
-                </div>
-                {complaint.measuresToResolve && (
+                {(complaint.problemStatement || complaint.remarks) && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Measures to Resolve</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{complaint.measuresToResolve}</dd>
+                    <dt className="text-sm font-medium text-gray-500">Problem Statement</dt>
+                    <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{complaint.problemStatement || complaint.remarks}</dd>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Date of Complaint Receive</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{formatDateShort(complaint.receivedDate)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Complaint Category</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{complaint.complaintCategory || complaint.complaintNature || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Complaint Subcategory</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{complaint.complaintSubcategory || complaint.otherComplaintNature || 'N/A'}</dd>
+                  </div>
+                  {complaint.measuresToResolve && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Measures to Resolve</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{complaint.measuresToResolve}</dd>
+                    </div>
+                  )}
+                </div>
+                {complaint.remarks && complaint.problemStatement && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Remarks</dt>
+                    <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{complaint.remarks}</dd>
                   </div>
                 )}
               </dl>
             </div>
 
-            {/* Articles */}
+            {/* Communication Details */}
+            {complaint.communicationMethod && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Communication Details
+                </h3>
+                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Communication Method</dt>
+                    <dd className="mt-1 text-sm text-gray-900 capitalize">{complaint.communicationMethod}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+
+            {/* Articles/Products */}
             {complaint.articles && complaint.articles.length > 0 && (
               <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Articles</h3>
+                <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center">
+                  <Package className="h-4 w-4 mr-2" />
+                  Articles/Products
+                </h3>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -314,6 +296,7 @@ export default function ComplaintViewPage() {
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">UOM</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Defect Description</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -324,6 +307,7 @@ export default function ComplaintViewPage() {
                           <td className="px-4 py-2 text-sm text-gray-900">{article.itemDescription}</td>
                           <td className="px-4 py-2 text-sm text-gray-900">{article.quantity}</td>
                           <td className="px-4 py-2 text-sm text-gray-900">{article.uom}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{article.defectDescription || '-'}</td>
                         </tr>
                       ))}
                     </tbody>

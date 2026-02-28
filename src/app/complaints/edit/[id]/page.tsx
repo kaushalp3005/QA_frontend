@@ -110,6 +110,8 @@ export default function EditComplaintPage() {
         complaintId: complaint.complaintId,
         company: currentCompany,
         customerName: data.customerName === 'other' ? data.customerNameOther : data.customerName,
+        customerEmail: data.customerEmail || complaint.customerEmail || '',
+        customerAddress: data.customerAddress || complaint.customerAddress || '',
         receivedDate: data.complaintReceiveDate,
         manufacturingDate: data.manufacturingDate || data.complaintReceiveDate,
         itemCategory: data.articles?.[0]?.category || complaint.itemCategory,
@@ -120,11 +122,15 @@ export default function EditComplaintPage() {
         quantityApproved: data.quantityApproved || complaint.quantityApproved,
         uom: data.articles?.[0]?.uom || complaint.uom,
         complaintNature: data.complaintCategory || complaint.complaintNature,
+        complaintCategory: data.complaintCategory || complaint.complaintCategory || '',
+        complaintSubcategory: data.complaintSubcategory || complaint.complaintSubcategory || '',
         otherComplaintNature: data.complaintSubcategory || '',
+        problemStatement: data.problemStatement || complaint.problemStatement || '',
         qaAssessment: data.qaAssessment || complaint.qaAssessment,
         justifiedStatus: data.justifiedStatus || complaint.justifiedStatus,
+        communicationMethod: data.communicationMethod || complaint.communicationMethod || '',
         measuresToResolve: data.measuresToResolve || complaint.measuresToResolve,
-        remarks: data.remarks || data.problemStatement || complaint.remarks,
+        remarks: data.remarks || '',
         // Remove duplicate images before sending to backend
         proofImages: (data.proofImages ? [...new Set(data.proofImages)] : (complaint.proofImages ? [...new Set(complaint.proofImages)] : [])) as string[],
         articles: (data.articles || []).map((article: any, index: number) => ({
@@ -133,7 +139,8 @@ export default function EditComplaintPage() {
           itemSubcategory: article.subcategory,
           itemDescription: article.itemDescription,
           quantity: article.quantity || 0,
-          uom: article.uom || 'pieces'
+          uom: article.uom || 'pieces',
+          defectDescription: article.defectDescription || ''
         })),
         updatedBy: 'qa_user_1' // TODO: Get from auth context
       }
@@ -209,15 +216,17 @@ export default function EditComplaintPage() {
   const initialData = complaint ? {
     customerName: complaint.customerName,
     customerNameOther: '',
-    customerEmail: '',  // Backend doesn't return email, needs to be fetched separately
-    customerAddress: '',  // Backend doesn't return address
-    complaintCategory: mapComplaintNatureToCategory(complaint.complaintNature || 'FOOD_SAFETY'),
-    complaintSubcategory: complaint.complaintNature || '',
+    customerEmail: complaint.customerEmail || '',
+    customerAddress: complaint.customerAddress || '',
+    complaintCategory: complaint.complaintCategory
+      ? complaint.complaintCategory as 'food_safety' | 'non_food_safety'
+      : mapComplaintNatureToCategory(complaint.complaintNature || 'FOOD_SAFETY'),
+    complaintSubcategory: complaint.complaintSubcategory || complaint.otherComplaintNature || '',
     complaintReceiveDate: complaint.receivedDate,
-    problemStatement: complaint.remarks || '',
+    problemStatement: complaint.problemStatement || complaint.remarks || '',
     measuresToResolve: (complaint.measuresToResolve || 'rca_capa') as 'rtv' | 'rca_capa' | 'fishbone' | 'replacement' | 'refund' | 'other',
     remarks: complaint.remarks || '',
-    communicationMethod: 'email' as const,
+    communicationMethod: (complaint.communicationMethod || 'email') as 'email' | 'whatsapp' | 'phone' | 'other',
     proofImages: complaint.proofImages || [],
     articles: (complaint.articles && Array.isArray(complaint.articles) && complaint.articles.length > 0)
       ? complaint.articles.map(article => ({
@@ -225,14 +234,16 @@ export default function EditComplaintPage() {
           subcategory: article.itemSubcategory || '',
           itemDescription: article.itemDescription || '',
           quantity: article.quantity || 1,
-          uom: article.uom || 'PIECES'
+          uom: article.uom || 'PIECES',
+          defectDescription: article.defectDescription || ''
         }))
       : [{
           category: complaint.itemCategory || '',
           subcategory: complaint.itemSubcategory || '',
           itemDescription: complaint.itemDescription || '',
           quantity: complaint.quantityRejected || 1,
-          uom: complaint.uom || 'PIECES'
+          uom: complaint.uom || 'PIECES',
+          defectDescription: ''
         }]
   } : undefined
 

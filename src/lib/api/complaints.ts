@@ -9,6 +9,8 @@ const COMPLAINTS_BASE_URL = API_BASE_URL
 export interface ComplaintFormData {
   company: string
   customerName: string
+  customerEmail?: string
+  customerAddress?: string
   receivedDate: string
   manufacturingDate: string
   itemCategory: string
@@ -19,9 +21,14 @@ export interface ComplaintFormData {
   quantityApproved: number
   uom: string
   complaintNature: string
+  complaintCategory?: string
+  complaintSubcategory?: string
   otherComplaintNature?: string
+  problemStatement?: string
   qaAssessment: string
   justifiedStatus: string
+  communicationMethod?: string
+  measuresToResolve?: string
   remarks: string
   proofImages: string[]
   articles: Array<{
@@ -30,6 +37,7 @@ export interface ComplaintFormData {
     itemDescription: string
     quantity: number
     uom: string
+    defectDescription?: string
   }>
   createdBy?: string
   updatedBy?: string
@@ -40,6 +48,8 @@ export interface ComplaintResponse {
   complaintId: string
   company: string
   customerName: string
+  customerEmail?: string
+  customerAddress?: string
   receivedDate: string
   manufacturingDate: string
   itemCategory: string
@@ -50,8 +60,13 @@ export interface ComplaintResponse {
   quantityApproved: number
   uom: string
   complaintNature: string
+  complaintCategory?: string
+  complaintSubcategory?: string
+  otherComplaintNature?: string
+  problemStatement?: string
   qaAssessment: string
   justifiedStatus: string
+  communicationMethod?: string
   measuresToResolve?: string
   remarks: string
   proofImages: string[]
@@ -62,6 +77,7 @@ export interface ComplaintResponse {
     itemDescription: string
     quantity: number
     uom: string
+    defectDescription?: string
   }>
   createdBy: string
   createdAt: string

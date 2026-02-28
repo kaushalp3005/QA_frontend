@@ -76,6 +76,8 @@ export default function CreateComplaintPage() {
       const complaintData = {
         company: currentCompany,
         customerName: data.customerName === 'other' ? data.customerNameOther : data.customerName,
+        customerEmail: data.customerEmail || '',
+        customerAddress: data.customerAddress || '',
         receivedDate: data.complaintReceiveDate,
         manufacturingDate: data.manufacturingDate || data.complaintReceiveDate,
         itemCategory: data.articles?.[0]?.category || '',
@@ -88,23 +90,28 @@ export default function CreateComplaintPage() {
         // Map complaintCategory to the format expected by backend
         // 'food_safety' -> 'Food Safety' (generates CCFS prefix)
         // 'non_food_safety' -> 'Non Food Safety' (generates CCNFS prefix)
-        complaintNature: data.complaintCategory === 'food_safety' 
-          ? 'Food Safety' 
+        complaintNature: data.complaintCategory === 'food_safety'
+          ? 'Food Safety'
           : data.complaintCategory === 'non_food_safety'
           ? 'Non Food Safety'
           : 'Non Food Safety', // Default to Non Food Safety
+        complaintCategory: data.complaintCategory || '',
+        complaintSubcategory: data.complaintSubcategory || '',
         otherComplaintNature: data.complaintSubcategory || '',
+        problemStatement: data.problemStatement || '',
         qaAssessment: data.qaAssessment || 'Pending',
         justifiedStatus: data.justifiedStatus || 'Under Review',
+        communicationMethod: data.communicationMethod || '',
         measuresToResolve: data.measuresToResolve || null,
-        remarks: data.remarks || data.problemStatement || '',
+        remarks: data.remarks || '',
         proofImages: data.proofImages || [],
         articles: (data.articles || []).map((article: any) => ({
           itemCategory: article.category,
           itemSubcategory: article.subcategory,
           itemDescription: article.itemDescription,
           quantity: article.quantity || 0,
-          uom: article.uom || 'pieces'
+          uom: article.uom || 'pieces',
+          defectDescription: article.defectDescription || ''
         })),
         createdBy: 'qa_user_1' // TODO: Get from auth context
       }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDateShort } from '@/lib/date-utils'
-import { 
+import {
   Search,
   BarChart3,
   Shield,
@@ -13,12 +13,21 @@ import {
   CheckCircle,
   Edit3,
   Printer,
-  FileText
+  FileText,
+  ShieldAlert,
+  ShieldCheck,
+  ClipboardList,
+  ArrowRight,
+  Package,
+  RefreshCw,
+  Wrench
 } from 'lucide-react'
 import { cardStyles, layoutStyles, textStyles, badgeStyles, cn } from '@/lib/styles'
 import { getRCAList } from '@/lib/api/rca'
 import { getFishboneAnalyses } from '@/lib/api/fishbone'
 import { getLicenses, type License } from '@/lib/api/licenses'
+import { getComplaints } from '@/lib/api/complaints'
+import type { ComplaintResponse } from '@/lib/api/complaints'
 import type { RCAResponse } from '@/lib/api/rca'
 import type { FishboneListItem } from '@/lib/api/fishbone'
 import { useCompany } from '@/contexts/CompanyContext'
@@ -96,11 +105,26 @@ const getStatusLabel = (status: string) => {
   }
 }
 
+interface ComplaintRecord {
+  id: number
+  complaintId: string
+  customerName: string
+  itemDescription: string
+  complaintNature: string
+  measuresToResolve: string
+  justifiedStatus: string
+  receivedDate: string
+  batchCode: string
+  quantityRejected: number
+  status: string
+}
+
 export default function DashboardPage() {
   const { currentCompany } = useCompany()
   const [rcaRecords, setRcaRecords] = useState<RCARecord[]>([])
   const [fishboneRecords, setFishboneRecords] = useState<FishboneRecord[]>([])
   const [licenseRecords, setLicenseRecords] = useState<LicenseRecord[]>([])
+  const [complaintRecords, setComplaintRecords] = useState<ComplaintRecord[]>([])
   const [loading, setLoading] = useState(true)
 
   // Stats based on actual data
@@ -156,10 +180,10 @@ export default function DashboardPage() {
         rca_id: rca.id,
         rca_number: rca.rca_number || '',
         problem_statement: rca.problem_statement || '',
-        status: 'draft', // RCA doesn't have status field, default to draft
+        status: 'draft',
         created_at: rca.created_at || ''
       }))
-      setRcaRecords(mappedRCA.slice(0, 5)) // Latest 5
+      setRcaRecords(mappedRCA.slice(0, 10)) // Latest 10
 
       // Fetch Fishbone records using API function
       const fishboneResponse = await getFishboneAnalyses({
@@ -206,34 +230,63 @@ export default function DashboardPage() {
         return daysUntilExpiry <= 30 && daysUntilExpiry >= 0 && (l.status || 'Active').toLowerCase() === 'active'
       }).length
 
+      // Fetch Complaint records
+      try {
+        const complaintResponse = await getComplaints({
+          company: currentCompany,
+          page: 1,
+          limit: 20
+        })
+        const complaintList = complaintResponse.data || []
+        const mappedComplaints: ComplaintRecord[] = complaintList.map((c: ComplaintResponse) => ({
+          id: c.id,
+          complaintId: c.complaintId,
+          customerName: c.customerName,
+          itemDescription: c.itemDescription || '',
+          complaintNature: c.complaintNature || '',
+          measuresToResolve: c.measuresToResolve || '',
+          justifiedStatus: c.justifiedStatus || '',
+          receivedDate: c.receivedDate || '',
+          batchCode: c.batchCode || '',
+          quantityRejected: c.quantityRejected || 0,
+          status: c.justifiedStatus || ''
+        }))
+        setComplaintRecords(mappedComplaints)
+      } catch (err) {
+        console.error('Error fetching complaints:', err)
+      }
+
+      // Calculate complaint counts
+      const totalComplaints = complaintRecords.length
+
       setStats([
-        { 
-          name: 'Total RCA Records', 
-          value: rcaList.length.toString(), 
-          change: `+${rcaList.length}`, 
+        {
+          name: 'Total RCA Records',
+          value: rcaList.length.toString(),
+          change: `+${rcaList.length}`,
           changeType: 'increase',
-          icon: Search 
+          icon: Search
         },
-        { 
-          name: 'Total Fishbone', 
-          value: fishboneList.length.toString(), 
-          change: `+${fishboneList.length}`, 
+        {
+          name: 'Total Fishbone',
+          value: fishboneList.length.toString(),
+          change: `+${fishboneList.length}`,
           changeType: 'increase',
-          icon: BarChart3 
+          icon: BarChart3
         },
-        { 
-          name: 'Active Licenses', 
-          value: activeLicenses.toString(), 
-          change: `${licenseList.length} total`, 
+        {
+          name: 'Active Licenses',
+          value: activeLicenses.toString(),
+          change: `${licenseList.length} total`,
           changeType: 'increase',
-          icon: Shield 
+          icon: Shield
         },
-        { 
-          name: 'Expiring Soon', 
-          value: expiringSoon.toString(), 
-          change: 'within 30 days', 
+        {
+          name: 'Expiring Soon',
+          value: expiringSoon.toString(),
+          change: 'within 30 days',
           changeType: expiringSoon > 0 ? 'increase' : 'decrease',
-          icon: AlertTriangle 
+          icon: AlertTriangle
         },
       ])
     } catch (error) {
@@ -290,57 +343,283 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Recent RCA Records */}
-        <div className={cardStyles.base}>
-          <div className={cardStyles.header}>
-            <h2 className={textStyles.h3}>Recent RCA/CAPA Records ({rcaRecords.length})</h2>
-          </div>
-          <div className="overflow-x-auto">
-            {rcaRecords.length > 0 ? (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      RCA Number
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Problem Statement
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {rcaRecords.map((rca) => (
-                    <tr key={rca.rca_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {rca.rca_number}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {rca.problem_statement}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={cn(badgeStyles.base, getStatusBadge(rca.status))}>
-                          {rca.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDateShort(rca.created_at)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="px-6 py-8 text-center text-gray-500">
-                No RCA records found
+        {/* Recent RCA Records - Card Grid */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <Search className="h-5 w-5 text-blue-600" />
               </div>
-            )}
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Recent RCA/CAPA Records</h2>
+                <p className="text-sm text-gray-500">{rcaRecords.length} latest records</p>
+              </div>
+            </div>
+            <Link href="/rca-capa" className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+              View All <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
+          {rcaRecords.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {rcaRecords.map((rca, index) => (
+                <Link
+                  key={rca.rca_id}
+                  href={`/rca-capa/${rca.rca_id}/edit`}
+                  className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+                      {rca.rca_number}
+                    </span>
+                    <span className="text-xs text-gray-400">#{index + 1}</span>
+                  </div>
+                  <p className="text-sm text-gray-800 font-medium line-clamp-2 mb-3 group-hover:text-blue-700 transition-colors min-h-[40px]">
+                    {rca.problem_statement || 'No problem statement'}
+                  </p>
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <span className={cn(
+                      "text-xs px-2 py-0.5 rounded-full font-medium",
+                      getStatusBadge(rca.status)
+                    )}>
+                      {rca.status.replace('_', ' ')}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {formatDateShort(rca.created_at)}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <Search className="mx-auto h-10 w-10 text-gray-300 mb-2" />
+              <p className="text-gray-500 text-sm">No RCA records found</p>
+            </div>
+          )}
+        </div>
+
+        {/* Complaints Section */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-lg">
+                <ClipboardList className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Complaint Records</h2>
+                <p className="text-sm text-gray-500">{complaintRecords.length} total complaints</p>
+              </div>
+            </div>
+            <Link href="/complaints" className="text-sm text-orange-600 hover:text-orange-800 font-medium flex items-center gap-1">
+              View All <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          {/* Complaint Summary Counters */}
+          {(() => {
+            const ccfsComplaints = complaintRecords.filter(c => c.complaintId?.startsWith('CCFS'))
+            const ccnfsComplaints = complaintRecords.filter(c => c.complaintId?.startsWith('CCNFS'))
+
+            const measureConfig: Record<string, { label: string; badge: string }> = {
+              replacement: { label: 'Replacement', badge: 'bg-purple-100 text-purple-700 border-purple-200' },
+              rca_capa: { label: 'RCA/CAPA', badge: 'bg-blue-100 text-blue-700 border-blue-200' },
+              fishbone: { label: 'Fishbone', badge: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+              rtv: { label: 'RTV', badge: 'bg-teal-100 text-teal-700 border-teal-200' },
+              refund: { label: 'Refund', badge: 'bg-orange-100 text-orange-700 border-orange-200' },
+              other: { label: 'Other', badge: 'bg-gray-100 text-gray-600 border-gray-200' },
+            }
+
+            const getMeasureLabel = (measure: string) => {
+              if (!measure) return 'Not Specified'
+              return measureConfig[measure.toLowerCase()]?.label || measure.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            }
+
+            const getMeasureBadge = (measure: string) => {
+              if (!measure) return 'bg-gray-100 text-gray-600 border-gray-200'
+              return measureConfig[measure.toLowerCase()]?.badge || 'bg-gray-100 text-gray-600 border-gray-200'
+            }
+
+            const getMeasureCount = (list: ComplaintRecord[], measure: string) =>
+              list.filter(c => c.measuresToResolve?.toLowerCase() === measure.toLowerCase()).length
+
+            return (
+              <>
+                {/* CCFS - Food Safety Complaints */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-1.5 bg-red-500 rounded-full"></div>
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-900">
+                          Food Safety Complaints (CCFS)
+                        </h3>
+                        <p className="text-xs text-gray-500">{ccfsComplaints.length} complaints</p>
+                      </div>
+                    </div>
+                    {/* CCFS Measure Counts */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">
+                        Replacement: {getMeasureCount(ccfsComplaints, 'replacement')}
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+                        RCA/CAPA: {getMeasureCount(ccfsComplaints, 'rca_capa')}
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                        Fishbone: {getMeasureCount(ccfsComplaints, 'fishbone')}
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-teal-100 text-teal-700 font-medium">
+                        RTV: {getMeasureCount(ccfsComplaints, 'rtv')}
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-medium">
+                        Refund: {getMeasureCount(ccfsComplaints, 'refund')}
+                      </span>
+                    </div>
+                  </div>
+                  {ccfsComplaints.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {ccfsComplaints.slice(0, 8).map((complaint) => (
+                        <Link
+                          key={complaint.id}
+                          href={`/complaints/${complaint.id}`}
+                          className="bg-white rounded-xl border border-red-100 p-4 hover:shadow-lg hover:border-red-300 transition-all duration-200 group"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">
+                              {complaint.complaintId}
+                            </span>
+                            <ShieldAlert className="h-3.5 w-3.5 text-red-400" />
+                          </div>
+                          <p className="text-sm font-medium text-gray-800 mb-1 truncate group-hover:text-red-700">
+                            {complaint.customerName}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate mb-2">
+                            {complaint.itemDescription || 'No description'}
+                          </p>
+                          {/* Measure to Resolve - Prominent Badge */}
+                          <div className={cn(
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border mb-2",
+                            getMeasureBadge(complaint.measuresToResolve)
+                          )}>
+                            <Wrench className="h-3 w-3" />
+                            {getMeasureLabel(complaint.measuresToResolve)}
+                          </div>
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <span className="text-xs text-gray-400">
+                              {formatDateShort(complaint.receivedDate)}
+                            </span>
+                            {complaint.justifiedStatus && (
+                              <span className={cn(
+                                "text-xs px-2 py-0.5 rounded-full font-medium",
+                                complaint.justifiedStatus.toLowerCase() === 'justified'
+                                  ? 'bg-green-50 text-green-700'
+                                  : complaint.justifiedStatus.toLowerCase() === 'not justified'
+                                    ? 'bg-red-50 text-red-700'
+                                    : 'bg-yellow-50 text-yellow-700'
+                              )}>
+                                {complaint.justifiedStatus}
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-red-100 p-6 text-center">
+                      <ShieldAlert className="mx-auto h-8 w-8 text-red-200 mb-2" />
+                      <p className="text-sm text-gray-400">No food safety complaints</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* CCNFS - Non-Food Safety Complaints */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-1.5 bg-amber-500 rounded-full"></div>
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-900">
+                          Non-Food Safety Complaints (CCNFS)
+                        </h3>
+                        <p className="text-xs text-gray-500">{ccnfsComplaints.length} complaints</p>
+                      </div>
+                    </div>
+                    {/* CCNFS Measure Counts */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">
+                        Replacement: {getMeasureCount(ccnfsComplaints, 'replacement')}
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+                        RCA/CAPA: {getMeasureCount(ccnfsComplaints, 'rca_capa')}
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                        Fishbone: {getMeasureCount(ccnfsComplaints, 'fishbone')}
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-teal-100 text-teal-700 font-medium">
+                        RTV: {getMeasureCount(ccnfsComplaints, 'rtv')}
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-medium">
+                        Refund: {getMeasureCount(ccnfsComplaints, 'refund')}
+                      </span>
+                    </div>
+                  </div>
+                  {ccnfsComplaints.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {ccnfsComplaints.slice(0, 8).map((complaint) => (
+                        <Link
+                          key={complaint.id}
+                          href={`/complaints/${complaint.id}`}
+                          className="bg-white rounded-xl border border-amber-100 p-4 hover:shadow-lg hover:border-amber-300 transition-all duration-200 group"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                              {complaint.complaintId}
+                            </span>
+                            <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
+                          </div>
+                          <p className="text-sm font-medium text-gray-800 mb-1 truncate group-hover:text-amber-700">
+                            {complaint.customerName}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate mb-2">
+                            {complaint.itemDescription || 'No description'}
+                          </p>
+                          {/* Measure to Resolve - Prominent Badge */}
+                          <div className={cn(
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border mb-2",
+                            getMeasureBadge(complaint.measuresToResolve)
+                          )}>
+                            <Wrench className="h-3 w-3" />
+                            {getMeasureLabel(complaint.measuresToResolve)}
+                          </div>
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <span className="text-xs text-gray-400">
+                              {formatDateShort(complaint.receivedDate)}
+                            </span>
+                            {complaint.justifiedStatus && (
+                              <span className={cn(
+                                "text-xs px-2 py-0.5 rounded-full font-medium",
+                                complaint.justifiedStatus.toLowerCase() === 'justified'
+                                  ? 'bg-green-50 text-green-700'
+                                  : complaint.justifiedStatus.toLowerCase() === 'not justified'
+                                    ? 'bg-red-50 text-red-700'
+                                    : 'bg-yellow-50 text-yellow-700'
+                              )}>
+                                {complaint.justifiedStatus}
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-amber-100 p-6 text-center">
+                      <ShieldCheck className="mx-auto h-8 w-8 text-amber-200 mb-2" />
+                      <p className="text-sm text-gray-400">No non-food safety complaints</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )
+          })()}
         </div>
 
         {/* Recent Fishbone Analysis */}

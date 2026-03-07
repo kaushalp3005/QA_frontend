@@ -1,12 +1,43 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeft, Check, Loader2 } from 'lucide-react'
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+
+// Convert 24hr time (HH:MM) to 12hr format (hh:mm AM/PM)
+const to12Hour = (time24: string): string => {
+  if (!time24) return ''
+  const [h, m] = time24.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`
+}
+
+// Convert 12hr time (hh:mm AM/PM) to 24hr format (HH:MM)
+const to24Hour = (hour: number, minute: number, period: string): string => {
+  let h = hour
+  if (period === 'AM' && h === 12) h = 0
+  else if (period === 'PM' && h !== 12) h += 12
+  return `${h.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+}
+
+// Parse 24hr time string into 12hr components
+const parse12Hour = (time24: string): { hour: number; minute: number; period: string } => {
+  if (!time24) {
+    const now = new Date()
+    const h = now.getHours()
+    return { hour: h === 0 ? 12 : h > 12 ? h - 12 : h, minute: now.getMinutes(), period: h >= 12 ? 'PM' : 'AM' }
+  }
+  const [h, m] = time24.split(':').map(Number)
+  return { hour: h === 0 ? 12 : h > 12 ? h - 12 : h, minute: m, period: h >= 12 ? 'PM' : 'AM' }
+}
 
 interface MetalDetectorFormData {
   id?: string
+  dbEntryId?: number
   machineDetails: string
   location: string
   identificationNo: string
@@ -140,6 +171,8 @@ const metalDetectorOptions: MetalDetectorOption[] = [
 
 export default function MetalDetectorEntryPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const resumeRecordId = searchParams.get('resumeRecordId')
 
   // Check if current user is authorized to edit time
   const [isAuthorized, setIsAuthorized] = useState(false)
@@ -156,25 +189,6 @@ export default function MetalDetectorEntryPage() {
     }
   }, [])
 
-  // Initialize form data with localStorage or default values
-  const getInitialFormData = (): MetalDetectorFormData => {
-    if (typeof window === 'undefined') return getDefaultFormData()
-    
-    const savedFormData = localStorage.getItem('metalDetectorFormData')
-    if (savedFormData) {
-      try {
-        const parsed = JSON.parse(savedFormData)
-        // Always update date and time to current on page load/refresh
-        parsed.date = new Date().toISOString().split('T')[0]
-        parsed.time = new Date().toTimeString().slice(0, 5)
-        return parsed
-      } catch (error) {
-        console.error('Error parsing saved form data:', error)
-      }
-    }
-    return getDefaultFormData()
-  }
-
   const getDefaultFormData = (): MetalDetectorFormData => ({
     machineDetails: 'Metal Detector',
     location: '',
@@ -187,47 +201,72 @@ export default function MetalDetectorEntryPage() {
     sensitivityFE: '',
     sensitivityNFE: '',
     sensitivitySS: '',
-    sensitivityFEChecked: false,
-    sensitivityNFEChecked: false,
-    sensitivitySSChecked: false,
-    correctiveActionOnDetector: '',
-    correctiveActionOnProduct: '',
+    sensitivityFEChecked: true,
+    sensitivityNFEChecked: true,
+    sensitivitySSChecked: true,
+    correctiveActionOnDetector: 'NO',
+    correctiveActionOnProduct: 'NO',
     calibratedBy: '',
-    verifiedBy: '',
+    verifiedBy: 'Pooja Parkar',
     remarks: ''
   })
 
-  // Initialize records with localStorage or empty array
-  const getInitialRecords = (): MetalDetectorFormData[] => {
-    if (typeof window === 'undefined') return []
-    
-    const savedRecords = localStorage.getItem('metalDetectorRecords')
-    if (savedRecords) {
-      try {
-        return JSON.parse(savedRecords)
-      } catch (error) {
-        console.error('Error parsing saved records:', error)
-      }
+  const [formData, setFormData] = useState<MetalDetectorFormData>(getDefaultFormData)
+  const [records, setRecords] = useState<MetalDetectorFormData[]>([])
+  const [currentRecordId, setCurrentRecordId] = useState<number | null>(null)
+  const [batchId, setBatchId] = useState<string>('')
+  const [isSavingEntry, setIsSavingEntry] = useState(false)
+  const [isFinalizing, setIsFinalizing] = useState(false)
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('')
+
+  // Resume a pending record if resumeRecordId is provided
+  useEffect(() => {
+    if (resumeRecordId) {
+      const recordId = parseInt(resumeRecordId)
+      setCurrentRecordId(recordId)
+      // Fetch existing entries for this record
+      fetchExistingEntries(recordId)
     }
-    return []
+  }, [resumeRecordId])
+
+  const fetchExistingEntries = async (recordId: number) => {
+    try {
+      const response = await fetch(`${API_BASE}/metaldetector/${recordId}`)
+      if (!response.ok) return
+
+      const data = await response.json()
+      setBatchId(data.batch_id)
+
+      // Convert DB entries to local format for display
+      const existingRecords: MetalDetectorFormData[] = data.entries.map((entry: any) => ({
+        id: `db-${entry.id}`,
+        dbEntryId: entry.id,
+        machineDetails: entry.machine_details || 'Metal Detector',
+        location: entry.location || '',
+        identificationNo: entry.identification_no || '',
+        date: entry.entry_date || '',
+        time: entry.entry_time || '',
+        customerName: entry.customer_name || '',
+        productName: entry.product_name || '',
+        batchLotNo: entry.batch_lot_no || '',
+        sensitivityFE: entry.sensitivity_fe || '',
+        sensitivityNFE: entry.sensitivity_nfe || '',
+        sensitivitySS: entry.sensitivity_ss || '',
+        sensitivityFEChecked: entry.sensitivity_fe_checked || false,
+        sensitivityNFEChecked: entry.sensitivity_nfe_checked || false,
+        sensitivitySSChecked: entry.sensitivity_ss_checked || false,
+        correctiveActionOnDetector: entry.corrective_action_on_detector || '',
+        correctiveActionOnProduct: entry.corrective_action_on_product || '',
+        calibratedBy: entry.calibrated_by || '',
+        verifiedBy: entry.verified_by || '',
+        remarks: entry.remarks || ''
+      }))
+
+      setRecords(existingRecords)
+    } catch (error) {
+      console.error('Error fetching existing entries:', error)
+    }
   }
-  
-  const [formData, setFormData] = useState<MetalDetectorFormData>(getInitialFormData)
-  const [records, setRecords] = useState<MetalDetectorFormData[]>(getInitialRecords)
-
-  // Save form data to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('metalDetectorFormData', JSON.stringify(formData))
-    }
-  }, [formData])
-
-  // Save records to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('metalDetectorRecords', JSON.stringify(records))
-    }
-  }, [records])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -245,14 +284,12 @@ export default function MetalDetectorEntryPage() {
     }
   }
 
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('')
-
   const handleIdentificationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value
-    const selectedDetector = metalDetectorOptions.find(option => 
+    const selectedDetector = metalDetectorOptions.find(option =>
       `${option.identificationNo}-${option.srNo}` === selectedId
     )
-    
+
     if (selectedDetector) {
       setFormData(prev => ({
         ...prev,
@@ -268,125 +305,110 @@ export default function MetalDetectorEntryPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Add current form data to records
-    setRecords(prev => [...prev, { ...formData, id: Date.now().toString() }])
-    
-    // Reset form but keep current date/time and machine details
-    setFormData(getDefaultFormData())
-    setSelectedWarehouse('')
-    
-    console.log('Record added:', formData)
+    setIsSavingEntry(true)
+
+    try {
+      const response = await fetch(`${API_BASE}/metaldetector/entry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          record_id: currentRecordId,
+          entry: formData
+        })
+      })
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.detail || `Failed to save entry: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+
+      // Set the record_id for subsequent entries
+      if (!currentRecordId) {
+        setCurrentRecordId(result.record_id)
+        setBatchId(result.batch_id)
+      }
+
+      // Add to local display list with DB entry ID
+      setRecords(prev => [...prev, {
+        ...formData,
+        id: `db-${result.entry_id}`,
+        dbEntryId: result.entry_id
+      }])
+
+      // Reset form but keep current date/time
+      setFormData(getDefaultFormData())
+      setSelectedWarehouse('')
+
+    } catch (error: any) {
+      console.error('Error saving entry:', error)
+      alert(error.message || 'Failed to save entry. Please try again.')
+    } finally {
+      setIsSavingEntry(false)
+    }
   }
 
-  const handleSaveRecord = async () => {
-    if (records.length === 0) {
-      alert('Please add at least one entry before saving.')
+  const handleDeleteEntry = async (index: number) => {
+    const record = records[index]
+
+    if (record.dbEntryId) {
+      try {
+        const response = await fetch(`${API_BASE}/metaldetector/entry/${record.dbEntryId}`, {
+          method: 'DELETE'
+        })
+        if (!response.ok) {
+          alert('Failed to delete entry from database')
+          return
+        }
+      } catch (error) {
+        console.error('Error deleting entry:', error)
+        alert('Failed to delete entry')
+        return
+      }
+    }
+
+    setRecords(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleFinalizeRecord = async () => {
+    if (!currentRecordId || records.length === 0) {
+      alert('No entries to save.')
       return
     }
 
+    setIsFinalizing(true)
+
     try {
-      console.log('🚀 Starting save process...')
-      
-      // Generate batch ID in format MDYYYYMMDDHHMMSS
-      const now = new Date()
-      const baseId = `MD${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
-      
-      // Create summary record for md_records table
-      const summaryRecord = {
-        entry_date: records[0]?.date || new Date().toISOString().split('T')[0],
-        entry_time: records[0]?.time || new Date().toTimeString().slice(0, 5),
-        identification_no: records[0]?.identificationNo || '',
-        location: records[0]?.location || '',
-        customer_name: records[0]?.customerName || '',
-        batch_lot_no: records[0]?.batchLotNo || '',
-        calibrated_by: records[0]?.calibratedBy || '',
-        verified_by: records[0]?.verifiedBy || '',
-        status: records.every(r => r.sensitivityFEChecked && r.sensitivityNFEChecked && r.sensitivitySSChecked) ? 'passed' : 'needs_review',
-        remarks: `Batch of ${records.length} entries`
-      }
-
-      const requestPayload = {
-        baseId,
-        summaryRecord,
-        entries: records
-      }
-
-      console.log('📦 Request payload:', requestPayload)
-
-      // Save to database via API
-      const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
-      const apiUrl = `${API_BASE}/metaldetector/`
-      
-      console.log('🌐 Making request to:', apiUrl)
-      console.log('📄 Request headers:', {
-        'Content-Type': 'application/json',
-      })
-      
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`${API_BASE}/metaldetector/${currentRecordId}/finalize`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload),
+        headers: { 'Content-Type': 'application/json' }
       })
-
-      console.log('📥 Response status:', response.status)
-      console.log('📥 Response statusText:', response.statusText)
-      console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()))
 
       if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
-        let responseBody = ''
-        
-        try {
-          responseBody = await response.text()
-          console.log('📥 Error response body:', responseBody)
-          
-          // Try to parse as JSON for better error details
-          const errorData = JSON.parse(responseBody)
-          errorMessage = errorData.message || errorData.detail || errorMessage
-        } catch (parseError) {
-          console.log('📝 Raw error response (not JSON):', responseBody)
-          if (responseBody) {
-            errorMessage = `${errorMessage} - ${responseBody}`
-          }
-        }
-        
-        throw new Error(errorMessage)
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.detail || 'Failed to finalize record')
       }
 
-      const responseData = await response.json()
-      console.log('✅ Success response:', responseData)
-
       alert('Records saved successfully!')
-      // Clear all records and form data after successful save
+
+      // Clear local state
       setRecords([])
       setFormData(getDefaultFormData())
       setSelectedWarehouse('')
-      
-      // Clear localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('metalDetectorFormData')
-        localStorage.removeItem('metalDetectorRecords')
-      }
-      
+      setCurrentRecordId(null)
+      setBatchId('')
+
       // Redirect to main page
       router.push('/documentations/metaldetector')
-      
-    } catch (error) {
-      console.error('💥 Error saving records:', error)
-      
-      let userMessage = 'Error saving records. Please try again.'
-      
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        userMessage = 'Network error: Unable to connect to server. Please check if the backend is running.'
-      } else if (error instanceof Error) {
-        userMessage = `Save failed: ${error.message}`
-      }
-      
-      alert(userMessage)
+
+    } catch (error: any) {
+      console.error('Error finalizing record:', error)
+      alert(error.message || 'Failed to save records. Please try again.')
+    } finally {
+      setIsFinalizing(false)
     }
   }
 
@@ -395,12 +417,8 @@ export default function MetalDetectorEntryPage() {
       setFormData(getDefaultFormData())
       setSelectedWarehouse('')
       setRecords([])
-      
-      // Clear localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('metalDetectorFormData')
-        localStorage.removeItem('metalDetectorRecords')
-      }
+      setCurrentRecordId(null)
+      setBatchId('')
     }
   }
 
@@ -415,15 +433,22 @@ export default function MetalDetectorEntryPage() {
             <ArrowLeft className="h-5 w-5 mr-1.5 flex-shrink-0" />
             <span className="text-sm sm:text-base">Back</span>
           </button>
-          
-          {(formData.customerName || formData.productName || formData.batchLotNo || records.length > 0) && (
-            <button
-              onClick={handleClearAllData}
-              className="px-3 py-2 text-xs sm:text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors"
-            >
-              Clear All
-            </button>
-          )}
+
+          <div className="flex items-center gap-2">
+            {currentRecordId && (
+              <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
+                Pending · {batchId}
+              </span>
+            )}
+            {(formData.customerName || formData.productName || formData.batchLotNo || records.length > 0) && (
+              <button
+                onClick={handleClearAllData}
+                className="px-3 py-2 text-xs sm:text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm sm:shadow-lg border border-gray-200 overflow-hidden">
@@ -437,7 +462,7 @@ export default function MetalDetectorEntryPage() {
               </p>
               <div className="flex items-center text-xs text-blue-100">
                 <div className="w-1.5 h-1.5 bg-green-300 rounded-full mr-1.5 animate-pulse"></div>
-                Auto-saving
+                Each entry saves to database instantly
               </div>
             </div>
           </div>
@@ -518,14 +543,47 @@ export default function MetalDetectorEntryPage() {
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                   Time <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="time"
-                  name="time"
-                  value={formData.time}
-                  onChange={isAuthorized ? handleInputChange : undefined}
-                  className={`w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
-                  readOnly={!isAuthorized}
-                />
+                <div className="flex gap-1.5 items-center">
+                  <select
+                    value={parse12Hour(formData.time).hour}
+                    onChange={isAuthorized ? (e) => {
+                      const { minute, period } = parse12Hour(formData.time)
+                      setFormData(prev => ({ ...prev, time: to24Hour(Number(e.target.value), minute, period) }))
+                    } : undefined}
+                    disabled={!isAuthorized}
+                    className={`w-[70px] px-2 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                  <span className="text-gray-500 font-bold">:</span>
+                  <select
+                    value={parse12Hour(formData.time).minute}
+                    onChange={isAuthorized ? (e) => {
+                      const { hour, period } = parse12Hour(formData.time)
+                      setFormData(prev => ({ ...prev, time: to24Hour(hour, Number(e.target.value), period) }))
+                    } : undefined}
+                    disabled={!isAuthorized}
+                    className={`w-[70px] px-2 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
+                  >
+                    {Array.from({ length: 60 }, (_, i) => i).map(m => (
+                      <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={parse12Hour(formData.time).period}
+                    onChange={isAuthorized ? (e) => {
+                      const { hour, minute } = parse12Hour(formData.time)
+                      setFormData(prev => ({ ...prev, time: to24Hour(hour, minute, e.target.value) }))
+                    } : undefined}
+                    disabled={!isAuthorized}
+                    className={`w-[65px] px-2 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
+                  >
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -601,8 +659,8 @@ export default function MetalDetectorEntryPage() {
                         className="sr-only"
                       />
                       <div className={`w-9 h-9 border-2 rounded-lg flex items-center justify-center transition-all ${
-                        formData.sensitivityFEChecked 
-                          ? 'bg-green-500 border-green-500 shadow-sm' 
+                        formData.sensitivityFEChecked
+                          ? 'bg-green-500 border-green-500 shadow-sm'
                           : 'bg-white border-gray-300 active:border-gray-400'
                       }`}>
                         {formData.sensitivityFEChecked && (
@@ -632,8 +690,8 @@ export default function MetalDetectorEntryPage() {
                         className="sr-only"
                       />
                       <div className={`w-9 h-9 border-2 rounded-lg flex items-center justify-center transition-all ${
-                        formData.sensitivityNFEChecked 
-                          ? 'bg-green-500 border-green-500 shadow-sm' 
+                        formData.sensitivityNFEChecked
+                          ? 'bg-green-500 border-green-500 shadow-sm'
                           : 'bg-white border-gray-300 active:border-gray-400'
                       }`}>
                         {formData.sensitivityNFEChecked && (
@@ -663,8 +721,8 @@ export default function MetalDetectorEntryPage() {
                         className="sr-only"
                       />
                       <div className={`w-9 h-9 border-2 rounded-lg flex items-center justify-center transition-all ${
-                        formData.sensitivitySSChecked 
-                          ? 'bg-green-500 border-green-500 shadow-sm' 
+                        formData.sensitivitySSChecked
+                          ? 'bg-green-500 border-green-500 shadow-sm'
                           : 'bg-white border-gray-300 active:border-gray-400'
                       }`}>
                         {formData.sensitivitySSChecked && (
@@ -775,9 +833,11 @@ export default function MetalDetectorEntryPage() {
               </button>
               <button
                 type="submit"
-                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors"
+                disabled={isSavingEntry}
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                + Add Row
+                {isSavingEntry && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isSavingEntry ? 'Saving...' : '+ Add Row'}
               </button>
             </div>
           </form>
@@ -789,6 +849,9 @@ export default function MetalDetectorEntryPage() {
               <h3 className="text-base sm:text-lg font-bold text-gray-900">
                 Entries ({records.length})
               </h3>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
+                Saved in DB
+              </span>
             </div>
 
             {/* Mobile card view */}
@@ -798,10 +861,10 @@ export default function MetalDetectorEntryPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-900">{record.identificationNo}</span>
-                      <span className="text-xs text-gray-500">{record.time}</span>
+                      <span className="text-xs text-gray-500">{to12Hour(record.time)}</span>
                     </div>
                     <button
-                      onClick={() => setRecords(prev => prev.filter((_, i) => i !== index))}
+                      onClick={() => handleDeleteEntry(index)}
                       className="text-xs text-red-500 active:text-red-700 px-2 py-1"
                     >
                       Delete
@@ -849,7 +912,7 @@ export default function MetalDetectorEntryPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {records.map((record, index) => (
                       <tr key={record.id || index} className="hover:bg-gray-50">
-                        <td className="px-2 py-1.5 text-sm text-gray-900">{record.time}</td>
+                        <td className="px-2 py-1.5 text-sm text-gray-900">{to12Hour(record.time)}</td>
                         <td className="px-2 py-1.5 text-sm font-medium text-gray-900">{record.identificationNo}</td>
                         <td className="px-2 py-1.5 text-sm text-gray-900">{record.customerName}</td>
                         <td className="px-2 py-1.5 text-sm text-gray-900">{record.productName}</td>
@@ -874,7 +937,7 @@ export default function MetalDetectorEntryPage() {
                         <td className="px-2 py-1.5 text-sm text-gray-900">{record.verifiedBy}</td>
                         <td className="px-2 py-1.5 text-sm">
                           <button
-                            onClick={() => setRecords(prev => prev.filter((_, i) => i !== index))}
+                            onClick={() => handleDeleteEntry(index)}
                             className="text-red-600 hover:text-red-800 text-sm"
                           >
                             Delete
@@ -889,7 +952,7 @@ export default function MetalDetectorEntryPage() {
           </div>
         )}
 
-        {/* Save Record Button */}
+        {/* Save Data Button */}
         {records.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm sm:shadow-lg border border-gray-200 p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
@@ -898,14 +961,16 @@ export default function MetalDetectorEntryPage() {
                   Ready to Save {records.length} Record{records.length > 1 ? 's' : ''}
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-                  Save all entries as a batch
+                  All entries are saved in DB. Click to finalize and mark as complete.
                 </p>
               </div>
               <button
-                onClick={handleSaveRecord}
-                className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-base"
+                onClick={handleFinalizeRecord}
+                disabled={isFinalizing}
+                className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Save All Records
+                {isFinalizing && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isFinalizing ? 'Saving...' : 'Save Data'}
               </button>
             </div>
           </div>

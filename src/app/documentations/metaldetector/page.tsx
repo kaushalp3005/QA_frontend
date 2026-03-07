@@ -3,10 +3,34 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, X, Printer, Edit2 } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, X, Printer, Edit2, Save, Loader2 } from 'lucide-react'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 const AUTHORIZED_EMAIL = 'pooja.parkar@candorfoods.in'
+
+// Convert 24hr time (HH:MM) to 12hr format (hh:mm AM/PM)
+const to12Hour = (time24: string): string => {
+  if (!time24) return ''
+  const [h, m] = time24.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`
+}
+
+// Convert 12hr time (hh:mm AM/PM) to 24hr format (HH:MM)
+const to24Hour = (hour: number, minute: number, period: string): string => {
+  let h = hour
+  if (period === 'AM' && h === 12) h = 0
+  else if (period === 'PM' && h !== 12) h += 12
+  return `${h.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+}
+
+// Parse 24hr time string into 12hr components
+const parse12Hour = (time24: string): { hour: number; minute: number; period: string } => {
+  if (!time24) return { hour: 12, minute: 0, period: 'AM' }
+  const [h, m] = time24.split(':').map(Number)
+  return { hour: h === 0 ? 12 : h > 12 ? h - 12 : h, minute: m, period: h >= 12 ? 'PM' : 'AM' }
+}
 
 interface MetalDetectorRecord {
   id: number
@@ -86,6 +110,25 @@ export default function MetalDetectorPage() {
     }[]
   } | null>(null)
 
+  // Inline entry editing state
+  const [inlineEditEntryId, setInlineEditEntryId] = useState<number | null>(null)
+  const [inlineEditData, setInlineEditData] = useState<{
+    entry_time: string
+    identification_no: string
+    customer_name: string
+    product_name: string
+    batch_lot_no: string
+    sensitivity_fe_checked: boolean
+    sensitivity_nfe_checked: boolean
+    sensitivity_ss_checked: boolean
+    corrective_action_on_detector: string
+    corrective_action_on_product: string
+    calibrated_by: string
+    verified_by: string
+    remarks: string
+  } | null>(null)
+  const [inlineEditSaving, setInlineEditSaving] = useState(false)
+
   // Check if current user is authorized for edit/delete
   const [isAuthorized, setIsAuthorized] = useState(false)
 
@@ -137,6 +180,8 @@ export default function MetalDetectorPage() {
   const handleViewDetails = async (recordId: number) => {
     setViewLoading(true)
     setViewRecord(null)
+    setInlineEditEntryId(null)
+    setInlineEditData(null)
     try {
       const response = await fetch(`${API_BASE}/metaldetector/${recordId}`)
       if (response.ok) {
@@ -295,6 +340,68 @@ export default function MetalDetectorPage() {
     }
   }
 
+  const handleInlineEditStart = (entry: MDEntry) => {
+    if (!isAuthorized) {
+      alert('You are not authorized to edit entries. Only pooja.parkar@candorfoods.in can edit.')
+      return
+    }
+    setInlineEditEntryId(entry.id)
+    setInlineEditData({
+      entry_time: entry.entry_time || '',
+      identification_no: entry.identification_no || '',
+      customer_name: entry.customer_name || '',
+      product_name: entry.product_name || '',
+      batch_lot_no: entry.batch_lot_no || '',
+      sensitivity_fe_checked: entry.sensitivity_fe_checked,
+      sensitivity_nfe_checked: entry.sensitivity_nfe_checked,
+      sensitivity_ss_checked: entry.sensitivity_ss_checked,
+      corrective_action_on_detector: entry.corrective_action_on_detector || '',
+      corrective_action_on_product: entry.corrective_action_on_product || '',
+      calibrated_by: entry.calibrated_by || '',
+      verified_by: entry.verified_by || '',
+      remarks: entry.remarks || '',
+    })
+  }
+
+  const handleInlineEditSave = async () => {
+    if (!inlineEditEntryId || !inlineEditData || !viewRecord) return
+    setInlineEditSaving(true)
+    try {
+      const response = await fetch(`${API_BASE}/metaldetector/entry/${inlineEditEntryId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(inlineEditData),
+      })
+      if (response.ok) {
+        // Refresh the view record
+        const refreshResponse = await fetch(`${API_BASE}/metaldetector/${viewRecord.id}`)
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json()
+          setViewRecord(data)
+        }
+        setInlineEditEntryId(null)
+        setInlineEditData(null)
+        fetchRecords()
+      } else {
+        const data = await response.json().catch(() => ({}))
+        alert(data.detail || 'Failed to update entry.')
+      }
+    } catch (error) {
+      console.error('Error updating entry:', error)
+      alert('Error updating entry.')
+    } finally {
+      setInlineEditSaving(false)
+    }
+  }
+
+  const handleInlineEditCancel = () => {
+    setInlineEditEntryId(null)
+    setInlineEditData(null)
+  }
+
   const todayStr = new Date().toISOString().split('T')[0]
 
   return (
@@ -356,7 +463,7 @@ export default function MetalDetectorPage() {
                   <div className="ml-4">
                     <h4 className="text-lg font-semibold text-purple-800">Last Entry</h4>
                     <p className="text-sm text-purple-600">
-                      {records.length > 0 ? `${records[0].entry_date} ${records[0].entry_time}` : 'No entries'}
+                      {records.length > 0 ? `${records[0].entry_date} ${to12Hour(records[0].entry_time)}` : 'No entries'}
                     </p>
                   </div>
                 </div>
@@ -420,7 +527,7 @@ export default function MetalDetectorPage() {
                               <div className="text-sm font-medium text-gray-900">{record.entry_date}</div>
                               <div className="text-sm text-gray-500 flex items-center">
                                 <Clock className="h-3 w-3 mr-1" />
-                                {record.entry_time}
+                                {to12Hour(record.entry_time)}
                               </div>
                             </div>
                           </div>
@@ -449,10 +556,21 @@ export default function MetalDetectorPage() {
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             record.status === 'passed'
                               ? 'bg-green-100 text-green-800'
+                              : record.status === 'pending'
+                              ? 'bg-orange-100 text-orange-800'
                               : 'bg-yellow-100 text-yellow-800'
                           }`}>
-                            <Check className={`h-3 w-3 mr-1 ${record.status === 'passed' ? 'text-green-600' : 'text-yellow-600'}`} />
-                            {record.status === 'passed' ? 'All Passed' : 'Needs Review'}
+                            {record.status === 'pending' ? (
+                              <>
+                                <Clock className="h-3 w-3 mr-1 text-orange-600" />
+                                Pending
+                              </>
+                            ) : (
+                              <>
+                                <Check className={`h-3 w-3 mr-1 ${record.status === 'passed' ? 'text-green-600' : 'text-yellow-600'}`} />
+                                {record.status === 'passed' ? 'All Passed' : 'Needs Review'}
+                              </>
+                            )}
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -460,6 +578,15 @@ export default function MetalDetectorPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center space-x-2">
+                            {record.status === 'pending' && (
+                              <button
+                                onClick={() => router.push(`/documentations/metaldetector/entry?resumeRecordId=${record.id}`)}
+                                className="text-orange-600 hover:text-orange-900 flex items-center font-semibold"
+                              >
+                                <Edit2 className="h-4 w-4 mr-1" />
+                                Continue
+                              </button>
+                            )}
                             <button
                               onClick={() => handleViewDetails(record.id)}
                               className="text-blue-600 hover:text-blue-900 flex items-center"
@@ -467,6 +594,16 @@ export default function MetalDetectorPage() {
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </button>
+                            {isAuthorized && (
+                              <button
+                                onClick={() => handleViewDetails(record.id)}
+                                className="text-amber-600 hover:text-amber-900 flex items-center"
+                                title="Edit entries"
+                              >
+                                <Edit2 className="h-4 w-4 mr-1" />
+                                Edit
+                              </button>
+                            )}
                             <button
                               onClick={() => handlePrintRecord(record.id)}
                               className="text-green-600 hover:text-green-900 flex items-center"
@@ -475,21 +612,12 @@ export default function MetalDetectorPage() {
                               Print
                             </button>
                             {isAuthorized && (
-                              <>
-                                <button
-                                  onClick={() => handleEditRecord(record.id)}
-                                  className="text-amber-600 hover:text-amber-900 flex items-center"
-                                >
-                                  <Edit2 className="h-4 w-4 mr-1" />
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteRecord(record.id)}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  Delete
-                                </button>
-                              </>
+                              <button
+                                onClick={() => handleDeleteRecord(record.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Delete
+                              </button>
                             )}
                           </div>
                         </td>
@@ -524,7 +652,7 @@ export default function MetalDetectorPage() {
       {(viewRecord || viewLoading) && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setViewRecord(null)} />
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => { setViewRecord(null); handleInlineEditCancel() }} />
 
             <div className="relative bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden z-10">
               {/* Modal Header */}
@@ -540,7 +668,7 @@ export default function MetalDetectorPage() {
                   )}
                 </div>
                 <button
-                  onClick={() => setViewRecord(null)}
+                  onClick={() => { setViewRecord(null); handleInlineEditCancel() }}
                   className="text-white hover:text-blue-200 transition-colors"
                 >
                   <X className="h-6 w-6" />
@@ -576,51 +704,151 @@ export default function MetalDetectorPage() {
                     </div>
 
                     {/* Entries Table */}
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">
-                      Entries ({viewRecord.entries.length})
-                    </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-md font-semibold text-gray-800">
+                        Entries ({viewRecord.entries.length})
+                      </h4>
+                      {isAuthorized && (
+                        <span className="text-xs text-blue-600 font-medium">Click any row to edit</span>
+                      )}
+                    </div>
                     <div className="overflow-x-auto border border-gray-200 rounded-lg">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID No</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Batch/Lot</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">FE</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">NFE</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">SS</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Corrective Action (Detector)</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Corrective Action (Product)</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">On Detector</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">On Product</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Calibrated</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Verified</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Remarks</th>
+                            {isAuthorized && <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>}
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {viewRecord.entries.map((entry, index) => (
-                            <tr key={entry.id} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 text-sm text-gray-500">{index + 1}</td>
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{entry.entry_date}</td>
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{entry.entry_time}</td>
-                              <td className="px-3 py-2 text-sm text-gray-900">{entry.product_name || '-'}</td>
-                              <td className="px-3 py-2 text-sm whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${entry.sensitivity_fe_checked ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                  {entry.sensitivity_fe || '-'} {entry.sensitivity_fe_checked ? '✓' : '✗'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 text-sm whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${entry.sensitivity_nfe_checked ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                  {entry.sensitivity_nfe || '-'} {entry.sensitivity_nfe_checked ? '✓' : '✗'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 text-sm whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${entry.sensitivity_ss_checked ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                  {entry.sensitivity_ss || '-'} {entry.sensitivity_ss_checked ? '✓' : '✗'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900">{entry.corrective_action_on_detector || '-'}</td>
-                              <td className="px-3 py-2 text-sm text-gray-900">{entry.corrective_action_on_product || '-'}</td>
-                              <td className="px-3 py-2 text-sm text-gray-500">{entry.remarks || '-'}</td>
-                            </tr>
+                            inlineEditEntryId === entry.id && inlineEditData ? (
+                              <tr key={entry.id} className="bg-amber-50">
+                                <td className="px-3 py-2 text-sm text-gray-500">{index + 1}</td>
+                                <td className="px-3 py-2">
+                                  <input type="text" value={inlineEditData.identification_no} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, identification_no: e.target.value } : prev)} className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{entry.entry_date}</td>
+                                <td className="px-3 py-2">
+                                  <input type="time" value={inlineEditData.entry_time} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, entry_time: e.target.value } : prev)} className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input type="text" value={inlineEditData.customer_name} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, customer_name: e.target.value } : prev)} className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input type="text" value={inlineEditData.product_name} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, product_name: e.target.value } : prev)} className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input type="text" value={inlineEditData.batch_lot_no} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, batch_lot_no: e.target.value } : prev)} className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <label className="cursor-pointer inline-flex">
+                                    <input type="checkbox" checked={inlineEditData.sensitivity_fe_checked} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, sensitivity_fe_checked: e.target.checked } : prev)} className="sr-only" />
+                                    <div className={`w-7 h-7 border-2 rounded flex items-center justify-center transition-all ${inlineEditData.sensitivity_fe_checked ? 'bg-green-500 border-green-500' : 'bg-white border-gray-300'}`}>
+                                      {inlineEditData.sensitivity_fe_checked && <Check className="w-4 h-4 text-white" />}
+                                    </div>
+                                  </label>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <label className="cursor-pointer inline-flex">
+                                    <input type="checkbox" checked={inlineEditData.sensitivity_nfe_checked} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, sensitivity_nfe_checked: e.target.checked } : prev)} className="sr-only" />
+                                    <div className={`w-7 h-7 border-2 rounded flex items-center justify-center transition-all ${inlineEditData.sensitivity_nfe_checked ? 'bg-green-500 border-green-500' : 'bg-white border-gray-300'}`}>
+                                      {inlineEditData.sensitivity_nfe_checked && <Check className="w-4 h-4 text-white" />}
+                                    </div>
+                                  </label>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <label className="cursor-pointer inline-flex">
+                                    <input type="checkbox" checked={inlineEditData.sensitivity_ss_checked} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, sensitivity_ss_checked: e.target.checked } : prev)} className="sr-only" />
+                                    <div className={`w-7 h-7 border-2 rounded flex items-center justify-center transition-all ${inlineEditData.sensitivity_ss_checked ? 'bg-green-500 border-green-500' : 'bg-white border-gray-300'}`}>
+                                      {inlineEditData.sensitivity_ss_checked && <Check className="w-4 h-4 text-white" />}
+                                    </div>
+                                  </label>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input type="text" value={inlineEditData.corrective_action_on_detector} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, corrective_action_on_detector: e.target.value } : prev)} className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input type="text" value={inlineEditData.corrective_action_on_product} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, corrective_action_on_product: e.target.value } : prev)} className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input type="text" value={inlineEditData.calibrated_by} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, calibrated_by: e.target.value } : prev)} className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <select value={inlineEditData.verified_by} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, verified_by: e.target.value } : prev)} className="w-28 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500">
+                                    <option value="Pooja Parkar">Pooja Parkar</option>
+                                    <option value="Shraddha Jadhav">Shraddha Jadhav</option>
+                                    <option value="Pooja Mhalim">Pooja Mhalim</option>
+                                    <option value="Nikita Jarag">Nikita Jarag</option>
+                                    <option value="Other">Other</option>
+                                  </select>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input type="text" value={inlineEditData.remarks} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, remarks: e.target.value } : prev)} className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-1">
+                                    <button onClick={handleInlineEditSave} disabled={inlineEditSaving} className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50" title="Save">
+                                      {inlineEditSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    </button>
+                                    <button onClick={handleInlineEditCancel} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="Cancel">
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              <tr key={entry.id} onClick={() => isAuthorized && handleInlineEditStart(entry)} className={`hover:bg-gray-50 ${isAuthorized ? 'cursor-pointer' : ''}`}>
+                                <td className="px-3 py-2 text-sm text-gray-500">{index + 1}</td>
+                                <td className="px-3 py-2 text-sm font-medium text-blue-800">{entry.identification_no || '-'}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{entry.entry_date}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{to12Hour(entry.entry_time)}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{entry.customer_name || '-'}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{entry.product_name || '-'}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{entry.batch_lot_no || '-'}</td>
+                                <td className="px-3 py-2 text-sm whitespace-nowrap">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${entry.sensitivity_fe_checked ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                    {entry.sensitivity_fe || '-'} {entry.sensitivity_fe_checked ? '\u2713' : '\u2717'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-sm whitespace-nowrap">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${entry.sensitivity_nfe_checked ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                    {entry.sensitivity_nfe || '-'} {entry.sensitivity_nfe_checked ? '\u2713' : '\u2717'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-sm whitespace-nowrap">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${entry.sensitivity_ss_checked ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                    {entry.sensitivity_ss || '-'} {entry.sensitivity_ss_checked ? '\u2713' : '\u2717'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{entry.corrective_action_on_detector || '-'}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{entry.corrective_action_on_product || '-'}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{entry.calibrated_by || '-'}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{entry.verified_by || '-'}</td>
+                                <td className="px-3 py-2 text-sm text-gray-500">{entry.remarks || '-'}</td>
+                                {isAuthorized && (
+                                  <td className="px-3 py-2 text-sm">
+                                    <button onClick={(e) => { e.stopPropagation(); handleInlineEditStart(entry) }} className="text-amber-600 hover:text-amber-800">
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                )}
+                              </tr>
+                            )
                           ))}
                         </tbody>
                       </table>
@@ -687,12 +915,44 @@ export default function MetalDetectorPage() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                          <input
-                            type="time"
-                            value={editFormData.entry_time}
-                            onChange={(e) => setEditFormData(prev => prev ? { ...prev, entry_time: e.target.value } : prev)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          />
+                          <div className="flex gap-1.5 items-center">
+                            <select
+                              value={parse12Hour(editFormData.entry_time).hour}
+                              onChange={(e) => {
+                                const { minute, period } = parse12Hour(editFormData.entry_time)
+                                setEditFormData(prev => prev ? { ...prev, entry_time: to24Hour(Number(e.target.value), minute, period) } : prev)
+                              }}
+                              className="w-[65px] px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            >
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
+                                <option key={h} value={h}>{h}</option>
+                              ))}
+                            </select>
+                            <span className="text-gray-500 font-bold">:</span>
+                            <select
+                              value={parse12Hour(editFormData.entry_time).minute}
+                              onChange={(e) => {
+                                const { hour, period } = parse12Hour(editFormData.entry_time)
+                                setEditFormData(prev => prev ? { ...prev, entry_time: to24Hour(hour, Number(e.target.value), period) } : prev)
+                              }}
+                              className="w-[65px] px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            >
+                              {Array.from({ length: 60 }, (_, i) => i).map(m => (
+                                <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                              ))}
+                            </select>
+                            <select
+                              value={parse12Hour(editFormData.entry_time).period}
+                              onChange={(e) => {
+                                const { hour, minute } = parse12Hour(editFormData.entry_time)
+                                setEditFormData(prev => prev ? { ...prev, entry_time: to24Hour(hour, minute, e.target.value) } : prev)
+                              }}
+                              className="w-[60px] px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            >
+                              <option value="AM">AM</option>
+                              <option value="PM">PM</option>
+                            </select>
+                          </div>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Identification No</label>
@@ -776,16 +1036,50 @@ export default function MetalDetectorPage() {
                               <tr key={index}>
                                 <td className="px-3 py-2 text-sm text-gray-500">{index + 1}</td>
                                 <td className="px-3 py-2">
-                                  <input
-                                    type="time"
-                                    value={entry.entry_time}
-                                    onChange={(e) => {
-                                      const newEntries = [...editFormData.entries]
-                                      newEntries[index] = { ...newEntries[index], entry_time: e.target.value }
-                                      setEditFormData(prev => prev ? { ...prev, entries: newEntries } : prev)
-                                    }}
-                                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                  />
+                                  <div className="flex gap-1 items-center">
+                                    <select
+                                      value={parse12Hour(entry.entry_time).hour}
+                                      onChange={(e) => {
+                                        const { minute, period } = parse12Hour(entry.entry_time)
+                                        const newEntries = [...editFormData.entries]
+                                        newEntries[index] = { ...newEntries[index], entry_time: to24Hour(Number(e.target.value), minute, period) }
+                                        setEditFormData(prev => prev ? { ...prev, entries: newEntries } : prev)
+                                      }}
+                                      className="w-[50px] px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                    >
+                                      {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
+                                        <option key={h} value={h}>{h}</option>
+                                      ))}
+                                    </select>
+                                    <span className="text-gray-500 text-sm">:</span>
+                                    <select
+                                      value={parse12Hour(entry.entry_time).minute}
+                                      onChange={(e) => {
+                                        const { hour, period } = parse12Hour(entry.entry_time)
+                                        const newEntries = [...editFormData.entries]
+                                        newEntries[index] = { ...newEntries[index], entry_time: to24Hour(hour, Number(e.target.value), period) }
+                                        setEditFormData(prev => prev ? { ...prev, entries: newEntries } : prev)
+                                      }}
+                                      className="w-[50px] px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                    >
+                                      {Array.from({ length: 60 }, (_, i) => i).map(m => (
+                                        <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                                      ))}
+                                    </select>
+                                    <select
+                                      value={parse12Hour(entry.entry_time).period}
+                                      onChange={(e) => {
+                                        const { hour, minute } = parse12Hour(entry.entry_time)
+                                        const newEntries = [...editFormData.entries]
+                                        newEntries[index] = { ...newEntries[index], entry_time: to24Hour(hour, minute, e.target.value) }
+                                        setEditFormData(prev => prev ? { ...prev, entries: newEntries } : prev)
+                                      }}
+                                      className="w-[50px] px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                    >
+                                      <option value="AM">AM</option>
+                                      <option value="PM">PM</option>
+                                    </select>
+                                  </div>
                                 </td>
                                 <td className="px-3 py-2">
                                   <input
@@ -1052,7 +1346,7 @@ export default function MetalDetectorPage() {
                             {entry?.entry_date || ''}
                           </td>
                           <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                            {entry?.entry_time || ''}
+                            {entry?.entry_time ? to12Hour(entry.entry_time) : ''}
                           </td>
                           <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
                             {entry?.product_name || ''}

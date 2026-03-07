@@ -252,15 +252,7 @@ export default function FishboneViewPage() {
               </p>
             </div>
 
-            {/* Issue Description */}
-            {fishbone.issue_description && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Issue Description</h3>
-                <p className="text-sm text-gray-900 bg-gray-50 p-4 rounded-lg whitespace-pre-wrap">
-                  {fishbone.issue_description}
-                </p>
-              </div>
-            )}
+
 
             {/* Root Causes by Category */}
             <div>

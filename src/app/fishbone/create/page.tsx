@@ -55,7 +55,6 @@ export default function CreateFishbonePage() {
     problemStatement: '',
     customerName: '',
     otherCustomerName: '',
-    issueDescription: '',
     dateOccurred: '',
     impactLevel: 'medium',
     createdBy: '',
@@ -117,7 +116,6 @@ export default function CreateFishbonePage() {
         problemStatement: complaint.remarks || '',
         customerName: 'Other',
         otherCustomerName: complaint.customerName || '',
-        issueDescription: complaint.remarks || '',
         dateOccurred: complaint.receivedDate || '',
       }))
 
@@ -287,11 +285,6 @@ export default function CreateFishbonePage() {
       toast.error('Please enter a Problem Statement')
       return
     }
-    if (!formData.issueDescription.trim()) {
-      toast.error('Please enter an Issue Description')
-      return
-    }
-
     setIsSubmitting(true)
     
     try {

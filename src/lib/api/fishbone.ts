@@ -16,7 +16,7 @@ export interface FishboneFormData {
   problemStatement: string;
   customerName?: string;
   otherCustomerName?: string;
-  issueDescription?: string;
+
   dateOccurred?: string;
   impactLevel?: 'low' | 'medium' | 'high';
   analysisDate?: string;
@@ -56,7 +56,7 @@ export interface FishboneCreatePayload {
   problem_statement: string;
   customer_name?: string;
   other_customer_name?: string;
-  issue_description?: string;
+
   date_occurred?: string;
   impact_level?: string;
   analysis_date?: string;
@@ -90,7 +90,7 @@ export interface FishboneDetail extends FishboneListItem {
   item_subcategory: string;
   item_description: string;
   other_customer_name: string;
-  issue_description: string;
+
   date_occurred: string;
   people_causes: string[];
   process_causes: string[];
@@ -291,7 +291,7 @@ export function transformFishboneDataToPayload(
     problem_statement: formData.problemStatement,
     customer_name: formData.customerName || undefined,
     other_customer_name: formData.otherCustomerName || undefined,
-    issue_description: formData.issueDescription || undefined,
+
     date_occurred: formData.dateOccurred || undefined,
     impact_level: formData.impactLevel || 'medium',
     analysis_date: formData.analysisDate || undefined,

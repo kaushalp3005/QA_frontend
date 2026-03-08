@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ArrowLeft, Check, Loader2 } from 'lucide-react'
+import { ArrowLeft, Check, Loader2, X } from 'lucide-react'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
@@ -217,6 +217,8 @@ export default function MetalDetectorEntryPage() {
   const [batchId, setBatchId] = useState<string>('')
   const [isSavingEntry, setIsSavingEntry] = useState(false)
   const [isFinalizing, setIsFinalizing] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('')
 
   // Resume a pending record if resumeRecordId is provided
@@ -422,6 +424,37 @@ export default function MetalDetectorEntryPage() {
     }
   }
 
+  const handleCancelPendingRecord = async () => {
+    if (!currentRecordId) return
+
+    setIsCancelling(true)
+    try {
+      const response = await fetch(`${API_BASE}/metaldetector/${currentRecordId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.detail || 'Failed to cancel record')
+      }
+
+      // Clear local state and redirect
+      setRecords([])
+      setFormData(getDefaultFormData())
+      setSelectedWarehouse('')
+      setCurrentRecordId(null)
+      setBatchId('')
+      setShowCancelConfirm(false)
+      router.push('/documentations/metaldetector')
+    } catch (error: any) {
+      console.error('Error cancelling record:', error)
+      alert(error.message || 'Failed to cancel record. Please try again.')
+    } finally {
+      setIsCancelling(false)
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-3 sm:space-y-6 pb-6">
@@ -436,9 +469,24 @@ export default function MetalDetectorEntryPage() {
 
           <div className="flex items-center gap-2">
             {currentRecordId && (
-              <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
-                Pending · {batchId}
-              </span>
+              <>
+                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
+                  Pending · {batchId}
+                </span>
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  disabled={records.length > 0}
+                  title={records.length > 0 ? 'Delete all entries first to cancel' : 'Cancel this pending record'}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full flex items-center gap-1 transition-colors ${
+                    records.length > 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300'
+                  }`}
+                >
+                  <X className="w-3 h-3" />
+                  Cancel
+                </button>
+              </>
             )}
             {(formData.customerName || formData.productName || formData.batchLotNo || records.length > 0) && (
               <button
@@ -972,6 +1020,36 @@ export default function MetalDetectorEntryPage() {
                 {isFinalizing && <Loader2 className="w-4 h-4 animate-spin" />}
                 {isFinalizing ? 'Saving...' : 'Save Data'}
               </button>
+            </div>
+          </div>
+        )}
+        {/* Cancel Confirmation Modal */}
+        {showCancelConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5 space-y-4">
+              <div className="space-y-2">
+                <h3 className="text-lg font-bold text-gray-900">Cancel Pending Record?</h3>
+                <p className="text-sm text-gray-600">
+                  This will permanently delete the pending record <span className="font-semibold text-orange-700">{batchId}</span>. This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  disabled={isCancelling}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                >
+                  Go Back
+                </button>
+                <button
+                  onClick={handleCancelPendingRecord}
+                  disabled={isCancelling}
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isCancelling && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isCancelling ? 'Cancelling...' : 'Yes, Cancel'}
+                </button>
+              </div>
             </div>
           </div>
         )}

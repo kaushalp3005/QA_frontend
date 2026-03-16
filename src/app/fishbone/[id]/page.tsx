@@ -248,7 +248,7 @@ export default function FishboneViewPage() {
                 )}
                 {fishbone.date_occurred && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Date Occurred</dt>
+                    <dt className="text-sm font-medium text-gray-500">Complaint Received</dt>
                     <dd className="mt-1 text-sm text-gray-900">{formatDateShort(fishbone.date_occurred)}</dd>
                   </div>
                 )}

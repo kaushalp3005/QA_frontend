@@ -527,7 +527,7 @@ export default function CreateFishbonePage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date Occurred
+                  Complaint Received
                 </label>
                 <input
                   type="date"

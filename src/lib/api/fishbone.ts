@@ -70,6 +70,10 @@ export interface FishboneCreatePayload {
   action_plan?: any[];
   preventive_action_plan?: any[];
   status?: string;
+  prepared_by?: string;
+  approved_by?: string;
+  capa_prepared_by?: string;
+  date_approved?: string;
 }
 
 export interface FishboneListItem {
@@ -305,5 +309,9 @@ export function transformFishboneDataToPayload(
     action_plan: actionPlan.filter(item => item.action.trim()),
     preventive_action_plan: preventiveActionPlan?.filter(item => item.action.trim()) || [],
     status: formData.status || 'draft',
+    prepared_by: formData.preparedBy || undefined,
+    approved_by: formData.approvedBy || undefined,
+    capa_prepared_by: formData.capaPrearedBy || formData.capaPreparedBy || undefined,
+    date_approved: formData.dateApproved || undefined,
   };
 }

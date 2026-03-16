@@ -292,7 +292,7 @@ export default function FishbonePrintPage() {
         </div>
         <div className="kv">
           <label>Analysis Date</label>
-          <div>{fishbone.analysis_date ? new Date(fishbone.analysis_date).toLocaleDateString() : 'N/A'}</div>
+          <div>{fishbone.analysis_date ? new Date(fishbone.analysis_date).toLocaleDateString('en-GB') : 'N/A'}</div>
         </div>
         <div className="kv">
           <label>Prepared By</label>
@@ -311,8 +311,8 @@ export default function FishbonePrintPage() {
           <div>{fishbone.customer_name || fishbone.other_customer_name || 'N/A'}</div>
         </div>
         <div className="kv">
-          <label>Date Occurred</label>
-          <div>{fishbone.date_occurred ? new Date(fishbone.date_occurred).toLocaleDateString() : 'N/A'}</div>
+          <label>Complaint Received</label>
+          <div>{fishbone.date_occurred ? new Date(fishbone.date_occurred).toLocaleDateString('en-GB') : 'N/A'}</div>
         </div>
       </div>
 
@@ -485,7 +485,7 @@ export default function FishbonePrintPage() {
                   <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{idx + 1}</td>
                   <td>{action.action || 'N/A'}</td>
                   <td>{action.responsible || 'N/A'}</td>
-                  <td>{action.deadline ? new Date(action.deadline).toLocaleDateString() : 'N/A'}</td>
+                  <td>{action.deadline ? new Date(action.deadline).toLocaleDateString('en-GB') : 'N/A'}</td>
                   <td>
                     <span className={`status-badge status-${action.status || 'pending'}`}>
                       {(action.status || 'pending').replace('-', ' ')}
@@ -520,7 +520,7 @@ export default function FishbonePrintPage() {
                   <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{idx + 1}</td>
                   <td>{action.action || 'N/A'}</td>
                   <td>{action.responsible || 'N/A'}</td>
-                  <td>{action.deadline ? new Date(action.deadline).toLocaleDateString() : 'N/A'}</td>
+                  <td>{action.deadline ? new Date(action.deadline).toLocaleDateString('en-GB') : 'N/A'}</td>
                   <td>
                     <span className={`status-badge status-${action.status || 'pending'}`}>
                       {(action.status || 'pending').replace('-', ' ')}
@@ -584,7 +584,7 @@ export default function FishbonePrintPage() {
         </div>
         <div>
           <strong>Date Approved:</strong>
-          <div className="box">{fishbone.date_approved || 'N/A'}</div>
+          <div className="box">{fishbone.date_approved ? new Date(fishbone.date_approved).toLocaleDateString('en-GB') : 'N/A'}</div>
         </div>
       </div>
     </div>

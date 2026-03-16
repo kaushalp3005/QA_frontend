@@ -347,11 +347,10 @@ export default function EditFishbonePage() {
       // Transform form data to API payload
       const payload = transformFishboneDataToPayload(formData, categories, actionPlan, preventiveActionPlan)
       
-      // Add control sample photos and capa_prepared_by
+      // Add control sample photos
       const finalPayload = {
         ...payload,
         control_sample_photos: controlSamplePhotos,
-        capa_prepared_by: formData.capaPrearedBy
       }
       
       console.log('Updating fishbone with payload:', finalPayload)
@@ -557,7 +556,7 @@ export default function EditFishbonePage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date Occurred
+                  Complaint Received
                 </label>
                 <input
                   type="date"

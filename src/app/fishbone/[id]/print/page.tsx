@@ -34,10 +34,10 @@ export default function FishbonePrintPage() {
         try {
           const complaintData: any = await getComplaintByComplaintId((data as any).complaint_id, currentCompany)
           console.log('Complaint data:', complaintData)
-          if (complaintData.proofImages && Array.isArray(complaintData.proofImages)) {
-            setComplaintPhotos(complaintData.proofImages)
-            console.log('Complaint photos loaded:', complaintData.proofImages.length)
-          }
+          const imagesUnknown: unknown[] = Array.isArray(complaintData?.proofImages) ? complaintData.proofImages : []
+          const uniqueImages: string[] = Array.from(new Set(imagesUnknown.filter((img): img is string => typeof img === 'string')))
+          setComplaintPhotos(uniqueImages)
+          console.log(`Fishbone Print - Deduplicated complaint photos: ${imagesUnknown.length} → ${uniqueImages.length}`)
         } catch (error) {
           console.error('Error fetching complaint photos:', error)
         }
@@ -83,7 +83,8 @@ export default function FishbonePrintPage() {
         @media print {
           body { margin: 0; padding: 0; }
           .no-print { display: none !important; }
-          @page { size: A4; margin: 1.20cm; }
+          @page { size: A4; margin: 0; }
+          body { padding: 1.20cm; }
         }
         
         .print-container {

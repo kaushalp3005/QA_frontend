@@ -810,7 +810,7 @@ export default function CreateFishbonePage() {
                             placeholder="Describe the specific preventive action to be implemented..."
                           />
                         </div>
-                        
+
                         <div className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -826,7 +826,7 @@ export default function CreateFishbonePage() {
                               placeholder="Enter person's name or role"
                             />
                           </div>
-                          
+
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               <span className="flex items-center">
@@ -840,6 +840,23 @@ export default function CreateFishbonePage() {
                               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
                               min={new Date().toISOString().split('T')[0]}
                             />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              <span className="flex items-center">
+                                ✅ Status
+                              </span>
+                            </label>
+                            <select
+                              value={item.status}
+                              onChange={(e) => updatePreventiveActionItem(item.id, 'status', e.target.value)}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="in-progress">In Progress</option>
+                              <option value="completed">Completed</option>
+                            </select>
                           </div>
                         </div>
                       </div>

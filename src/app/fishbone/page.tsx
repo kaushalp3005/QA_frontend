@@ -2,7 +2,7 @@
 // zale pushh
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Filter, Edit3, FileText, Printer, Eye, Trash2 } from 'lucide-react'
+import { Plus, Search, Edit3, FileText, Printer, Eye, Trash2 } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDateShort } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
@@ -14,7 +14,7 @@ export default function FishbonePage() {
   const { currentCompany } = useCompany()
   const { canCreate, canEdit, canDelete } = usePermissions()
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter] = useState('all')
   const [fishboneData, setFishboneData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -85,31 +85,6 @@ export default function FishbonePage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800'
-      case 'in-progress':
-        return 'bg-blue-100 text-blue-800'
-      case 'draft':
-        return 'bg-gray-100 text-gray-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'Completed'
-      case 'in-progress':
-        return 'In Progress'
-      case 'draft':
-        return 'Draft'
-      default:
-        return status
-    }
-  }
 
   return (
     <DashboardLayout>
@@ -147,19 +122,6 @@ export default function FishbonePage() {
               />
             </div>
 
-            {/* Status Filter */}
-            <div className="sm:w-48">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="draft">Draft</option>
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -184,9 +146,6 @@ export default function FishbonePage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Complaint ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Created Date
@@ -215,11 +174,6 @@ export default function FishbonePage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-blue-600 font-medium">
                           {item.complaint_id || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.status || 'draft')}`}>
-                          {getStatusLabel(item.status || 'draft')}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

@@ -21,6 +21,7 @@ import { formatDateShort } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getFishboneById } from '@/lib/api/fishbone'
+import { getComplaintByComplaintId } from '@/lib/api/complaints'
 import { isAuthenticated } from '@/lib/api/auth'
 import { toast } from 'react-hot-toast'
 
@@ -32,6 +33,7 @@ export default function FishboneViewPage() {
   const [fishbone, setFishbone] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [checkingAuth, setCheckingAuth] = useState(true)
+  const [complaintPhotos, setComplaintPhotos] = useState<string[]>([])
 
   const fishboneId = params.id as string
 
@@ -56,6 +58,18 @@ export default function FishboneViewPage() {
       setLoading(true)
       const data = await getFishboneById(parseInt(fishboneId), currentCompany)
       setFishbone(data)
+
+      // Fetch complaint photos if complaint_id exists
+      if ((data as any).complaint_id) {
+        try {
+          const complaintData: any = await getComplaintByComplaintId((data as any).complaint_id, currentCompany)
+          const imagesUnknown: unknown[] = Array.isArray(complaintData?.proofImages) ? complaintData.proofImages : []
+          const uniqueImages: string[] = Array.from(new Set(imagesUnknown.filter((img): img is string => typeof img === 'string')))
+          setComplaintPhotos(uniqueImages)
+        } catch (error) {
+          console.error('Error fetching complaint photos:', error)
+        }
+      }
     } catch (error) {
       console.error('Error fetching fishbone:', error)
       toast.error('Failed to load fishbone analysis')
@@ -232,6 +246,12 @@ export default function FishboneViewPage() {
                     <dd className="mt-1 text-sm text-gray-900">{fishbone.item_description}</dd>
                   </div>
                 )}
+                {fishbone.date_occurred && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Date Occurred</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{formatDateShort(fishbone.date_occurred)}</dd>
+                  </div>
+                )}
                 {fishbone.analysis_date && (
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Analysis Date</dt>
@@ -324,7 +344,7 @@ export default function FishboneViewPage() {
             {/* Action Plan */}
             {fishbone.action_plan && fishbone.action_plan.length > 0 && (
               <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Action Plan</h3>
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Corrective Action Plan</h3>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -355,6 +375,123 @@ export default function FishboneViewPage() {
                 </div>
               </div>
             )}
+
+            {/* Preventive Action Plan */}
+            {fishbone.preventive_action_plan && fishbone.preventive_action_plan.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Preventive Action Plan</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Responsible</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Deadline</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {fishbone.preventive_action_plan.map((item: any, index: number) => (
+                        <tr key={index}>
+                          <td className="px-4 py-2 text-sm text-gray-900">{item.action}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{item.responsible}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            {item.deadline ? formatDateShort(item.deadline) : '-'}
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getActionStatusColor(item.status || 'pending')}`}>
+                              {item.status || 'Pending'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Pictorial Evidence of Complaint */}
+            {complaintPhotos.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Pictorial Evidence of the Complaint</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {complaintPhotos.map((url, index) => (
+                    <div key={index} className="relative border border-gray-200 rounded-lg overflow-hidden aspect-square cursor-pointer" onClick={() => window.open(url, '_blank')}>
+                      <img
+                        src={url}
+                        alt={`Complaint Photo ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                        Photo {index + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Control Sample Evidence */}
+            {(() => {
+              const photos = fishbone.control_sample_photos
+              const photoArray = photos
+                ? (typeof photos === 'string' ? JSON.parse(photos) : photos)
+                : []
+              return photoArray && photoArray.length > 0 ? (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-3">Control Sample Evidence</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {photoArray.map((url: string, index: number) => (
+                      <div key={index} className="relative border border-gray-200 rounded-lg overflow-hidden aspect-square cursor-pointer" onClick={() => window.open(url, '_blank')}>
+                        <img
+                          src={url}
+                          alt={`Evidence ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                          Photo {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null
+            })()}
+
+            {/* Approval & Verification */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center">
+                <User className="h-4 w-4 mr-2" />
+                Approval & Verification
+              </h3>
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {fishbone.prepared_by && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Complaint Register</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{fishbone.prepared_by}</dd>
+                  </div>
+                )}
+                {fishbone.approved_by && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Verified By</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{fishbone.approved_by}</dd>
+                  </div>
+                )}
+                {fishbone.capa_prepared_by && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">CAPA Prepared By</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{fishbone.capa_prepared_by}</dd>
+                  </div>
+                )}
+                {fishbone.date_approved && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Date Approved</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{formatDateShort(fishbone.date_approved)}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
 
             {/* Metadata */}
             <div className="border-t border-gray-200 pt-4">

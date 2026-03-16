@@ -824,8 +824,8 @@ export default function EditFishbonePage() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      <div className="lg:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           <span className="flex items-center">
                             📋 Action Description
@@ -839,35 +839,54 @@ export default function EditFishbonePage() {
                           placeholder="Describe the preventive action to be taken..."
                         />
                       </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          <span className="flex items-center">
-                            👤 Responsible Person
-                          </span>
-                        </label>
-                        <input
-                          type="text"
-                          value={item.responsible}
-                          onChange={(e) => updatePreventiveActionItem(item.id, 'responsible', e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
-                          placeholder="Enter person's name or role"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          <span className="flex items-center">
-                            📅 Target Date
-                          </span>
-                        </label>
-                        <input
-                          type="date"
-                          value={item.deadline}
-                          onChange={(e) => updatePreventiveActionItem(item.id, 'deadline', e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
-                          min={new Date().toISOString().split('T')[0]}
-                        />
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <span className="flex items-center">
+                              👤 Responsible Person
+                            </span>
+                          </label>
+                          <input
+                            type="text"
+                            value={item.responsible}
+                            onChange={(e) => updatePreventiveActionItem(item.id, 'responsible', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
+                            placeholder="Enter person's name or role"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <span className="flex items-center">
+                              📅 Target Date
+                            </span>
+                          </label>
+                          <input
+                            type="date"
+                            value={item.deadline}
+                            onChange={(e) => updatePreventiveActionItem(item.id, 'deadline', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <span className="flex items-center">
+                              ✅ Status
+                            </span>
+                          </label>
+                          <select
+                            value={item.status}
+                            onChange={(e) => updatePreventiveActionItem(item.id, 'status', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                   </div>

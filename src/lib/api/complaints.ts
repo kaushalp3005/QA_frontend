@@ -67,6 +67,7 @@ export interface ComplaintResponse {
   createdAt: string
   updatedAt: string
   sampleVideo: string | null
+  customerEmail?: string
 }
 
 export interface ComplaintListResponse {

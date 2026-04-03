@@ -59,7 +59,7 @@ export async function uploadComplaintImages(
     // Upload to backend
     console.log('🌐 Sending POST request to backend...')
     const response = await fetch(
-      `${API_BASE_URL}/upload-complaint-images?company=${company}`,
+      `${API_BASE_URL}/api/upload-complaint-images?company=${company}`,
       {
         method: 'POST',
         headers: {
@@ -105,7 +105,7 @@ export async function deleteComplaintImage(imageUrl: string): Promise<boolean> {
 
     // Delete from backend/S3
     const response = await fetch(
-      `${API_BASE_URL}/delete-s3-image?url=${encodeURIComponent(imageUrl)}`,
+      `${API_BASE_URL}/api/delete-s3-image?url=${encodeURIComponent(imageUrl)}`,
       {
         method: 'DELETE',
         headers: {

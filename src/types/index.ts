@@ -188,3 +188,90 @@ export const getConfidenceColor = (score: number): string => {
     low: 'text-confidence-low border-confidence-low',
   }[level];
 };
+
+// ── IPQC Types ────────────────────────────────────────────────────────────────
+
+export interface Session {
+  username: string;
+  displayName: string;
+  isAdmin: boolean;
+  token: string;
+}
+
+export interface User {
+  username: string;
+  display_name: string;
+  is_admin: boolean;
+  token?: string;
+}
+
+export interface ApiResponse<T = any> {
+  data: T;
+  message?: string;
+}
+
+export interface Floor {
+  id: number;
+  floor_name: string;
+  sort_order: number;
+}
+
+export interface Factory {
+  id: number;
+  factory_code: string;
+  factory_name: string;
+  floors: Floor[];
+}
+
+export interface DropdownData {
+  factories: Factory[];
+}
+
+export interface SKUResult {
+  sku_code: string;
+  description: string;
+  [key: string]: any;
+}
+
+export interface IPQCRecord {
+  ipqc_no: string;
+  check_date: string;
+  factory_code: string;
+  floor: string;
+  checked_by?: string;
+  approved_by?: string;
+  approved_at?: string;
+  created_at?: string;
+  articles?: IPQCArticle[];
+  // flat single-article fields (legacy fallback)
+  item_description?: string;
+  customer?: string;
+  batch_number?: string;
+  physical_category?: string;
+  sensory_evaluation?: any[];
+  physical_parameters?: any[];
+  label_check?: any[];
+  seal_check?: boolean;
+  verdict?: string;
+  overall_remark?: string;
+}
+
+export interface IPQCArticle {
+  item_description: string;
+  customer: string;
+  batch_number: string;
+  physical_category: string;
+  sensory_evaluation: IPQCCheckItem[];
+  physical_parameters: IPQCCheckItem[];
+  label_check: IPQCCheckItem[];
+  seal_check: boolean;
+  verdict: "accept" | "reject";
+  overall_remark: string;
+}
+
+export interface IPQCCheckItem {
+  parameter: string;
+  checked: boolean;
+  value?: string;
+  remark?: string;
+}

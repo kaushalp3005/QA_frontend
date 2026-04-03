@@ -9,8 +9,6 @@ const COMPLAINTS_BASE_URL = API_BASE_URL
 export interface ComplaintFormData {
   company: string
   customerName: string
-  customerEmail?: string
-  customerAddress?: string
   receivedDate: string
   manufacturingDate: string
   itemCategory: string
@@ -21,14 +19,9 @@ export interface ComplaintFormData {
   quantityApproved: number
   uom: string
   complaintNature: string
-  complaintCategory?: string
-  complaintSubcategory?: string
   otherComplaintNature?: string
-  problemStatement?: string
   qaAssessment: string
   justifiedStatus: string
-  communicationMethod?: string
-  measuresToResolve?: string
   remarks: string
   proofImages: string[]
   articles: Array<{
@@ -37,7 +30,6 @@ export interface ComplaintFormData {
     itemDescription: string
     quantity: number
     uom: string
-    defectDescription?: string
   }>
   createdBy?: string
   updatedBy?: string
@@ -48,8 +40,6 @@ export interface ComplaintResponse {
   complaintId: string
   company: string
   customerName: string
-  customerEmail?: string
-  customerAddress?: string
   receivedDate: string
   manufacturingDate: string
   itemCategory: string
@@ -60,13 +50,8 @@ export interface ComplaintResponse {
   quantityApproved: number
   uom: string
   complaintNature: string
-  complaintCategory?: string
-  complaintSubcategory?: string
-  otherComplaintNature?: string
-  problemStatement?: string
   qaAssessment: string
   justifiedStatus: string
-  communicationMethod?: string
   measuresToResolve?: string
   remarks: string
   proofImages: string[]
@@ -77,7 +62,6 @@ export interface ComplaintResponse {
     itemDescription: string
     quantity: number
     uom: string
-    defectDescription?: string
   }>
   createdBy: string
   createdAt: string
@@ -124,7 +108,7 @@ export interface ComplaintStatsResponse {
  * Create a new complaint
  */
 export async function createComplaint(data: ComplaintFormData): Promise<ComplaintResponse> {
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints`, {
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/api/complaints`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -161,7 +145,7 @@ export async function getComplaints(params: {
     }
   })
 
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints?${queryParams.toString()}`, {
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/api/complaints?${queryParams.toString()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -182,7 +166,7 @@ export async function getComplaints(params: {
  */
 export async function getComplaintById(id: string | number, company: string): Promise<ComplaintResponse> {
   const token = localStorage.getItem('access_token')
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/${id}?company=${company}&_t=${Date.now()}`, {
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/api/complaints/${id}?company=${company}&_t=${Date.now()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -204,7 +188,7 @@ export async function getComplaintById(id: string | number, company: string): Pr
  * Get complaint by complaint_id (string format like CCNFS-2025-11-002)
  */
 export async function getComplaintByComplaintId(complaintId: string, company: string): Promise<ComplaintResponse> {
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/by-complaint-id/${complaintId}?company=${company}`, {
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/api/complaints/by-complaint-id/${complaintId}?company=${company}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -235,7 +219,7 @@ export async function updateComplaint(
     fullData: data
   })
   
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/${id}`, {
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/api/complaints/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -264,7 +248,7 @@ export async function updateComplaint(
  * Delete complaint
  */
 export async function deleteComplaint(id: string | number, company: string): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/${id}?company=${company}`, {
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/api/complaints/${id}?company=${company}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
@@ -293,7 +277,7 @@ export async function uploadSampleVideo(
   formData.append('complaintId', complaintId)
   formData.append('company', company)
 
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/sample-video`, {
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/api/sample-video`, {
     method: 'POST',
     body: formData,
   })
@@ -315,7 +299,7 @@ export async function deleteSampleVideo(
   company: string
 ): Promise<{ success: boolean; message: string }> {
   const response = await fetch(
-    `${COMPLAINTS_BASE_URL}/sample-video?complaintId=${complaintId}&company=${company}`,
+    `${COMPLAINTS_BASE_URL}/api/sample-video?complaintId=${complaintId}&company=${company}`,
     {
       method: 'DELETE',
     }
@@ -345,7 +329,7 @@ export async function getComplaintStats(params: {
     }
   })
 
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/stats?${queryParams.toString()}`, {
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/api/complaints/stats?${queryParams.toString()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',

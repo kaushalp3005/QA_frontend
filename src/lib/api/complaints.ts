@@ -62,6 +62,7 @@ export interface ComplaintResponse {
     itemDescription: string
     quantity: number
     uom: string
+    defectDescription?: string
   }>
   createdBy: string
   createdAt: string

@@ -68,6 +68,12 @@ export interface ComplaintResponse {
   updatedAt: string
   sampleVideo: string | null
   customerEmail?: string
+  customerAddress?: string
+  problemStatement?: string
+  complaintCategory?: string
+  complaintSubcategory?: string
+  otherComplaintNature?: string
+  communicationMethod?: string
 }
 
 export interface ComplaintListResponse {

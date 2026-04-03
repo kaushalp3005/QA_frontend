@@ -64,7 +64,7 @@ export default function NewIPQCPage() {
   return (
     <div className="min-h-[100dvh] bg-cream-100">
       <Navbar showBack backHref="/documentations/ipqc" title="New Entry" />
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-28">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-28">
         <IPQCForm onSubmit={handleSubmit} loading={loading} />
       </div>
     </div>

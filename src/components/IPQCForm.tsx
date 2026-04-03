@@ -219,7 +219,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
           <span className="w-1 h-4 rounded-full bg-sage-400 inline-block" />
           Record Details
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-3">
           <div>
             <label className={labelCls}>Check Date</label>
             <input
@@ -294,7 +294,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
             <div className="p-4 sm:p-5 space-y-5">
 
               {/* Article identity fields */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
                 {/* SKU search */}
                 <div className="relative sm:col-span-2 lg:col-span-1">
                   <label className={labelCls}>SKU / Item Name</label>
@@ -372,7 +372,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
                   {(exp.sensory ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
                 </button>
                 {(exp.sensory ?? true) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {SENSORY_PARAMS.map((param) => {
                       const item = art.sensory_evaluation.find((x) => x.parameter === param.key);
                       return (
@@ -414,7 +414,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
                   {(exp.physical ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
                 </button>
                 {(exp.physical ?? true) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {physicalParams.map((param) => {
                       const item = art.physical_parameters.find((x) => x.parameter === param.key);
                       return (
@@ -466,7 +466,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
                   {(exp.label ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
                 </button>
                 {(exp.label ?? true) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {LABEL_CHECK_PARAMS.map((param) => {
                       const item = art.label_check.find((x) => x.parameter === param.key);
                       return (
@@ -486,7 +486,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
               </div>
 
               {/* ── Verdict + Seal + Remark ─ */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-1">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-3 pt-1">
                 {/* Seal Check */}
                 <label className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${art.seal_check ? "bg-success-50 border-success-200" : "bg-danger-50 border-danger-200"}`}>
                   <input

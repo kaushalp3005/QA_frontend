@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ArrowLeft, Check } from 'lucide-react'
 
 interface MetalDetectorFormData {
-  id?: string
+  id?: string | number
   machineDetails: string
   location: string
   identificationNo: string
@@ -86,9 +86,16 @@ const metalDetectorOptions: MetalDetectorOption[] = [
   }
 ]
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+
 export default function MetalDetectorEntryPage() {
   const router = useRouter()
-  
+  const searchParams = useSearchParams()
+  const recordIdParam = searchParams.get('record_id')
+
+  const [pendingRecordId, setPendingRecordId] = useState<number | null>(null)
+  const [selectedIdentificationOptionValue, setSelectedIdentificationOptionValue] = useState('')
+
   const [formData, setFormData] = useState<MetalDetectorFormData>({
     machineDetails: 'Metal Detector',
     location: '',
@@ -113,6 +120,71 @@ export default function MetalDetectorEntryPage() {
 
   const [records, setRecords] = useState<MetalDetectorFormData[]>([])
 
+  useEffect(() => {
+    if (recordIdParam) {
+      const parsedId = parseInt(recordIdParam, 10)
+      if (!Number.isNaN(parsedId)) {
+        setPendingRecordId(parsedId)
+        fetchPendingRecord(parsedId)
+      }
+    }
+  }, [recordIdParam])
+
+  const fetchPendingRecord = async (recordId: number) => {
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(`${API_BASE_URL}/metaldetector/${recordId}`, {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => null)
+        throw new Error(err?.detail || 'Failed to load pending record')
+      }
+      const data = await response.json()
+      const fetchedEntries = (data.entries || []).map((entry: any) => ({
+        id: entry.id,
+        machineDetails: entry.machine_details || 'Metal Detector',
+        location: entry.location || data.location || '',
+        identificationNo: entry.identification_no || data.identification_no || '',
+        date: entry.entry_date || new Date().toISOString().split('T')[0],
+        time: entry.entry_time || new Date().toTimeString().slice(0, 5),
+        customerName: entry.customer_name || '',
+        productName: entry.product_name || '',
+        batchLotNo: entry.batch_lot_no || '',
+        sensitivityFE: entry.sensitivity_fe || '',
+        sensitivityNFE: entry.sensitivity_nfe || '',
+        sensitivitySS: entry.sensitivity_ss || '',
+        sensitivityFEChecked: !!entry.sensitivity_fe_checked,
+        sensitivityNFEChecked: !!entry.sensitivity_nfe_checked,
+        sensitivitySSChecked: !!entry.sensitivity_ss_checked,
+        correctiveActionOnDetector: entry.corrective_action_on_detector || '',
+        correctiveActionOnProduct: entry.corrective_action_on_product || '',
+        calibratedBy: entry.calibrated_by || '',
+        verifiedBy: entry.verified_by || '',
+        remarks: entry.remarks || ''
+      }))
+
+      setRecords(fetchedEntries)
+      setFormData(prev => ({
+        ...prev,
+        location: data.location || prev.location,
+        identificationNo: data.identification_no || prev.identificationNo,
+        calibratedBy: data.calibrated_by || prev.calibratedBy,
+        verifiedBy: data.verified_by || prev.verifiedBy,
+      }))
+
+      const selectedOption = metalDetectorOptions.find(option => option.identificationNo === data.identification_no)
+      if (selectedOption) {
+        setSelectedIdentificationOptionValue(`${selectedOption.identificationNo}-${selectedOption.srNo}`)
+      }
+    } catch (error: any) {
+      console.error('Error loading pending record:', error)
+      alert(error.message || 'Unable to load existing record data')
+    }
+  }
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
     if (type === 'checkbox') {
@@ -131,6 +203,7 @@ export default function MetalDetectorEntryPage() {
 
   const handleIdentificationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value
+    setSelectedIdentificationOptionValue(selectedId)
     const selectedDetector = metalDetectorOptions.find(option => 
       `${option.identificationNo}-${option.srNo}` === selectedId
     )
@@ -185,6 +258,61 @@ export default function MetalDetectorEntryPage() {
     }
 
     try {
+      const token = localStorage.getItem('access_token')
+
+      if (pendingRecordId) {
+        const newEntries = records.filter(record => typeof record.id !== 'number')
+        if (newEntries.length === 0) {
+          alert('No new entries to save for this pending record.')
+          return
+        }
+
+        for (const entry of newEntries) {
+          const response = await fetch(`${API_BASE_URL}/metaldetector/entry`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { 'Authorization': `Bearer ${token}` })
+            },
+            body: JSON.stringify({
+              record_id: pendingRecordId,
+              entry: {
+                date: entry.date,
+                time: entry.time,
+                identificationNo: entry.identificationNo,
+                location: entry.location,
+                machineDetails: entry.machineDetails,
+                customerName: entry.customerName,
+                productName: entry.productName,
+                batchLotNo: entry.batchLotNo,
+                sensitivityFE: entry.sensitivityFE,
+                sensitivityFEChecked: entry.sensitivityFEChecked,
+                sensitivityNFE: entry.sensitivityNFE,
+                sensitivityNFEChecked: entry.sensitivityNFEChecked,
+                sensitivitySS: entry.sensitivitySS,
+                sensitivitySSChecked: entry.sensitivitySSChecked,
+                correctiveActionOnDetector: entry.correctiveActionOnDetector,
+                correctiveActionOnProduct: entry.correctiveActionOnProduct,
+                calibratedBy: entry.calibratedBy,
+                verifiedBy: entry.verifiedBy,
+                remarks: entry.remarks,
+              }
+            })
+          })
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => null)
+            throw new Error(err?.detail || 'Failed to save new entry')
+          }
+        }
+
+        alert('New entries saved successfully.')
+        if (pendingRecordId) {
+          await fetchPendingRecord(pendingRecordId)
+        }
+        return
+      }
+
       // Generate batch ID in format MDYYYYMMHH##
       const now = new Date()
       const baseId = `MD${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}`
@@ -203,11 +331,11 @@ export default function MetalDetectorEntryPage() {
         remarks: `Batch of ${records.length} entries`
       }
 
-      // Save to database via API
-      const response = await fetch('/api/metaldetector', {
+      const response = await fetch(`${API_BASE_URL}/metaldetector/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
         },
         body: JSON.stringify({
           baseId,
@@ -218,16 +346,15 @@ export default function MetalDetectorEntryPage() {
 
       if (response.ok) {
         alert('Records saved successfully!')
-        // Clear all records after successful save
         setRecords([])
-        // Redirect to main page
         router.push('/documentations/metaldetector')
       } else {
-        throw new Error('Failed to save records')
+        const err = await response.json().catch(() => null)
+        throw new Error(err?.detail || 'Failed to save records')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving records:', error)
-      alert('Error saving records. Please try again.')
+      alert(error.message || 'Error saving records. Please try again.')
     }
   }
 
@@ -288,7 +415,7 @@ export default function MetalDetectorEntryPage() {
                   </label>
                   <select
                     name="identificationNo"
-                    value={formData.identificationNo ? `${formData.identificationNo}-${metalDetectorOptions.find(opt => opt.identificationNo === formData.identificationNo)?.srNo || ''}` : ''}
+                    value={selectedIdentificationOptionValue}
                     onChange={handleIdentificationChange}
                     className="w-full px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                     required

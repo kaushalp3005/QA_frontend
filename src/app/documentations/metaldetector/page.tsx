@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, Loader2, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, Loader2, Trash2, Printer, Pencil, PlayCircle } from 'lucide-react'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
@@ -24,14 +24,26 @@ interface MDRecordFromAPI {
   created_at: string | null
 }
 
+const AUTHORIZED_EMAIL = 'pooja.parkar@candorfoods.in'
+
 export default function MetalDetectorPage() {
   const router = useRouter()
   const [records, setRecords] = useState<MDRecordFromAPI[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
 
   useEffect(() => {
     fetchRecords()
+    try {
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        setCurrentUserEmail(user?.email || '')
+      }
+    } catch {}
   }, [])
+
+  const isAuthorizedUser = currentUserEmail === AUTHORIZED_EMAIL
 
   const fetchRecords = async () => {
     try {
@@ -250,20 +262,59 @@ export default function MetalDetectorPage() {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{record.verified_by || '—'}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => router.push(`/documentations/metaldetector/${record.id}`)}
-                              className="text-blue-600 hover:text-blue-900 flex items-center"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </button>
-                            <button
-                              onClick={() => handleDeleteRecord(record.id)}
-                              className="text-red-600 hover:text-red-900 flex items-center"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </button>
+                            {record.status === 'pending' ? (
+                              <>
+                                <button
+                                  onClick={() => router.push(`/documentations/metaldetector/entry?record_id=${record.id}`)}
+                                  className="text-orange-600 hover:text-orange-900 flex items-center"
+                                >
+                                  <PlayCircle className="h-4 w-4 mr-1" />
+                                  Continue
+                                </button>
+                                <button
+                                  onClick={() => router.push(`/documentations/metaldetector/${record.id}?print=true`)}
+                                  className="text-green-600 hover:text-green-900 flex items-center"
+                                >
+                                  <Printer className="h-4 w-4 mr-1" />
+                                  Print
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => router.push(`/documentations/metaldetector/${record.id}`)}
+                                  className="text-blue-600 hover:text-blue-900 flex items-center"
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  View
+                                </button>
+                                {isAuthorizedUser && (
+                                  <button
+                                    onClick={() => router.push(`/documentations/metaldetector/${record.id}?edit=true`)}
+                                    className="text-purple-600 hover:text-purple-900 flex items-center"
+                                  >
+                                    <Pencil className="h-4 w-4 mr-1" />
+                                    Edit
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => router.push(`/documentations/metaldetector/${record.id}?print=true`)}
+                                  className="text-green-600 hover:text-green-900 flex items-center"
+                                >
+                                  <Printer className="h-4 w-4 mr-1" />
+                                  Print
+                                </button>
+                              </>
+                            )}
+                            {isAuthorizedUser && (
+                              <button
+                                onClick={() => handleDeleteRecord(record.id)}
+                                className="text-red-600 hover:text-red-900 flex items-center"
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

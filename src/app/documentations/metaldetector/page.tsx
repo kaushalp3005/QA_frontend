@@ -1,47 +1,84 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, Loader2, Trash2 } from 'lucide-react'
 
-interface MetalDetectorRecord {
-  id: string
-  date: string
-  time: string
-  identificationNo: string
-  customerName: string
-  productName: string
-  batchLotNo: string
-  sensitivityFE: string
-  sensitivityNFE: string
-  sensitivitySS: string
-  sensitivityFEChecked: boolean
-  sensitivityNFEChecked: boolean
-  sensitivitySSChecked: boolean
-  calibratedBy: string
-  verifiedBy: string
-  remarks?: string
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+
+interface MDRecordFromAPI {
+  id: number
+  batch_id: string
+  entry_date: string | null
+  entry_time: string | null
+  identification_no: string | null
+  location: string | null
+  customer_name: string | null
+  batch_lot_no: string | null
+  calibrated_by: string | null
+  verified_by: string | null
+  status: string | null
+  remarks: string | null
+  entry_count: number
+  created_at: string | null
 }
 
 export default function MetalDetectorPage() {
   const router = useRouter()
-  const [records, setRecords] = useState<MetalDetectorRecord[]>([])
+  const [records, setRecords] = useState<MDRecordFromAPI[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // In a real app this would come from an API
+  useEffect(() => {
+    fetchRecords()
+  }, [])
+
+  const fetchRecords = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(`${API_BASE_URL}/metaldetector/`, {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      })
+      if (!response.ok) throw new Error('Failed to fetch')
+      const data = await response.json()
+      setRecords(data.records || [])
+    } catch (error) {
+      console.error('Error fetching metal detector records:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleAddEntry = () => {
     router.push('/documentations/metaldetector/entry')
   }
 
-  const handleViewDetails = (recordId: string) => {
-    // In a real app, this would navigate to a detailed view
-    console.log('View details for record:', recordId)
+  const handleDeleteRecord = async (recordId: number) => {
+    if (!confirm('Delete this record and all its entries?')) return
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(`${API_BASE_URL}/metaldetector/${recordId}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || 'Failed to delete')
+      }
+      fetchRecords()
+    } catch (error: any) {
+      alert(error.message)
+    }
   }
 
-  const handleDeleteRecord = (recordId: string) => {
-    setRecords(prev => prev.filter(record => record.id !== recordId))
-  }
+  const todayStr = new Date().toISOString().split('T')[0]
+  const todayRecords = records.filter(r => r.entry_date === todayStr)
+  const lastRecord = records.length > 0 ? records[0] : null
 
   return (
     <DashboardLayout>
@@ -67,7 +104,7 @@ export default function MetalDetectorPage() {
               CCP Calibration, Monitoring and Verification Records
             </p>
           </div>
-          
+
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div className="bg-green-50 p-4 rounded-lg border border-green-200">
@@ -77,11 +114,11 @@ export default function MetalDetectorPage() {
                   </div>
                   <div className="ml-4">
                     <h4 className="text-lg font-semibold text-green-800">Records Today</h4>
-                    <p className="text-2xl font-bold text-green-600">{records.filter(r => r.date === new Date().toISOString().split('T')[0]).length}</p>
+                    <p className="text-2xl font-bold text-green-600">{todayRecords.length}</p>
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <div className="flex items-center">
                   <div className="p-2 bg-blue-100 rounded-lg">
@@ -93,7 +130,7 @@ export default function MetalDetectorPage() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
                 <div className="flex items-center">
                   <div className="p-2 bg-purple-100 rounded-lg">
@@ -102,7 +139,7 @@ export default function MetalDetectorPage() {
                   <div className="ml-4">
                     <h4 className="text-lg font-semibold text-purple-800">Last Entry</h4>
                     <p className="text-sm text-purple-600">
-                      {records.length > 0 ? `${records[records.length - 1].date} ${records[records.length - 1].time}` : 'No entries'}
+                      {lastRecord ? `${lastRecord.entry_date || ''} ${lastRecord.entry_time || ''}` : 'No entries'}
                     </p>
                   </div>
                 </div>
@@ -134,90 +171,103 @@ export default function MetalDetectorPage() {
               </span>
             </div>
           </div>
-          
-          {records.length > 0 ? (
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+              <span className="ml-2 text-gray-500">Loading records...</span>
+            </div>
+          ) : records.length > 0 ? (
             <div className="px-6 py-4">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch ID</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Detector ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch/Lot</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entries</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified By</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {records.map((record) => {
-                      const allSensitivitiesChecked = record.sensitivityFEChecked && record.sensitivityNFEChecked && record.sensitivitySSChecked
-                      return (
-                        <tr key={record.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">{record.date}</div>
+                    {records.map((record) => (
+                      <tr key={record.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm font-medium text-blue-600">{record.batch_id}</span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{record.entry_date || '—'}</div>
+                              {record.entry_time && (
                                 <div className="text-sm text-gray-500 flex items-center">
                                   <Clock className="h-3 w-3 mr-1" />
-                                  {record.time}
+                                  {record.entry_time}
                                 </div>
-                              </div>
+                              )}
                             </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {record.identificationNo}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <User className="h-4 w-4 text-gray-400 mr-2" />
-                              <span className="text-sm text-gray-900">{record.customerName}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="text-sm text-gray-900">{record.productName}</span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="text-sm text-gray-900">{record.batchLotNo}</span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              allSensitivitiesChecked 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              <Check className={`h-3 w-3 mr-1 ${allSensitivitiesChecked ? 'text-green-600' : 'text-yellow-600'}`} />
-                              {allSensitivitiesChecked ? 'All Passed' : 'Needs Review'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="text-sm text-gray-900">{record.verifiedBy}</span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => handleViewDetails(record.id)}
-                                className="text-blue-600 hover:text-blue-900 flex items-center"
-                              >
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
-                              </button>
-                              <button
-                                onClick={() => handleDeleteRecord(record.id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {record.identification_no || '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{record.location || '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <User className="h-4 w-4 text-gray-400 mr-2" />
+                            <span className="text-sm text-gray-900">{record.customer_name || '—'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{record.batch_lot_no || '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            {record.entry_count}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            record.status === 'passed'
+                              ? 'bg-green-100 text-green-800'
+                              : record.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            <Check className={`h-3 w-3 mr-1 ${
+                              record.status === 'passed' ? 'text-green-600' : record.status === 'pending' ? 'text-yellow-600' : 'text-red-600'
+                            }`} />
+                            {record.status === 'passed' ? 'Passed' : record.status === 'pending' ? 'Pending' : 'Needs Review'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{record.verified_by || '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => router.push(`/documentations/metaldetector/${record.id}`)}
+                              className="text-blue-600 hover:text-blue-900 flex items-center"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </button>
+                            <button
+                              onClick={() => handleDeleteRecord(record.id)}
+                              className="text-red-600 hover:text-red-900 flex items-center"
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

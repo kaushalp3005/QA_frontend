@@ -31,7 +31,7 @@ export default function IgnoreReminderPage() {
 
   const ignoreReminder = async (id: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/licenses/${id}/ignore-reminder`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/licenses/${id}/ignore-reminder`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

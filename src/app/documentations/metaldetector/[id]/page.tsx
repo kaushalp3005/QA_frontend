@@ -85,31 +85,8 @@ export default function MetalDetectorDetailPage() {
 
   const handlePrint = () => {
     const filledEntries = entries.filter(e => e.entry_date || e.product_name)
-
-    // Group entries by location (use entry-level location, fallback to record location)
-    const locationGroups: Record<string, { location: string, identificationNo: string, entries: typeof filledEntries }> = {}
-    filledEntries.forEach(e => {
-      const loc = e.location || record?.location || 'Unknown'
-      if (!locationGroups[loc]) {
-        locationGroups[loc] = {
-          location: loc,
-          identificationNo: e.identification_no || record?.identification_no || '',
-          entries: []
-        }
-      }
-      locationGroups[loc].entries.push(e)
-    })
-
-    // If no entries at all, create one group with record-level data
-    if (Object.keys(locationGroups).length === 0) {
-      const loc = record?.location || 'Unknown'
-      locationGroups[loc] = {
-        location: loc,
-        identificationNo: record?.identification_no || '',
-        entries: []
-      }
-    }
-
+    const location = record?.location || filledEntries[0]?.location || ''
+    const identificationNo = record?.identification_no || filledEntries[0]?.identification_no || ''
     const ROWS_PER_PAGE = 10
 
     const formatEntryTime = (time: string) => {
@@ -124,7 +101,7 @@ export default function MetalDetectorDetailPage() {
         return `<tr>
           <td>${e.entry_date || ''}</td>
           <td>${formatEntryTime(e.entry_time)}</td>
-          <td>${e.product_name || ''}</td>
+          <td style="text-align:left;">${e.product_name || ''}</td>
           <td>${e.batch_lot_no || ''}</td>
           <td>${e.sensitivity_fe_checked ? '✓' : ''}</td>
           <td>${e.sensitivity_nfe_checked ? '✓' : ''}</td>
@@ -139,42 +116,47 @@ export default function MetalDetectorDetailPage() {
       return `<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`
     }
 
-    const buildPage = (location: string, identificationNo: string, pageEntries: typeof filledEntries) => {
-      // Always render exactly 10 rows, pad with empty if fewer
+    const buildPage = (pageEntries: typeof filledEntries) => {
       const rows = Array.from({ length: ROWS_PER_PAGE }, (_, i) => buildRow(pageEntries[i])).join('')
 
       return `
 <div class="page">
   <table class="header-table">
-    <tr>
-      <td class="header-left" rowspan="4" style="border-right: 1px solid #000;">
-        <div style="display: flex; align-items: flex-start; gap: 15px;">
-          <img src="/candor-logo.jpg" alt="Candor Foods" style="width: 60px; height: 60px; object-fit: contain; flex-shrink: 0;" />
-          <div style="flex: 1;">
-            <div class="company-name">CANDOR FOODS PRIVATE LIMITED</div>
-            <div class="doc-title">Format : CCP calibration, Monitoring and Verification Record<br/>(Metal Detector)</div>
-            <div class="doc-no">Document No: CFPLA.C2.F.24</div>
+    <tbody>
+      <tr>
+        <td class="header-left" rowspan="4">
+          <div class="logo-wrap">
+            <img src="/candor-logo.jpg" alt="Candor Foods" style="width:60px;height:52px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'" />
+            <div style="flex:1; text-align:center;">
+              <div class="company-name">CANDOR FOODS PRIVATE LIMITED</div>
+              <div class="doc-title">Format : CCP calibration, Monitoring and Verification Record<br/>(Metal Detector)</div>
+              <div class="doc-no">Document No: CFPLA.C2.F.24</div>
+            </div>
           </div>
-        </div>
-      </td>
-      <td style="border-bottom: 1px solid #000;"><table class="meta-table"><tr><td class="label">Issue Date:</td><td>05/02/2023</td></tr></table></td>
-    </tr>
-    <tr><td style="border-bottom: 1px solid #000;"><table class="meta-table"><tr><td class="label">Issue No:</td><td>02</td></tr></table></td></tr>
-    <tr><td style="border-bottom: 1px solid #000;"><table class="meta-table"><tr><td class="label">Revision Date:</td><td>01/10/2025</td></tr></table></td></tr>
-    <tr><td><table class="meta-table"><tr><td class="label">Revision No.:</td><td>01</td></tr></table></td></tr>
+        </td>
+        <td class="meta-cell" rowspan="4" style="width:30%; padding:0 !important;">
+          <div class="meta-row"><span class="meta-label">Issue Date:</span><span class="meta-val">05/02/2023</span></div>
+          <div class="meta-row"><span class="meta-label">Issue No:</span><span class="meta-val">02</span></div>
+          <div class="meta-row"><span class="meta-label">Revision Date:</span><span class="meta-val">01/10/2025</span></div>
+          <div class="meta-row"><span class="meta-label">Revision No.:</span><span class="meta-val">01</span></div>
+        </td>
+      </tr>
+    </tbody>
   </table>
 
-  <p class="frequency">Frequency: Start - Mid - End (Every Hour)</p>
+  <div class="frequency">Frequency: Start - Mid - End (Every Hour)</div>
 
   <table class="machine-row">
-    <tr>
-      <td class="label" style="width:15%;">MACHINE DETAILS</td>
-      <td style="width:20%;">Metal Detector</td>
-      <td class="label" style="width:10%;">LOCATION:</td>
-      <td style="width:25%;">${location}</td>
-      <td style="width:15%;"></td>
-      <td class="label" style="width:15%;">Identification No: ${identificationNo}</td>
-    </tr>
+    <tbody>
+      <tr>
+        <td class="lbl" style="width:14%;">MACHINE DETAILS</td>
+        <td style="width:18%;">Metal Detector</td>
+        <td class="lbl" style="width:10%;">LOCATION:</td>
+        <td style="width:28%;">${location}</td>
+        <td style="width:14%;"></td>
+        <td style="width:16%; font-weight:bold;">Identification No: ${identificationNo}</td>
+      </tr>
+    </tbody>
   </table>
 
   <table class="main-table">
@@ -209,21 +191,15 @@ export default function MetalDetectorDetailPage() {
 </div>`
     }
 
-    // Build all pages: each location gets its own pages, 10 rows each
+    // Paginate all entries together (no location splitting) — 10 rows per page
     let allPages = ''
-    Object.values(locationGroups).forEach(group => {
-      const { location, identificationNo, entries: groupEntries } = group
-      if (groupEntries.length === 0) {
-        // Empty location page with 10 blank rows
-        allPages += buildPage(location, identificationNo, [])
-      } else {
-        // Split into chunks of 10
-        for (let i = 0; i < groupEntries.length; i += ROWS_PER_PAGE) {
-          const chunk = groupEntries.slice(i, i + ROWS_PER_PAGE)
-          allPages += buildPage(location, identificationNo, chunk)
-        }
+    if (filledEntries.length === 0) {
+      allPages = buildPage([])
+    } else {
+      for (let i = 0; i < filledEntries.length; i += ROWS_PER_PAGE) {
+        allPages += buildPage(filledEntries.slice(i, i + ROWS_PER_PAGE))
       }
-    })
+    }
 
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
@@ -233,31 +209,44 @@ export default function MetalDetectorDetailPage() {
 <head>
 <title>Metal Detector Record - ${record?.batch_id || ''}</title>
 <style>
-  @page { size: landscape A4; margin: 10mm; }
+  @page { size: A4 landscape; margin: 8mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; font-size: 11px; color: #000; }
+  body { font-family: Arial, sans-serif; font-size: 10px; color: #000; background: #fff; }
   .page { width: 100%; page-break-after: always; }
   .page:last-child { page-break-after: avoid; }
-  .header-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
-  .header-table td { padding: 4px 8px; vertical-align: top; }
-  .header-left { width: 70%; }
-  .company-name { font-size: 16px; font-weight: bold; text-align: center; }
-  .doc-title { font-size: 12px; font-weight: bold; text-align: center; margin-top: 4px; }
-  .doc-no { font-size: 10px; text-align: center; margin-top: 2px; }
-  .meta-table { width: 100%; border-collapse: collapse; }
-  .meta-table td { border: 1px solid #000; padding: 3px 8px; font-size: 10px; }
-  .meta-table .label { font-weight: bold; width: 50%; }
-  .frequency { font-size: 10px; font-weight: bold; margin: 6px 0; }
-  .machine-row { width: 100%; border-collapse: collapse; border: 2px solid #000; border-top: none; }
-  .machine-row td { border: 1px solid #000; padding: 4px 8px; font-size: 11px; }
-  .machine-row .label { font-weight: bold; background: #f0f0f0; }
-  .main-table { width: 100%; border-collapse: collapse; border: 2px solid #000; border-top: none; }
-  .main-table th, .main-table td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 10px; }
-  .main-table th { background: #f5f5f5; font-weight: bold; }
-  .main-table td { height: 22px; }
-  .footer { width: 100%; border: 2px solid #000; border-top: none; padding: 20px 15px; display: flex; justify-content: space-between; align-items: center; }
-  .footer-left, .footer-right { font-size: 11px; font-weight: bold; }
-  .controlled-copy { border: 2px solid #000; padding: 6px 16px; font-weight: bold; font-size: 12px; }
+
+  /* ── Header ── */
+  .header-table { width: 100%; border-collapse: collapse; border: 1px solid #555; }
+  .header-table > tbody > tr > td { padding: 5px 8px; vertical-align: middle; border: 1px solid #555; }
+  .header-left { width: 68%; border-right: 1px solid #555 !important; }
+  .logo-wrap { display: flex; align-items: center; gap: 10px; }
+  .logo-box { width: 48px; height: 48px; border: 1px solid #555; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; text-align: center; flex-shrink: 0; }
+  .company-name { font-size: 13px; font-weight: bold; text-align: center; letter-spacing: 0.3px; }
+  .doc-title { font-size: 10px; font-weight: bold; text-align: center; margin-top: 3px; }
+  .doc-no { font-size: 9px; text-align: center; margin-top: 2px; color: #333; }
+  .meta-cell { padding: 0 !important; }
+  .meta-row { display: flex; border-bottom: 1px solid #555; }
+  .meta-row:last-child { border-bottom: none; }
+  .meta-label { font-weight: bold; font-size: 9px; padding: 4px 6px; width: 95px; border-right: 1px solid #555; background: #f8f8f8; }
+  .meta-val { font-size: 9px; padding: 4px 6px; flex: 1; }
+
+  /* ── Frequency ── */
+  .frequency { font-size: 9px; font-weight: bold; padding: 4px 6px; border: 1px solid #555; border-top: none; background: #f8f8f8; }
+
+  /* ── Machine row ── */
+  .machine-row { width: 100%; border-collapse: collapse; border: 1px solid #555; border-top: none; }
+  .machine-row td { border: 1px solid #555; padding: 4px 8px; font-size: 10px; }
+  .machine-row .lbl { font-weight: bold; background: #f8f8f8; }
+
+  /* ── Main data table ── */
+  .main-table { width: 100%; border-collapse: collapse; border: 1px solid #555; border-top: none; }
+  .main-table th { border: 1px solid #555; padding: 4px 4px; text-align: center; font-size: 9px; font-weight: bold; background: #f0f0f0; vertical-align: middle; line-height: 1.3; }
+  .main-table td { border: 1px solid #aaa; padding: 3px 4px; text-align: center; font-size: 9px; height: 20px; vertical-align: middle; }
+
+  /* ── Footer ── */
+  .footer { width: 100%; border: 1px solid #555; border-top: none; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; }
+  .footer-left, .footer-right { font-size: 10px; font-weight: bold; }
+  .controlled-copy { border: 1px solid #555; padding: 5px 18px; font-weight: bold; font-size: 10px; text-align: center; }
 </style>
 </head>
 <body>
@@ -371,250 +360,197 @@ ${allPages}
 
   const filledEntries = entries.filter(e => e.entry_date || e.product_name)
 
+  const thCls = "border border-gray-400 px-2 py-1.5 text-center font-bold text-xs text-gray-800 bg-gray-100"
+  const tdCls = "border border-gray-300 px-2 py-1 text-xs text-gray-900 text-center"
+  const editInputCls = "w-full text-xs border border-blue-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+  const BLANK_ROWS = 10
+  const blankCount = Math.max(0, BLANK_ROWS - filledEntries.length)
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="space-y-4">
+
+        {/* Screen-only toolbar */}
+        <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-5 py-3 shadow-sm print:hidden">
           <button
             onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
           >
-            <ArrowLeft className="h-5 w-5 mr-2" />
+            <ArrowLeft className="h-4 w-4" />
             Back to Records
           </button>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-3">
             {editing ? (
               <>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? 'Saving...' : 'Save Changes'}
+                <button onClick={() => { setEditing(false); fetchRecord() }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+                  <X className="h-4 w-4" /> Cancel
                 </button>
-                <button
-                  onClick={() => { setEditing(false); fetchRecord() }}
-                  className="flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
+                <button onClick={handleSave} disabled={saving}
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </>
             ) : (
               <>
                 {isAuthorizedUser && record.status !== 'pending' && (
-                  <button
-                    onClick={() => setEditing(true)}
-                    className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                  >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit
+                  <button onClick={() => setEditing(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50">
+                    <Pencil className="h-4 w-4" /> Edit
                   </button>
                 )}
-                <button
-                  onClick={handlePrint}
-                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print Record
+                <button onClick={handlePrint}
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  <Printer className="h-4 w-4" /> Print / Save PDF
                 </button>
               </>
             )}
           </div>
         </div>
 
-        {/* Record Info Card */}
-        <div ref={printRef} className="bg-white rounded-lg shadow-lg border border-gray-200">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 rounded-t-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-white">Metal Detector Record</h2>
-                <p className="text-blue-100 text-sm mt-1">CCP Calibration, Monitoring and Verification</p>
+        {/* ── Physical Form Layout ── */}
+        <div ref={printRef} className="bg-white border border-gray-300 shadow-sm" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px' }}>
+
+          {/* Document Header */}
+          <div className="grid border-b-2 border-gray-800" style={{ gridTemplateColumns: '160px 1fr 200px' }}>
+            {/* Logo */}
+            <div className="flex items-center justify-center p-3 border-r border-gray-400">
+              <img src="/candor-logo.jpg" alt="Candor Foods" className="h-14 w-auto object-contain" />
+            </div>
+
+            {/* Title */}
+            <div className="flex flex-col items-center justify-center p-3 border-r border-gray-400 text-center gap-0.5">
+              <div className="font-bold text-sm text-gray-900">CANDOR FOODS PRIVATE LIMITED</div>
+              <div className="font-semibold text-xs text-gray-700 mt-1">
+                Format : CCP calibration, Monitoring and Verification Record<br />(Metal Detector)
               </div>
-              <span className="bg-white/20 text-white text-sm font-medium px-3 py-1 rounded-full">
-                {record.batch_id}
-              </span>
+              <div className="text-xs text-gray-500 mt-0.5">Document No: CFPLA.C2.F.24</div>
+            </div>
+
+            {/* Meta */}
+            <div className="flex flex-col divide-y divide-gray-300">
+              {[['Issue Date:', '05/02/2023'], ['Issue No:', '02'], ['Revision Date:', '01/10/2025'], ['Revision No.:', '01']].map(([k, v]) => (
+                <div key={k} className="flex flex-1 items-center divide-x divide-gray-300">
+                  <span className="px-2 py-1 text-xs font-bold text-gray-700 w-28">{k}</span>
+                  <span className="px-2 py-1 text-xs text-gray-900 flex-1">{v}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Record Details Grid */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="flex items-start space-x-3">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Date</p>
-                  <p className="text-sm font-semibold text-gray-900">{record.created_at ? new Date(record.created_at).toLocaleDateString() : '—'}</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="p-2 bg-purple-50 rounded-lg">
-                  <MapPin className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Location</p>
-                  <p className="text-sm font-semibold text-gray-900">{record.location || '—'}</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <Hash className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Identification No.</p>
-                  <p className="text-sm font-semibold text-gray-900">{record.identification_no || '—'}</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="p-2 bg-orange-50 rounded-lg">
-                  <User className="h-5 w-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Customer</p>
-                  <p className="text-sm font-semibold text-gray-900">{record.customer_name || '—'}</p>
-                </div>
-              </div>
-            </div>
+          {/* Frequency */}
+          <div className="px-3 py-1.5 text-xs font-semibold text-gray-700 border-b border-gray-300 bg-gray-50">
+            Frequency: Start - Mid - End (Every Hour)
+          </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-medium">Batch/Lot No.</p>
-                <p className="text-sm font-semibold text-gray-900">{record.batch_lot_no || '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-medium">Calibrated By</p>
-                <p className="text-sm font-semibold text-gray-900">{record.calibrated_by || '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-medium">Verified By</p>
-                <p className="text-sm font-semibold text-gray-900">{record.verified_by || '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-medium">Status</p>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  record.status === 'passed' ? 'bg-green-100 text-green-800' :
-                  record.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {record.status === 'passed' ? 'Passed' : record.status === 'pending' ? 'Pending' : record.status || '—'}
-                </span>
-              </div>
+          {/* Machine Details Row */}
+          <div className="flex divide-x divide-gray-300 border-b-2 border-gray-800 text-xs">
+            <div className="flex items-center gap-2 px-3 py-1.5 flex-1">
+              <span className="font-bold text-gray-700 uppercase">Machine Details</span>
+              <span className="text-gray-900">Metal Detector</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 flex-1">
+              <span className="font-bold text-gray-700 uppercase">Location:</span>
+              <span className="text-gray-900">{record.location || entries[0]?.location || '—'}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 flex-1">
+              <span className="font-bold text-gray-700 uppercase">Identification No:</span>
+              <span className="text-gray-900">{record.identification_no || entries[0]?.identification_no || '—'}</span>
             </div>
           </div>
 
-          {/* Entries Table */}
-          <div className="p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              Entries
-              <span className="ml-2 text-sm font-normal text-gray-500">({filledEntries.length} records)</span>
-            </h3>
-
-            {filledEntries.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Batch/Lot</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">FE</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">NFE</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">SS</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action (Detector)</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action (Product)</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Calibrated By</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Verified By</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filledEntries.map((entry, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-500">{idx + 1}</td>
-                        {editing ? (
-                          <>
-                            <td className="px-4 py-3">
-                              <input type="date" value={entry.entry_date} onChange={e => handleUpdateEntry(idx, 'entry_date', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="time" value={entry.entry_time} onChange={e => handleUpdateEntry(idx, 'entry_time', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="text" value={entry.product_name} onChange={e => handleUpdateEntry(idx, 'product_name', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="text" value={entry.batch_lot_no} onChange={e => handleUpdateEntry(idx, 'batch_lot_no', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <input type="checkbox" checked={entry.sensitivity_fe_checked} onChange={e => handleUpdateEntry(idx, 'sensitivity_fe_checked', e.target.checked)} className="w-4 h-4 accent-green-600" />
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <input type="checkbox" checked={entry.sensitivity_nfe_checked} onChange={e => handleUpdateEntry(idx, 'sensitivity_nfe_checked', e.target.checked)} className="w-4 h-4 accent-green-600" />
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <input type="checkbox" checked={entry.sensitivity_ss_checked} onChange={e => handleUpdateEntry(idx, 'sensitivity_ss_checked', e.target.checked)} className="w-4 h-4 accent-green-600" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="text" value={entry.corrective_action_on_detector || ''} onChange={e => handleUpdateEntry(idx, 'corrective_action_on_detector', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="text" value={entry.corrective_action_on_product || ''} onChange={e => handleUpdateEntry(idx, 'corrective_action_on_product', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="text" value={entry.calibrated_by} onChange={e => handleUpdateEntry(idx, 'calibrated_by', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="text" value={entry.verified_by} onChange={e => handleUpdateEntry(idx, 'verified_by', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="text" value={entry.remarks || ''} onChange={e => handleUpdateEntry(idx, 'remarks', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{entry.entry_date || '—'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatTime(entry.entry_time)}</td>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{entry.product_name || '—'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{entry.batch_lot_no || '—'}</td>
-                            <td className="px-4 py-3 text-center">
-                              {entry.sensitivity_fe_checked
-                                ? <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto" />
-                                : <XCircle className="h-5 w-5 text-red-400 mx-auto" />}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {entry.sensitivity_nfe_checked
-                                ? <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto" />
-                                : <XCircle className="h-5 w-5 text-red-400 mx-auto" />}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {entry.sensitivity_ss_checked
-                                ? <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto" />
-                                : <XCircle className="h-5 w-5 text-red-400 mx-auto" />}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{entry.corrective_action_on_detector || 'NO'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{entry.corrective_action_on_product || 'NO'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{entry.calibrated_by || '—'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{entry.verified_by || '—'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{entry.remarks || '—'}</td>
-                          </>
-                        )}
-                      </tr>
+          {/* Data Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
+              <thead>
+                <tr>
+                  <th className={thCls} rowSpan={2} style={{ width: '80px' }}>DATE</th>
+                  <th className={thCls} rowSpan={2} style={{ width: '65px' }}>TIME</th>
+                  <th className={thCls} rowSpan={2} style={{ width: '140px' }}>PRODUCT NAME</th>
+                  <th className={thCls} rowSpan={2} style={{ width: '80px' }}>BATCH/LOT<br />NO.</th>
+                  <th className={thCls} colSpan={3}>SENSITIVITIES</th>
+                  <th className={thCls} colSpan={2} style={{ width: '180px' }}>IF METAL DETECTOR IS NOT WORKING,<br />CORRECTIVE ACTION TAKEN ON</th>
+                  <th className={thCls} rowSpan={2} style={{ width: '100px' }}>CALIBRATED/<br />MONITORED<br />BY</th>
+                  <th className={thCls} rowSpan={2} style={{ width: '90px' }}>VERIFIED<br />BY</th>
+                  <th className={thCls} rowSpan={2} style={{ width: '80px' }}>REMARKS</th>
+                </tr>
+                <tr>
+                  <th className={thCls} style={{ width: '55px' }}>FE<br /><span className="font-normal">Fe-1.0mm</span></th>
+                  <th className={thCls} style={{ width: '60px' }}>NFE<br /><span className="font-normal">NFe-1.2mm</span></th>
+                  <th className={thCls} style={{ width: '55px' }}>SS<br /><span className="font-normal">SS-1.7mm</span></th>
+                  <th className={thCls} style={{ width: '90px' }}>ON METAL<br />DETECTOR</th>
+                  <th className={thCls} style={{ width: '90px' }}>ON PRODUCT<br />PASSED</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filledEntries.map((entry, idx) => (
+                  <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className={tdCls}>
+                      {editing ? <input type="date" value={entry.entry_date} onChange={e => handleUpdateEntry(idx, 'entry_date', e.target.value)} className={editInputCls} /> : entry.entry_date || ''}
+                    </td>
+                    <td className={tdCls}>
+                      {editing ? <input type="time" value={entry.entry_time} onChange={e => handleUpdateEntry(idx, 'entry_time', e.target.value)} className={editInputCls} /> : formatTime(entry.entry_time)}
+                    </td>
+                    <td className={`${tdCls} text-left`}>
+                      {editing ? <input type="text" value={entry.product_name} onChange={e => handleUpdateEntry(idx, 'product_name', e.target.value)} className={editInputCls} /> : entry.product_name || ''}
+                    </td>
+                    <td className={tdCls}>
+                      {editing ? <input type="text" value={entry.batch_lot_no} onChange={e => handleUpdateEntry(idx, 'batch_lot_no', e.target.value)} className={editInputCls} /> : entry.batch_lot_no || ''}
+                    </td>
+                    <td className={tdCls}>
+                      {editing
+                        ? <input type="checkbox" checked={entry.sensitivity_fe_checked} onChange={e => handleUpdateEntry(idx, 'sensitivity_fe_checked', e.target.checked)} className="w-3.5 h-3.5" />
+                        : entry.sensitivity_fe_checked ? '✓' : ''}
+                    </td>
+                    <td className={tdCls}>
+                      {editing
+                        ? <input type="checkbox" checked={entry.sensitivity_nfe_checked} onChange={e => handleUpdateEntry(idx, 'sensitivity_nfe_checked', e.target.checked)} className="w-3.5 h-3.5" />
+                        : entry.sensitivity_nfe_checked ? '✓' : ''}
+                    </td>
+                    <td className={tdCls}>
+                      {editing
+                        ? <input type="checkbox" checked={entry.sensitivity_ss_checked} onChange={e => handleUpdateEntry(idx, 'sensitivity_ss_checked', e.target.checked)} className="w-3.5 h-3.5" />
+                        : entry.sensitivity_ss_checked ? '✓' : ''}
+                    </td>
+                    <td className={tdCls}>
+                      {editing ? <input type="text" value={entry.corrective_action_on_detector || ''} onChange={e => handleUpdateEntry(idx, 'corrective_action_on_detector', e.target.value)} className={editInputCls} /> : (entry.corrective_action_on_detector || 'NO')}
+                    </td>
+                    <td className={tdCls}>
+                      {editing ? <input type="text" value={entry.corrective_action_on_product || ''} onChange={e => handleUpdateEntry(idx, 'corrective_action_on_product', e.target.value)} className={editInputCls} /> : (entry.corrective_action_on_product || 'NO')}
+                    </td>
+                    <td className={tdCls}>
+                      {editing ? <input type="text" value={entry.calibrated_by} onChange={e => handleUpdateEntry(idx, 'calibrated_by', e.target.value)} className={editInputCls} /> : entry.calibrated_by || ''}
+                    </td>
+                    <td className={tdCls}>
+                      {editing ? <input type="text" value={entry.verified_by} onChange={e => handleUpdateEntry(idx, 'verified_by', e.target.value)} className={editInputCls} /> : entry.verified_by || ''}
+                    </td>
+                    <td className={tdCls}>
+                      {editing ? <input type="text" value={entry.remarks || ''} onChange={e => handleUpdateEntry(idx, 'remarks', e.target.value)} className={editInputCls} /> : (entry.remarks || '')}
+                    </td>
+                  </tr>
+                ))}
+                {/* Blank padding rows */}
+                {Array.from({ length: blankCount }).map((_, i) => (
+                  <tr key={`blank-${i}`} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    {Array.from({ length: 12 }).map((_, j) => (
+                      <td key={j} className={tdCls} style={{ height: '24px' }}>&nbsp;</td>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p>No entries recorded yet.</p>
-              </div>
-            )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-5 py-3 border-t-2 border-gray-800 text-xs font-bold text-gray-900">
+            <span>Prepared By: FST</span>
+            <div className="border-2 border-gray-800 px-4 py-1.5 text-center text-xs font-black">
+              CONTROLLED<br />COPY
+            </div>
+            <span>Approved By: FSTL</span>
+          </div>
+
         </div>
       </div>
     </DashboardLayout>

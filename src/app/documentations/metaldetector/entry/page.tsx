@@ -75,7 +75,7 @@ const AUTHORIZED_EMAIL = 'pooja.parkar@candorfoods.in'
 const metalDetectorOptions: MetalDetectorOption[] = [
   {
     identificationNo: 'CCP 1',
-    srNo: '(MineBeaIntec-4211011)',
+    srNo: '(MineBeaIntec-42110011)',
     location: 'PFS Machine(FG Storage)',
     sensitivityFE: 'Fe-1.5 mm',
     sensitivityNFE: 'NFe-2 mm',

@@ -431,14 +431,14 @@ export default function MetalDetectorPage() {
 
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
                 <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Check className="h-6 w-6 text-green-600" />
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <Clock className="h-6 w-6 text-orange-600" />
                   </div>
                   <div className="ml-4">
-                    <h4 className="text-lg font-semibold text-green-800">Records Today</h4>
-                    <p className="text-2xl font-bold text-green-600">{records.filter(r => r.entry_date === todayStr).length}</p>
+                    <h4 className="text-lg font-semibold text-orange-800">Pending Records</h4>
+                    <p className="text-2xl font-bold text-orange-600">{records.filter(r => r.status === 'pending').length}</p>
                   </div>
                 </div>
               </div>

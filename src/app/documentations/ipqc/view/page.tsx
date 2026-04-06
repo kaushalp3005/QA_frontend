@@ -6,6 +6,7 @@ import IPQCForm from "@/components/IPQCForm";
 import IPQCPrint from "@/components/IPQCPrint";
 import { ipqc } from "@/lib/api";
 import { getSession } from "@/lib/auth";
+import { downloadRecord } from "@/lib/printRecord";
 import { Session, IPQCRecord } from "@/types";
 
 function ViewContent() {
@@ -20,7 +21,7 @@ function ViewContent() {
   const [error, setError] = useState("");
 
   const session = getSession() as Session | null;
-  const isAdmin = session?.isAdmin;
+  const isAdmin = session?.email === 'pooja.parkar@candorfoods.in';
 
   useEffect(() => {
     if (!session) {
@@ -109,6 +110,13 @@ function ViewContent() {
             </button>
           ) : null}
           <IPQCPrint record={record} />
+          <button
+            type="button"
+            onClick={() => downloadRecord(record as any)}
+            className="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-200 transition-all"
+          >
+            Download
+          </button>
           <button
             onClick={() => router.push("/dashboard")}
             className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-200 transition-all"

@@ -69,7 +69,8 @@ export default function IPQCListPage() {
     } catch (err: any) { alert("Failed to load record: " + err.message); }
   }
 
-  const isAdmin = session?.isAdmin;
+  const isAuthorized = session?.email === 'pooja.parkar@candorfoods.in';
+  const isAdmin = isAuthorized;
 
   return (
     <div className="min-h-[100dvh] bg-cream-100">
@@ -213,9 +214,11 @@ export default function IPQCListPage() {
                       <button onClick={() => handlePrint(record.ipqc_no)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium text-sage-600 hover:bg-beige-50 transition-colors">
                         <Printer className="w-3.5 h-3.5" /> Print
                       </button>
-                      <button onClick={() => router.push(`/documentations/ipqc/view?id=${record.ipqc_no}`)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium text-sage-600 hover:bg-beige-50 transition-colors">
-                        <Pencil className="w-3.5 h-3.5" /> Edit
-                      </button>
+                      {isAdmin && (
+                        <button onClick={() => router.push(`/documentations/ipqc/view?id=${record.ipqc_no}`)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium text-sage-600 hover:bg-beige-50 transition-colors">
+                          <Pencil className="w-3.5 h-3.5" /> Edit
+                        </button>
+                      )}
                       {isAdmin && (
                         <button onClick={() => handleDelete(record.ipqc_no)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium text-danger-600 hover:bg-danger-50 transition-colors">
                           <Trash2 className="w-3.5 h-3.5" /> Delete
@@ -293,12 +296,14 @@ export default function IPQCListPage() {
                             >
                               Print
                             </button>
-                            <button
-                              onClick={() => router.push(`/documentations/ipqc/view?id=${record.ipqc_no}`)}
-                              className="px-3 py-1.5 text-xs font-semibold text-teal-600 hover:text-teal-800 hover:underline transition-colors"
-                            >
-                              Edit
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => router.push(`/documentations/ipqc/view?id=${record.ipqc_no}`)}
+                                className="px-3 py-1.5 text-xs font-semibold text-teal-600 hover:text-teal-800 hover:underline transition-colors"
+                              >
+                                Edit
+                              </button>
+                            )}
                             {isAdmin && (
                               <button
                                 onClick={() => handleDelete(record.ipqc_no)}

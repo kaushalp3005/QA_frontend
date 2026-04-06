@@ -44,6 +44,23 @@ export const PHYSICAL_SEEDS_PARAMS: Parameter[] = [
   { key: "other", label: "Other" },
 ];
 
+export const PHYSICAL_NUTS_PARAMS: Parameter[] = [
+  { key: "count", label: "Count" },
+  { key: "infestation", label: "Infestation" },
+  { key: "foreign_matter", label: "Foreign Matter" },
+  { key: "discolor", label: "Discolor" },
+  { key: "broken", label: "Broken" },
+  { key: "split", label: "Split" },
+  { key: "empty_shell", label: "Empty Shell" },
+  { key: "kernel_pct", label: "Kernel %" },
+  { key: "closed_shell", label: "Closed Shell" },
+  { key: "chipped_scratches", label: "Chipped / Scratches" },
+  { key: "doubles", label: "Doubles" },
+  { key: "shrivelled", label: "Shrivelled" },
+  { key: "rancid", label: "Rancid" },
+  { key: "other", label: "Other" },
+];
+
 export const PHYSICAL_ALL_PARAMS: Parameter[] = [
   ...PHYSICAL_DATES_PARAMS,
   ...PHYSICAL_SEEDS_PARAMS.filter(
@@ -71,5 +88,6 @@ export const LABEL_CHECK_PARAMS: Parameter[] = [
 export function getPhysicalParams(category: string): Parameter[] {
   if (category === "dates") return PHYSICAL_DATES_PARAMS;
   if (category === "seeds") return PHYSICAL_SEEDS_PARAMS;
+  if (category === "nuts") return PHYSICAL_NUTS_PARAMS;
   return PHYSICAL_ALL_PARAMS;
 }

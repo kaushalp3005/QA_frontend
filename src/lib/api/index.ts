@@ -20,7 +20,7 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
   if (res.status === 401) {
     clearSession();
     if (typeof window !== "undefined") {
-      window.location.href = "/";
+      window.dispatchEvent(new Event('force-logout'));
     }
     throw new Error("Session expired — please log in again");
   }

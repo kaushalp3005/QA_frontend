@@ -32,10 +32,16 @@ class APIClient {
       return config;
     });
 
-    // Response interceptor for error handling
+    // Response interceptor for error handling + auto-logout on 401
     this.client.interceptors.response.use(
       (response) => response,
       (error: AxiosError<ErrorResponse>) => {
+        if (error.response?.status === 401) {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('force-logout'));
+          }
+          throw new APIError('Session expired — please log in again', 'TOKEN_EXPIRED', 401);
+        }
         if (error.response?.data?.error) {
           throw new APIError(
             error.response.data.error.message,
@@ -50,9 +56,8 @@ class APIClient {
   }
 
   private getAuthToken(): string | null {
-    // In a real app, this would get the token from localStorage, cookies, or auth context
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('auth_token');
+      return localStorage.getItem('access_token');
     }
     return null;
   }

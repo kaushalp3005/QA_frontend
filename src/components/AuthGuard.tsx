@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { isAuthenticated, getAuthToken, getStoredCompany } from '@/lib/api/auth'
+import { isAuthenticated, getAuthToken, getStoredCompany, logout } from '@/lib/api/auth'
+import { clearSession } from '@/lib/auth'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -13,14 +14,26 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname()
   const [isChecking, setIsChecking] = useState(true)
 
+  // Handle force-logout event (fired on 401 from any API call)
+  const handleForceLogout = useCallback(() => {
+    logout()
+    clearSession()
+    router.push('/login')
+  }, [router])
+
+  useEffect(() => {
+    window.addEventListener('force-logout', handleForceLogout)
+    return () => window.removeEventListener('force-logout', handleForceLogout)
+  }, [handleForceLogout])
+
   useEffect(() => {
     const checkAuth = () => {
       // Public routes that don't need authentication
       const publicRoutes = ['/login', '/']
-      
+
       // Check if current route is public
       const isPublicRoute = publicRoutes.includes(pathname)
-      
+
       // If not authenticated and trying to access protected route
       if (!isAuthenticated() && !isPublicRoute) {
         // Store the current path as return URL for redirect after login
@@ -28,7 +41,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`)
         return
       }
-      
+
       // If authenticated and trying to access login page, check for return URL
       if (isAuthenticated() && pathname === '/login') {
         // Check for return URL in query params
@@ -41,7 +54,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         }
         return
       }
-      
+
       setIsChecking(false)
     }
 

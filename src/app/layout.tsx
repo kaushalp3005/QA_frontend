@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import { CompanyProvider } from '@/contexts/CompanyContext'
 import AuthGuard from '@/components/AuthGuard'
+import FetchInterceptor from '@/components/FetchInterceptor'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="font-sans antialiased" suppressHydrationWarning>
+        <FetchInterceptor />
         <AuthGuard>
           <CompanyProvider>
             {children}

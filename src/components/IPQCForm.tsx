@@ -16,6 +16,7 @@ interface ArticleForm {
   customer: string;
   batch_number: string;
   physical_category: string;
+  physical_category_other?: string;
   sensory_evaluation: IPQCCheckItem[];
   physical_parameters: IPQCCheckItem[];
   label_check: IPQCCheckItem[];
@@ -354,10 +355,25 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
                     onChange={(e) => changePhysicalCategory(artIdx, e.target.value)}
                     className={inputCls}
                   >
-                    <option value="other">Other</option>
                     <option value="dates">Dates</option>
                     <option value="seeds">Seeds</option>
+                    <option value="nuts">Nuts</option>
+                    <option value="other">Other</option>
                   </select>
+                  {art.physical_category === "other" && (
+                    <input
+                      type="text"
+                      placeholder="Specify category"
+                      value={art.physical_category_other || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setArticles((prev) =>
+                          prev.map((a, i) => i !== artIdx ? a : { ...a, physical_category_other: val })
+                        );
+                      }}
+                      className={inputCls + " mt-2"}
+                    />
+                  )}
                 </div>
               </div>
 

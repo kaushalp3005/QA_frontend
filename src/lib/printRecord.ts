@@ -132,11 +132,10 @@ function buildArticleRows(article: any, record: PrintRecord): string {
   return rows;
 }
 
-export function printRecord(record: PrintRecord): void {
+function buildHtml(record: PrintRecord): string {
   const logoUrl = window.location.origin + "/candor-logo.jpg";
   const stampUrl = window.location.origin + "/controlled-copy-stamp.png";
 
-  // Build rows for all articles; fall back to flat fields if no articles array
   const articles = record.articles?.length
     ? record.articles
     : [{
@@ -160,7 +159,7 @@ export function printRecord(record: PrintRecord): void {
     bodyTableRows += buildArticleRows(articles[ai], record);
   }
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html>
 <head>
 <title>IPQC - ${esc(record.ipqc_no)}</title>
@@ -277,6 +276,10 @@ export function printRecord(record: PrintRecord): void {
 
 </body>
 </html>`;
+}
+
+export function printRecord(record: PrintRecord): void {
+  const html = buildHtml(record);
 
   // Use a hidden iframe to trigger print dialog directly (no preview page)
   let iframe = document.getElementById("__print_iframe") as HTMLIFrameElement | null;
@@ -298,4 +301,40 @@ export function printRecord(record: PrintRecord): void {
       };
     }
   }
+}
+
+export async function downloadRecord(record: PrintRecord): Promise<void> {
+  const html = buildHtml(record);
+
+  // Render in a hidden container so html2pdf can capture it
+  const container = document.createElement("div");
+  container.style.cssText = "position:fixed;left:-9999px;top:0;width:1123px;"; // A4 landscape width in px
+  const bodyStart = html.indexOf("<body");
+  const bodyTagEnd = html.indexOf(">", bodyStart) + 1;
+  const bodyEnd = html.indexOf("</body>");
+  container.innerHTML = html.slice(bodyTagEnd, bodyEnd);
+
+  // Inject the print styles inline so html2pdf sees them
+  const styleMatch = html.match(/<style>([\s\S]*?)<\/style>/);
+  if (styleMatch) {
+    const style = document.createElement("style");
+    style.textContent = styleMatch[1];
+    container.prepend(style);
+  }
+
+  document.body.appendChild(container);
+
+  const html2pdf = (await import("html2pdf.js")).default;
+  await html2pdf()
+    .set({
+      margin: [8, 8, 8, 8],
+      filename: `IPQC-${record.ipqc_no}.pdf`,
+      image: { type: "jpeg", quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+    })
+    .from(container)
+    .save();
+
+  container.remove();
 }

@@ -21,7 +21,7 @@ function ViewContent() {
   const [error, setError] = useState("");
 
   const session = getSession() as Session | null;
-  const isAdmin = session?.email === 'pooja.parkar@candorfoods.in';
+  const isAdmin = session?.username === 'pooja.parkar@candorfoods.in';
 
   useEffect(() => {
     if (!session) {

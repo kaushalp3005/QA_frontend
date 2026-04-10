@@ -116,7 +116,7 @@ const sectionTitleCls = "text-xs font-bold text-sage-600 uppercase tracking-wide
 
 export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Props) {
   const { currentCompany } = useCompany();
-  const isA185 = currentCompany === "A185";
+  const isA185 = (currentCompany as string) === "A185";
 
   const [checkDate, setCheckDate] = useState(
     initialData?.check_date || new Date().toISOString().slice(0, 10)

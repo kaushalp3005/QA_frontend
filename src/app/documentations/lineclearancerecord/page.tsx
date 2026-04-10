@@ -148,12 +148,12 @@ export default function ProductChangeoverLineClearance() {
                     </td>
                     {(["table", "weighingUtensils", "tools", "weighingScale", "sieves", "changeOfGloves"] as (keyof ChangeoverRow)[]).map((field) => (
                       <td key={field} className="border border-gray-300 p-1 text-center bg-blue-50/30">
-                        <TickCell id={row.id} field={field} value={row[field]} />
+                        <TickCell id={row.id} field={field} value={row[field] as string} />
                       </td>
                     ))}
                     {(["noProductLeftOver", "machineProperlyCleaned"] as (keyof ChangeoverRow)[]).map((field) => (
                       <td key={field} className="border border-gray-300 p-1 text-center bg-green-50/30">
-                        <TickCell id={row.id} field={field} value={row[field]} />
+                        <TickCell id={row.id} field={field} value={row[field] as string} />
                       </td>
                     ))}
                     <td className="border border-gray-300 p-1">

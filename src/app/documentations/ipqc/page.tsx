@@ -77,7 +77,7 @@ export default function IPQCListPage() {
     } catch (err: any) { alert("Failed to load record: " + err.message); }
   }
 
-  const isAdmin = session?.email === 'pooja.parkar@candorfoods.in';
+  const isAdmin = session?.username === 'pooja.parkar@candorfoods.in';
 
   return (
     <div className="min-h-[100dvh] bg-cream-100">

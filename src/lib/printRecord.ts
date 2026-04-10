@@ -98,7 +98,7 @@ function buildArticleRows(article: any, record: PrintRecord): string {
     if (p) {
       const pLabel = getLabel(physicalParams, p.parameter) || p.parameter;
       const pRemark = p.remark || "";
-      rows += `<td>&#10003; ${esc(pLabel)}${p.value ? ": " + esc(p.value) : ""}${pRemark && pRemark !== "OK" ? "<br>Remark: " + esc(pRemark) : ""}</td>`;
+      rows += `<td>&#10003; ${esc(pLabel)}${p.value ? ": " + esc(p.value) + "%" : ""}${pRemark && pRemark !== "OK" ? "<br>Remark: " + esc(pRemark) : ""}</td>`;
     } else {
       rows += "<td></td>";
     }

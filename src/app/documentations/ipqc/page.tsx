@@ -24,6 +24,8 @@ export default function IPQCListPage() {
   const [factoriesData, setFactoriesData] = useState<DropdownData>({ factories: [] });
   const [loading, setLoading] = useState(true);
   const [session, setSessionState] = useState<Session | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const s = getSession();
@@ -54,12 +56,18 @@ export default function IPQCListPage() {
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
-  async function handleDelete(ipqcNo: string) {
-    if (!confirm(`Delete ${ipqcNo}?`)) return;
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await ipqc.delete(ipqcNo);
+      await ipqc.delete(deleteTarget);
+      setDeleteTarget(null);
       fetchRecords();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function handlePrint(ipqcNo: string) {
@@ -69,8 +77,7 @@ export default function IPQCListPage() {
     } catch (err: any) { alert("Failed to load record: " + err.message); }
   }
 
-  const isAuthorized = session?.email === 'pooja.parkar@candorfoods.in';
-  const isAdmin = isAuthorized;
+  const isAdmin = session?.email === 'pooja.parkar@candorfoods.in';
 
   return (
     <div className="min-h-[100dvh] bg-cream-100">
@@ -219,11 +226,9 @@ export default function IPQCListPage() {
                           <Pencil className="w-3.5 h-3.5" /> Edit
                         </button>
                       )}
-                      {isAdmin && (
-                        <button onClick={() => handleDelete(record.ipqc_no)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium text-danger-600 hover:bg-danger-50 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" /> Delete
-                        </button>
-                      )}
+                      <button onClick={() => setDeleteTarget(record.ipqc_no)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium text-danger-600 hover:bg-danger-50 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
                     </div>
                   </div>
                 );
@@ -304,14 +309,12 @@ export default function IPQCListPage() {
                                 Edit
                               </button>
                             )}
-                            {isAdmin && (
-                              <button
-                                onClick={() => handleDelete(record.ipqc_no)}
-                                className="px-3 py-1.5 text-xs font-semibold text-danger-600 hover:text-danger-800 hover:underline transition-colors"
-                              >
-                                Delete
-                              </button>
-                            )}
+                            <button
+                              onClick={() => setDeleteTarget(record.ipqc_no)}
+                              className="px-3 py-1.5 text-xs font-semibold text-danger-600 hover:text-danger-800 hover:underline transition-colors"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -349,6 +352,48 @@ export default function IPQCListPage() {
         )}
 
       </div>
+
+      {/* ── Delete Confirmation Modal ─────────────────── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl border border-tan-100 w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-danger-50 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-danger-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-sage-800">Delete Record</p>
+                <p className="text-xs text-sage-500 mt-0.5">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-sage-700">
+              Are you sure you want to delete <span className="font-semibold text-sage-900">{deleteTarget}</span>?
+            </p>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl border border-tan-100 text-sm font-semibold text-sage-600 hover:bg-beige-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl bg-danger-600 hover:bg-danger-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Deleting…</>
+                ) : (
+                  <><Trash2 className="w-4 h-4" /> Delete</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

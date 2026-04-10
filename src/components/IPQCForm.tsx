@@ -10,6 +10,12 @@ import { DropdownData, IPQCRecord, IPQCCheckItem } from "@/types";
 import {
   Plus, Trash2, ChevronDown, ChevronUp, Search, Save, Loader2
 } from "lucide-react";
+import { useCompany } from "@/contexts/CompanyContext";
+
+const CHEMICAL_PARAMS = [
+  { key: "moisture", label: "Moisture" },
+  { key: "salt",     label: "Salt" },
+];
 
 interface ArticleForm {
   item_description: string;
@@ -20,6 +26,7 @@ interface ArticleForm {
   sensory_evaluation: IPQCCheckItem[];
   physical_parameters: IPQCCheckItem[];
   label_check: IPQCCheckItem[];
+  chemical_parameter: IPQCCheckItem[];
   seal_check: boolean;
   verdict: "accept" | "reject";
   overall_remark: string;
@@ -34,6 +41,7 @@ function makeDefaultArticle(): ArticleForm {
     sensory_evaluation: SENSORY_PARAMS.map((p) => ({ parameter: p.key, checked: false, remark: "" })),
     physical_parameters: getPhysicalParams("other").map((p) => ({ parameter: p.key, checked: false, value: "", remark: "" })),
     label_check: LABEL_CHECK_PARAMS.map((p) => ({ parameter: p.key, checked: false, remark: "" })),
+    chemical_parameter: CHEMICAL_PARAMS.map((p) => ({ parameter: p.key, checked: false, remark: "" })),
     seal_check: true,
     verdict: "accept",
     overall_remark: "",
@@ -66,6 +74,10 @@ function articleFromRecord(record: IPQCRecord): ArticleForm[] {
         LABEL_CHECK_PARAMS.map((p) => ({ parameter: p.key, checked: false, remark: "" })),
         a.label_check || []
       ),
+      chemical_parameter: mergePrams(
+        CHEMICAL_PARAMS.map((p) => ({ parameter: p.key, checked: false, remark: "" })),
+        (a as any).chemical_parameter || []
+      ),
       seal_check: a.seal_check ?? true,
       verdict: a.verdict || "accept",
       overall_remark: a.overall_remark || "",
@@ -84,6 +96,7 @@ function articleFromRecord(record: IPQCRecord): ArticleForm[] {
       record.physical_parameters || []
     ),
     label_check: mergePrams(def.label_check, record.label_check || []),
+    chemical_parameter: mergePrams(def.chemical_parameter, (record as any).chemical_parameter || []),
     seal_check: record.seal_check ?? true,
     verdict: (record.verdict as any) || "accept",
     overall_remark: record.overall_remark || "",
@@ -102,6 +115,9 @@ const labelCls = "block text-xs font-semibold text-sage-600 mb-1.5 uppercase tra
 const sectionTitleCls = "text-xs font-bold text-sage-600 uppercase tracking-widest mb-3 flex items-center gap-2";
 
 export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Props) {
+  const { currentCompany } = useCompany();
+  const isA185 = currentCompany === "A185";
+
   const [checkDate, setCheckDate] = useState(
     initialData?.check_date || new Date().toISOString().slice(0, 10)
   );
@@ -117,7 +133,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
   useEffect(() => {
     dropdownApi.getFactoriesFloors().then(setDropdowns).catch(() => {});
     // Default all article sections expanded
-    setExpandedArticles({ 0: { sensory: true, physical: true, label: true } });
+    setExpandedArticles({ 0: { sensory: true, physical: true, label: true, chemical: true } });
   }, []);
 
   const selectedFactory = dropdowns.factories?.find((f) => f.factory_code === factoryCode);
@@ -140,18 +156,35 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
 
   function toggleCheck(
     artIdx: number,
-    field: "sensory_evaluation" | "physical_parameters" | "label_check",
+    field: "sensory_evaluation" | "physical_parameters" | "label_check" | "chemical_parameter",
     paramKey: string
   ) {
     setArticles((prev) =>
       prev.map((a, i) =>
         i !== artIdx ? a : {
           ...a,
-          [field]: a[field].map((item) =>
+          [field]: (a[field as keyof ArticleForm] as IPQCCheckItem[]).map((item) =>
             item.parameter === paramKey ? { ...item, checked: !item.checked } : item
           ),
         }
       )
+    );
+  }
+
+  function selectAll(
+    artIdx: number,
+    field: "sensory_evaluation" | "physical_parameters" | "label_check" | "chemical_parameter"
+  ) {
+    setArticles((prev) =>
+      prev.map((a, i) => {
+        if (i !== artIdx) return a;
+        const items = a[field as keyof ArticleForm] as IPQCCheckItem[];
+        const allChecked = items.every((item) => item.checked);
+        return {
+          ...a,
+          [field]: items.map((item) => ({ ...item, checked: !allChecked })),
+        };
+      })
     );
   }
 
@@ -202,13 +235,17 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
     setArticles((a) => [...a, makeDefaultArticle()]);
     setExpandedArticles((prev) => ({
       ...prev,
-      [idx]: { sensory: true, physical: true, label: true },
+      [idx]: { sensory: true, physical: true, label: true, chemical: true },
     }));
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({ check_date: checkDate, factory_code: factoryCode, floor, articles });
+    const payload = articles.map((a) => ({
+      ...a,
+      chemical_parameter: isA185 ? a.chemical_parameter : [],
+    }));
+    onSubmit({ check_date: checkDate, factory_code: factoryCode, floor, articles: payload });
   }
 
   return (
@@ -298,7 +335,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
                 {/* SKU search */}
                 <div className="relative sm:col-span-2 lg:col-span-1">
-                  <label className={labelCls}>SKU / Item Name</label>
+                  <label className={labelCls}>SKU / Item Name <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sage-400 pointer-events-none" />
                     <input
@@ -306,6 +343,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
                       value={art.item_description}
                       onChange={(e) => handleSkuSearch(artIdx, e.target.value)}
                       placeholder="Search…"
+                      required
                       className={`${inputCls} pl-9`}
                     />
                   </div>
@@ -329,22 +367,24 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
                 </div>
 
                 <div>
-                  <label className={labelCls}>Customer</label>
+                  <label className={labelCls}>Customer <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={art.customer}
                     onChange={(e) => updateArticle(artIdx, { customer: e.target.value })}
                     placeholder="Customer name"
+                    required
                     className={inputCls}
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Batch Number</label>
+                  <label className={labelCls}>Batch Number <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={art.batch_number}
                     onChange={(e) => updateArticle(artIdx, { batch_number: e.target.value })}
                     placeholder="Batch / Lot no."
+                    required
                     className={inputCls}
                   />
                 </div>
@@ -379,14 +419,16 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
 
               {/* ── Sensory Evaluation ────── */}
               <div>
-                <button
-                  type="button"
-                  onClick={() => toggleSection(artIdx, "sensory")}
-                  className="w-full flex items-center justify-between py-2 border-b border-tan-100 mb-3"
-                >
-                  <span className={sectionTitleCls + " mb-0"}>Sensory Evaluation</span>
-                  {(exp.sensory ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
-                </button>
+                <div className="w-full flex items-center justify-between py-2 border-b border-tan-100 mb-3">
+                  <button type="button" onClick={() => toggleSection(artIdx, "sensory")} className="flex items-center gap-2 flex-1">
+                    <span className={sectionTitleCls + " mb-0"}>Sensory Evaluation</span>
+                    {(exp.sensory ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
+                  </button>
+                  <button type="button" onClick={() => selectAll(artIdx, "sensory_evaluation")}
+                    className="text-xs font-semibold text-sage-500 hover:text-sage-700 px-2 py-1 rounded-lg hover:bg-sage-50 transition-colors flex-shrink-0">
+                    {art.sensory_evaluation.every(i => i.checked) ? "Deselect All" : "Select All"}
+                  </button>
+                </div>
                 {(exp.sensory ?? true) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {SENSORY_PARAMS.map((param) => {
@@ -421,14 +463,16 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
 
               {/* ── Physical Parameters ────── */}
               <div>
-                <button
-                  type="button"
-                  onClick={() => toggleSection(artIdx, "physical")}
-                  className="w-full flex items-center justify-between py-2 border-b border-tan-100 mb-3"
-                >
-                  <span className={sectionTitleCls + " mb-0"}>Physical Parameters</span>
-                  {(exp.physical ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
-                </button>
+                <div className="w-full flex items-center justify-between py-2 border-b border-tan-100 mb-3">
+                  <button type="button" onClick={() => toggleSection(artIdx, "physical")} className="flex items-center gap-2 flex-1">
+                    <span className={sectionTitleCls + " mb-0"}>Physical Parameters</span>
+                    {(exp.physical ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
+                  </button>
+                  <button type="button" onClick={() => selectAll(artIdx, "physical_parameters")}
+                    className="text-xs font-semibold text-sage-500 hover:text-sage-700 px-2 py-1 rounded-lg hover:bg-sage-50 transition-colors flex-shrink-0">
+                    {art.physical_parameters.every(i => i.checked) ? "Deselect All" : "Select All"}
+                  </button>
+                </div>
                 {(exp.physical ?? true) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {physicalParams.map((param) => {
@@ -473,33 +517,93 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin }: Pr
 
               {/* ── Label Check ────────────── */}
               <div>
-                <button
-                  type="button"
-                  onClick={() => toggleSection(artIdx, "label")}
-                  className="w-full flex items-center justify-between py-2 border-b border-tan-100 mb-3"
-                >
-                  <span className={sectionTitleCls + " mb-0"}>Label Check</span>
-                  {(exp.label ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
-                </button>
+                <div className="w-full flex items-center justify-between py-2 border-b border-tan-100 mb-3">
+                  <button type="button" onClick={() => toggleSection(artIdx, "label")} className="flex items-center gap-2 flex-1">
+                    <span className={sectionTitleCls + " mb-0"}>Label Check</span>
+                    {(exp.label ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
+                  </button>
+                  <button type="button" onClick={() => selectAll(artIdx, "label_check")}
+                    className="text-xs font-semibold text-sage-500 hover:text-sage-700 px-2 py-1 rounded-lg hover:bg-sage-50 transition-colors flex-shrink-0">
+                    {art.label_check.every(i => i.checked) ? "Deselect All" : "Select All"}
+                  </button>
+                </div>
                 {(exp.label ?? true) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {LABEL_CHECK_PARAMS.map((param) => {
                       const item = art.label_check.find((x) => x.parameter === param.key);
                       return (
-                        <label key={param.key} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${item?.checked ? "bg-sage-50 border-sage-200" : "bg-cream-100/60 border-tan-100"}`}>
+                        <label key={param.key} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${item?.checked ? "bg-sage-50 border-sage-200" : "bg-cream-100/60 border-tan-100"}`}>
                           <input
                             type="checkbox"
                             checked={item?.checked || false}
                             onChange={() => toggleCheck(artIdx, "label_check", param.key)}
-                            className="w-4 h-4 rounded accent-sage-500 flex-shrink-0"
+                            className="mt-0.5 w-4 h-4 rounded accent-sage-500 flex-shrink-0"
                           />
-                          <span className="text-sm font-medium text-sage-700">{param.label}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-sage-700 leading-snug">{param.label}</span>
+                            {item?.checked && (
+                              <input
+                                type="text"
+                                value={item.remark || ""}
+                                onChange={(e) => updateCheckField(artIdx, "label_check", param.key, "remark", e.target.value)}
+                                placeholder="Remark (optional)"
+                                className="mt-1.5 w-full border border-tan-100 bg-white rounded-lg px-2.5 py-1.5 text-xs text-sage-700 focus:outline-none focus:ring-1 focus:ring-sage-300"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                          </div>
                         </label>
                       );
                     })}
                   </div>
                 )}
               </div>
+
+              {/* ── Chemical Parameter (A185 only) ── */}
+              {isA185 && (
+                <div>
+                  <div className="w-full flex items-center justify-between py-2 border-b border-tan-100 mb-3">
+                    <button type="button" onClick={() => toggleSection(artIdx, "chemical")} className="flex items-center gap-2 flex-1">
+                      <span className={sectionTitleCls + " mb-0"}>Chemical Parameter</span>
+                      {(exp.chemical ?? true) ? <ChevronUp className="w-4 h-4 text-sage-400" /> : <ChevronDown className="w-4 h-4 text-sage-400" />}
+                    </button>
+                    <button type="button" onClick={() => selectAll(artIdx, "chemical_parameter")}
+                      className="text-xs font-semibold text-sage-500 hover:text-sage-700 px-2 py-1 rounded-lg hover:bg-sage-50 transition-colors flex-shrink-0">
+                      {art.chemical_parameter.every(i => i.checked) ? "Deselect All" : "Select All"}
+                    </button>
+                  </div>
+                  {(exp.chemical ?? true) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {CHEMICAL_PARAMS.map((param) => {
+                        const item = art.chemical_parameter.find((x) => x.parameter === param.key);
+                        return (
+                          <label key={param.key} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${item?.checked ? "bg-sage-50 border-sage-200" : "bg-cream-100/60 border-tan-100"}`}>
+                            <input
+                              type="checkbox"
+                              checked={item?.checked || false}
+                              onChange={() => toggleCheck(artIdx, "chemical_parameter" as any, param.key)}
+                              className="mt-0.5 w-4 h-4 rounded accent-sage-500 flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium text-sage-700 leading-snug">{param.label}</span>
+                              {item?.checked && (
+                                <input
+                                  type="text"
+                                  value={item.remark || ""}
+                                  onChange={(e) => updateCheckField(artIdx, "chemical_parameter" as any, param.key, "remark", e.target.value)}
+                                  placeholder="Remark (optional)"
+                                  className="mt-1.5 w-full border border-tan-100 bg-white rounded-lg px-2.5 py-1.5 text-xs text-sage-700 focus:outline-none focus:ring-1 focus:ring-sage-300"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ── Verdict + Seal + Remark ─ */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-3 pt-1">

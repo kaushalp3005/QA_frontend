@@ -7,6 +7,7 @@ import IPQCPrint from "@/components/IPQCPrint";
 import { ipqc } from "@/lib/api";
 import { getSession } from "@/lib/auth";
 import { downloadRecord } from "@/lib/printRecord";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { Session, IPQCRecord } from "@/types";
 
 function ViewContent() {
@@ -22,6 +23,7 @@ function ViewContent() {
 
   const session = getSession() as Session | null;
   const isAdmin = session?.username === 'pooja.parkar@candorfoods.in';
+  const warehouse = getStoredWarehouse();
 
   useEffect(() => {
     if (!session) {
@@ -33,7 +35,7 @@ function ViewContent() {
       return;
     }
     ipqc
-      .get(ipqcNo)
+      .get(ipqcNo, warehouse)
       .then(setRecord)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -42,7 +44,7 @@ function ViewContent() {
   async function handleUpdate(data: any) {
     setSaving(true);
     try {
-      const res = await ipqc.update(ipqcNo!, data);
+      const res = await ipqc.update(ipqcNo!, data, warehouse);
       setRecord(res);
       alert("Record updated");
     } catch (err: any) {
@@ -56,7 +58,7 @@ function ViewContent() {
     setError("");
     setApproving(true);
     try {
-      const res = await ipqc.approve(ipqcNo!);
+      const res = await ipqc.approve(ipqcNo!, warehouse);
       setRecord(res);
       alert(`Approved by ${res.approved_by}`);
     } catch (err: any) {

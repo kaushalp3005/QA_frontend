@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ArrowLeft, Check, Loader2, X } from 'lucide-react'
+import WarehouseSelector, { getStoredWarehouse, WarehouseCode } from '@/components/ui/WarehouseSelector'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
@@ -219,7 +220,34 @@ export default function MetalDetectorEntryPage() {
   const [isFinalizing, setIsFinalizing] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('')
+  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseCode>('A185')
+
+  // Sync with global warehouse selector (from documentations/training navbars)
+  useEffect(() => {
+    setSelectedWarehouse(getStoredWarehouse())
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.warehouse) {
+        setSelectedWarehouse(detail.warehouse)
+        // Clear current detector selection since the available list just changed
+        setFormData(prev => ({
+          ...prev,
+          identificationNo: '',
+          location: '',
+          sensitivityFE: '',
+          sensitivityNFE: '',
+          sensitivitySS: '',
+        }))
+      }
+    }
+    window.addEventListener('warehouseChanged', handler)
+    return () => window.removeEventListener('warehouseChanged', handler)
+  }, [])
+
+  // Derived list of detector options for the currently active warehouse
+  const filteredDetectorOptions = metalDetectorOptions.filter(opt =>
+    selectedWarehouse === 'W202' ? opt.warehouse === 'W202' : !opt.warehouse
+  )
 
   // Resume a pending record if resumeRecordId is provided
   useEffect(() => {
@@ -233,7 +261,7 @@ export default function MetalDetectorEntryPage() {
 
   const fetchExistingEntries = async (recordId: number) => {
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/${recordId}`)
+      const response = await fetch(`${API_BASE}/metaldetector/${recordId}?warehouse=${selectedWarehouse}`)
       if (!response.ok) return
 
       const data = await response.json()
@@ -301,9 +329,6 @@ export default function MetalDetectorEntryPage() {
         sensitivityNFE: selectedDetector.sensitivityNFE,
         sensitivitySS: selectedDetector.sensitivitySS
       }))
-      setSelectedWarehouse(selectedDetector.warehouse || '')
-    } else {
-      setSelectedWarehouse('')
     }
   }
 
@@ -312,7 +337,7 @@ export default function MetalDetectorEntryPage() {
     setIsSavingEntry(true)
 
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/entry`, {
+      const response = await fetch(`${API_BASE}/metaldetector/entry?warehouse=${selectedWarehouse}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -343,7 +368,6 @@ export default function MetalDetectorEntryPage() {
 
       // Reset form but keep current date/time
       setFormData(getDefaultFormData())
-      setSelectedWarehouse('')
 
     } catch (error: any) {
       console.error('Error saving entry:', error)
@@ -358,7 +382,7 @@ export default function MetalDetectorEntryPage() {
 
     if (record.dbEntryId) {
       try {
-        const response = await fetch(`${API_BASE}/metaldetector/entry/${record.dbEntryId}`, {
+        const response = await fetch(`${API_BASE}/metaldetector/entry/${record.dbEntryId}?warehouse=${selectedWarehouse}`, {
           method: 'DELETE'
         })
         if (!response.ok) {
@@ -384,7 +408,7 @@ export default function MetalDetectorEntryPage() {
     setIsFinalizing(true)
 
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/${currentRecordId}/finalize`, {
+      const response = await fetch(`${API_BASE}/metaldetector/${currentRecordId}/finalize?warehouse=${selectedWarehouse}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
@@ -399,7 +423,6 @@ export default function MetalDetectorEntryPage() {
       // Clear local state
       setRecords([])
       setFormData(getDefaultFormData())
-      setSelectedWarehouse('')
       setCurrentRecordId(null)
       setBatchId('')
 
@@ -417,7 +440,6 @@ export default function MetalDetectorEntryPage() {
   const handleClearAllData = () => {
     if (confirm('Are you sure you want to clear all form data and records? This action cannot be undone.')) {
       setFormData(getDefaultFormData())
-      setSelectedWarehouse('')
       setRecords([])
       setCurrentRecordId(null)
       setBatchId('')
@@ -429,7 +451,7 @@ export default function MetalDetectorEntryPage() {
 
     setIsCancelling(true)
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/${currentRecordId}/cancel`, {
+      const response = await fetch(`${API_BASE}/metaldetector/${currentRecordId}/cancel?warehouse=${selectedWarehouse}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
@@ -442,7 +464,6 @@ export default function MetalDetectorEntryPage() {
       // Clear local state and redirect
       setRecords([])
       setFormData(getDefaultFormData())
-      setSelectedWarehouse('')
       setCurrentRecordId(null)
       setBatchId('')
       setShowCancelConfirm(false)
@@ -468,6 +489,7 @@ export default function MetalDetectorEntryPage() {
           </button>
 
           <div className="flex items-center gap-2">
+            <WarehouseSelector />
             {currentRecordId && (
               <>
                 <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
@@ -529,37 +551,25 @@ export default function MetalDetectorEntryPage() {
                   className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   required
                 >
-                  <option value="">Select Detector</option>
-                  <optgroup label="A185">
-                    {metalDetectorOptions.filter(opt => !opt.warehouse).map((option, index) => (
-                      <option key={`main-${index}`} value={`${option.identificationNo}-${option.srNo}`}>
-                        {option.identificationNo} · {option.srNo.replace(/[()]/g, '')}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="W202">
-                    {metalDetectorOptions.filter(opt => opt.warehouse === 'W202').map((option, index) => (
-                      <option key={`w202-${index}`} value={`${option.identificationNo}-${option.srNo}`}>
-                        {option.identificationNo} · {option.srNo.replace(/[()]/g, '')}
-                      </option>
-                    ))}
-                  </optgroup>
+                  <option value="">Select Detector ({selectedWarehouse})</option>
+                  {filteredDetectorOptions.map((option, index) => (
+                    <option key={`${selectedWarehouse}-${index}`} value={`${option.identificationNo}-${option.srNo}`}>
+                      {option.identificationNo} · {option.srNo.replace(/[()]/g, '')}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               {/* Auto-filled info chips */}
               {formData.identificationNo && (
                 <div className="flex flex-wrap gap-2">
-                  {selectedWarehouse && (
-                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
-                      {selectedWarehouse}
-                    </span>
-                  )}
-                  {!selectedWarehouse && (
-                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
-                      A185
-                    </span>
-                  )}
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${
+                      selectedWarehouse === 'W202' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                    }`}
+                  >
+                    {selectedWarehouse}
+                  </span>
                   {formData.location && (
                     <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
                       📍 {formData.location}

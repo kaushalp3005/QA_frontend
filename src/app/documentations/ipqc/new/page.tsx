@@ -65,7 +65,8 @@ export default function NewIPQCPage() {
     <div className="min-h-[100dvh] bg-cream-100">
       <Navbar showBack backHref="/documentations/ipqc" title="New Entry" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-28">
-        <IPQCForm onSubmit={handleSubmit} loading={loading} />
+        {/* all_sku dropdown disabled for now — revert to original typeahead */}
+        <IPQCForm onSubmit={handleSubmit} loading={loading} /*useAllSkuDropdown*/ />
       </div>
     </div>
   );

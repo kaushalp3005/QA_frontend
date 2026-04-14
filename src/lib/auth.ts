@@ -5,10 +5,20 @@ const SESSION_KEY = "ipqc_session";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  // IPQC-specific token first, then fall back to complaint-module token
+  // Prefer an IPQC-issued token; fall back to the complaint-module token
+  // since there is no dedicated IPQC login UI in this project and the
+  // remote IPQC backend has historically accepted it.
   return localStorage.getItem(TOKEN_KEY) || localStorage.getItem("access_token");
 }
 
+// Clear ONLY IPQC-scoped credentials. Leaves complaint-module auth intact.
+export function clearIPQCSession(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(SESSION_KEY);
+}
+
+// Full logout — wipes every credential this app manages.
 export function clearSession(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_KEY);

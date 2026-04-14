@@ -12,7 +12,8 @@ import {
   Shield,
   Search,
   ClipboardCheck,
-  BookOpen
+  BookOpen,
+  GraduationCap
 } from 'lucide-react'
 import { cn } from '@/lib/styles'
 
@@ -68,6 +69,12 @@ const navigation = [
     name: 'Documentations',
     href: '/documentations',
     icon: BookOpen,
+    current: false,
+  },
+  {
+    name: 'Training',
+    href: '/training',
+    icon: GraduationCap,
     current: false,
   },
 ]

@@ -2,10 +2,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import { ipqc, dropdown as dropdownApi } from "@/lib/api";
+import { ipqc } from "@/lib/api";
 import { getSession } from "@/lib/auth";
 import { printRecord } from "@/lib/printRecord";
-import { IPQCRecord, DropdownData, Session } from "@/types";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import { IPQCRecord, Session } from "@/types";
 import {
   Plus, Search, Printer, Eye, Trash2, Pencil,
   CheckCircle2, Clock, ChevronLeft, ChevronRight, Building2
@@ -20,8 +21,7 @@ export default function IPQCListPage() {
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [factoryCode, setFactoryCode] = useState("");
-  const [factoriesData, setFactoriesData] = useState<DropdownData>({ factories: [] });
+  const [warehouse, setWarehouse] = useState(() => getStoredWarehouse());
   const [loading, setLoading] = useState(true);
   const [session, setSessionState] = useState<Session | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -31,7 +31,13 @@ export default function IPQCListPage() {
     const s = getSession();
     if (!s) { router.push("/"); return; }
     setSessionState(s);
-    dropdownApi.getFactoriesFloors().then(setFactoriesData).catch(() => {});
+    // Listen for warehouse changes from the WarehouseSelector
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.warehouse) setWarehouse(detail.warehouse);
+    };
+    window.addEventListener('warehouseChanged', handler);
+    return () => window.removeEventListener('warehouseChanged', handler);
   }, [router]);
 
   const fetchRecords = useCallback(async () => {
@@ -42,7 +48,7 @@ export default function IPQCListPage() {
         search: search || undefined,
         from_date: fromDate || undefined,
         to_date: toDate || undefined,
-        factory_code: factoryCode || undefined,
+        warehouse,
       });
       setRecords(res.records);
       setTotal(res.total);
@@ -52,7 +58,7 @@ export default function IPQCListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, fromDate, toDate, factoryCode]);
+  }, [page, search, fromDate, toDate, warehouse]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
@@ -60,7 +66,7 @@ export default function IPQCListPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await ipqc.delete(deleteTarget);
+      await ipqc.delete(deleteTarget, warehouse);
       setDeleteTarget(null);
       fetchRecords();
     } catch (err: any) {
@@ -72,7 +78,7 @@ export default function IPQCListPage() {
 
   async function handlePrint(ipqcNo: string) {
     try {
-      const fullRecord = await ipqc.get(ipqcNo);
+      const fullRecord = await ipqc.get(ipqcNo, warehouse);
       printRecord(fullRecord as any);
     } catch (err: any) { alert("Failed to load record: " + err.message); }
   }
@@ -131,17 +137,10 @@ export default function IPQCListPage() {
                 className="border border-tan-100 bg-cream-50 rounded-xl px-3 py-2.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-300 transition"
               />
             </div>
-            {/* Factory */}
-            <select
-              value={factoryCode}
-              onChange={(e) => { setFactoryCode(e.target.value); setPage(1); }}
-              className="border border-tan-100 bg-cream-50 rounded-xl px-3 py-2.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-300 transition"
-            >
-              <option value="">All Factories</option>
-              {factoriesData.factories?.map((f) => (
-                <option key={f.factory_code} value={f.factory_code}>{f.factory_code}</option>
-              ))}
-            </select>
+            {/* Warehouse indicator */}
+            <span className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-sm font-medium text-blue-700">
+              <Building2 className="w-4 h-4" /> {warehouse}
+            </span>
             {/* Record count */}
             {!loading && (
               <span className="ml-auto text-xs text-sage-500 font-medium whitespace-nowrap">
@@ -197,7 +196,7 @@ export default function IPQCListPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-sage-500 mb-2">{record.check_date} &nbsp;·&nbsp; {record.factory_code} / {record.floor}</p>
+                      <p className="text-xs text-sage-500 mb-2">{record.check_date} &nbsp;·&nbsp; {warehouse}</p>
                       <div className="space-y-1">
                         {articles.slice(0, 3).map((a: any, i: number) => (
                           <div key={i} className="flex items-center gap-1.5 text-xs text-sage-600 flex-wrap">
@@ -243,7 +242,7 @@ export default function IPQCListPage() {
                     <th className="px-4 py-3.5 text-left text-xs font-semibold text-sage-600 uppercase tracking-wide whitespace-nowrap">IPQC No.</th>
                     <th className="px-4 py-3.5 text-left text-xs font-semibold text-sage-600 uppercase tracking-wide whitespace-nowrap">Date</th>
                     <th className="px-4 py-3.5 text-left text-xs font-semibold text-sage-600 uppercase tracking-wide">Articles</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold text-sage-600 uppercase tracking-wide whitespace-nowrap">Factory</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold text-sage-600 uppercase tracking-wide whitespace-nowrap">Warehouse</th>
                     <th className="px-4 py-3.5 text-left text-xs font-semibold text-sage-600 uppercase tracking-wide whitespace-nowrap">Approved By</th>
                     <th className="px-4 py-3.5 text-left text-xs font-semibold text-sage-600 uppercase tracking-wide">Actions</th>
                   </tr>
@@ -283,7 +282,7 @@ export default function IPQCListPage() {
                             ))}
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-sm text-sage-600 whitespace-nowrap">{record.factory_code} / {record.floor}</td>
+                        <td className="px-4 py-3.5 text-sm text-sage-600 whitespace-nowrap">{warehouse}</td>
                         <td className="px-4 py-3.5 text-sm text-sage-500 whitespace-nowrap">
                           {record.approved_by || "—"}
                         </td>

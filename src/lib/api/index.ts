@@ -1,7 +1,7 @@
 import { Session, User, ApiResponse, IPQCRecord, DropdownData, Factory, Floor, SKUResult } from "@/types";
-import { getToken, clearSession } from "../auth";
+import { getToken, clearIPQCSession } from "../auth";
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE_URL2 || "http://localhost:8000";
+const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 interface RequestOptions extends RequestInit {
   headers?: Record<string, string>;
@@ -18,11 +18,12 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
 
   if (res.status === 401) {
-    clearSession();
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event('force-logout'));
-    }
-    throw new Error("Session expired — please log in again");
+    // Only clear IPQC credentials — do NOT wipe the complaint-module login,
+    // and do NOT trigger a global force-logout. Let the caller surface the
+    // error inline on the form so the user can re-authenticate to IPQC.
+    clearIPQCSession();
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "IPQC session expired — please log in to IPQC again");
   }
 
   if (!res.ok) {
@@ -45,19 +46,28 @@ export const ipqc = {
     return request(`/qc/ipqc${qs ? `?${qs}` : ""}`);
   },
 
-  get: (ipqcNo: string): Promise<IPQCRecord> => request(`/qc/ipqc/${ipqcNo}`),
+  get: (ipqcNo: string, warehouse?: string): Promise<IPQCRecord> => {
+    const qs = warehouse ? `?warehouse=${warehouse}` : "";
+    return request(`/qc/ipqc/${ipqcNo}${qs}`);
+  },
 
-  update: (ipqcNo: string, data: any): Promise<IPQCRecord> =>
-    request(`/qc/ipqc/${ipqcNo}`, {
+  update: (ipqcNo: string, data: any, warehouse?: string): Promise<IPQCRecord> => {
+    const qs = warehouse ? `?warehouse=${warehouse}` : "";
+    return request(`/qc/ipqc/${ipqcNo}${qs}`, {
       method: "PUT",
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
-  delete: (ipqcNo: string): Promise<void> =>
-    request(`/qc/ipqc/${ipqcNo}`, { method: "DELETE" }),
+  delete: (ipqcNo: string, warehouse?: string): Promise<void> => {
+    const qs = warehouse ? `?warehouse=${warehouse}` : "";
+    return request(`/qc/ipqc/${ipqcNo}${qs}`, { method: "DELETE" });
+  },
 
-  approve: (ipqcNo: string): Promise<IPQCRecord> =>
-    request(`/qc/ipqc/${ipqcNo}/approve`, { method: "POST" }),
+  approve: (ipqcNo: string, warehouse?: string): Promise<IPQCRecord> => {
+    const qs = warehouse ? `?warehouse=${warehouse}` : "";
+    return request(`/qc/ipqc/${ipqcNo}/approve${qs}`, { method: "POST" });
+  },
 };
 
 // ── Dropdown ─────────────────────────────
@@ -92,6 +102,30 @@ export const sku = {
   search: (search: string): Promise<SKUResult[]> => {
     const qs = new URLSearchParams({ search }).toString();
     return request(`/qc/ipqc/sku-search?${qs}`);
+  },
+  searchAll: async (search?: string): Promise<{ items: string[] }> => {
+    const params: Record<string, string> = { limit: "500" };
+    if (search && search.trim()) params.search = search.trim();
+    const qs = new URLSearchParams(params).toString();
+    // all_sku lives in the "main" backend (NEXT_PUBLIC_API_BASE_URL), not the IPQC backend (BASE_URL2).
+    const MAIN_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+    const url = `${MAIN_BASE}/sku/all-particulars?${qs}`;
+    console.log("[all-sku] fetching:", url);
+    try {
+      const res = await fetch(url, { headers: { "Content-Type": "application/json" } });
+      console.log("[all-sku] response status:", res.status);
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        console.error("[all-sku] request failed:", res.status, txt);
+        throw new Error(`all-sku request failed: ${res.status}`);
+      }
+      const data = await res.json();
+      console.log("[all-sku] items received:", Array.isArray(data?.items) ? data.items.length : 0);
+      return data;
+    } catch (e) {
+      console.error("[all-sku] fetch error:", e);
+      throw e;
+    }
   },
 };
 

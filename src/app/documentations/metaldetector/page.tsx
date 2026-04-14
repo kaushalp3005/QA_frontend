@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, X, Printer, Edit2, Save, Loader2 } from 'lucide-react'
+import WarehouseSelector, { getStoredWarehouse, WarehouseCode } from '@/components/ui/WarehouseSelector'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 const AUTHORIZED_EMAIL = 'pooja.parkar@candorfoods.in'
@@ -82,6 +83,7 @@ export default function MetalDetectorPage() {
   const router = useRouter()
   const [records, setRecords] = useState<MetalDetectorRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [warehouse, setWarehouse] = useState<WarehouseCode>('A185')
   const [viewRecord, setViewRecord] = useState<MDRecordWithEntries | null>(null)
   const [viewLoading, setViewLoading] = useState(false)
   const [printRecord, setPrintRecord] = useState<MDRecordWithEntries | null>(null)
@@ -152,9 +154,10 @@ export default function MetalDetectorPage() {
     return {}
   }
 
-  const fetchRecords = async () => {
+  const fetchRecords = async (wh: WarehouseCode = warehouse) => {
     try {
-      const apiUrl = `${API_BASE}/metaldetector/`
+      setLoading(true)
+      const apiUrl = `${API_BASE}/metaldetector/?warehouse=${wh}`
       const response = await fetch(apiUrl)
       if (response.ok) {
         const data = await response.json()
@@ -169,8 +172,22 @@ export default function MetalDetectorPage() {
     }
   }
 
+  // Load initial warehouse + subscribe to global changes
   useEffect(() => {
-    fetchRecords()
+    const initial = getStoredWarehouse()
+    setWarehouse(initial)
+    fetchRecords(initial)
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.warehouse) {
+        setWarehouse(detail.warehouse)
+        fetchRecords(detail.warehouse)
+      }
+    }
+    window.addEventListener('warehouseChanged', handler)
+    return () => window.removeEventListener('warehouseChanged', handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleAddEntry = () => {
@@ -183,7 +200,7 @@ export default function MetalDetectorPage() {
     setInlineEditEntryId(null)
     setInlineEditData(null)
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/${recordId}`)
+      const response = await fetch(`${API_BASE}/metaldetector/${recordId}?warehouse=${warehouse}`)
       if (response.ok) {
         const data = await response.json()
         setViewRecord(data)
@@ -202,7 +219,7 @@ export default function MetalDetectorPage() {
     setPrintLoading(true)
     setPrintRecord(null)
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/${recordId}`)
+      const response = await fetch(`${API_BASE}/metaldetector/${recordId}?warehouse=${warehouse}`)
       if (response.ok) {
         const data = await response.json()
         setPrintRecord(data)
@@ -251,7 +268,7 @@ export default function MetalDetectorPage() {
     if (!confirm('Are you sure you want to delete this record and all its entries?')) return
 
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/${recordId}`, {
+      const response = await fetch(`${API_BASE}/metaldetector/${recordId}?warehouse=${warehouse}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       })
@@ -276,7 +293,7 @@ export default function MetalDetectorPage() {
     setEditRecord(null)
     setEditFormData(null)
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/${recordId}`)
+      const response = await fetch(`${API_BASE}/metaldetector/${recordId}?warehouse=${warehouse}`)
       if (response.ok) {
         const data: MDRecordWithEntries = await response.json()
         setEditRecord(data)
@@ -315,7 +332,7 @@ export default function MetalDetectorPage() {
     if (!editRecord || !editFormData) return
     setEditSaving(true)
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/${editRecord.id}`, {
+      const response = await fetch(`${API_BASE}/metaldetector/${editRecord.id}?warehouse=${warehouse}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -367,7 +384,7 @@ export default function MetalDetectorPage() {
     if (!inlineEditEntryId || !inlineEditData || !viewRecord) return
     setInlineEditSaving(true)
     try {
-      const response = await fetch(`${API_BASE}/metaldetector/entry/${inlineEditEntryId}`, {
+      const response = await fetch(`${API_BASE}/metaldetector/entry/${inlineEditEntryId}?warehouse=${warehouse}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -377,7 +394,7 @@ export default function MetalDetectorPage() {
       })
       if (response.ok) {
         // Refresh the view record
-        const refreshResponse = await fetch(`${API_BASE}/metaldetector/${viewRecord.id}`)
+        const refreshResponse = await fetch(`${API_BASE}/metaldetector/${viewRecord.id}?warehouse=${warehouse}`)
         if (refreshResponse.ok) {
           const data = await refreshResponse.json()
           setViewRecord(data)
@@ -416,6 +433,16 @@ export default function MetalDetectorPage() {
             <ArrowLeft className="h-5 w-5 mr-2" />
             Back to Documentations
           </button>
+          <div className="flex items-center gap-3">
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-bold ${
+                warehouse === 'W202' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+              }`}
+            >
+              Showing: {warehouse}
+            </span>
+            <WarehouseSelector />
+          </div>
         </div>
 
         {/* Page Header */}

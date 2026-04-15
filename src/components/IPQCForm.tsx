@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import { sku as skuApi } from "@/lib/api";
+import { dropdown as dropdownApi, sku as skuApi } from "@/lib/api";
 import {
   SENSORY_PARAMS,
   LABEL_CHECK_PARAMS,
   getPhysicalParams,
 } from "@/lib/constant";
-import { IPQCRecord, IPQCCheckItem } from "@/types";
+import { DropdownData, IPQCRecord, IPQCCheckItem } from "@/types";
 import {
   Plus, Trash2, ChevronDown, ChevronUp, Search, Save, Loader2
 } from "lucide-react";
@@ -122,6 +122,8 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
   const [checkDate, setCheckDate] = useState(
     initialData?.check_date || new Date().toISOString().slice(0, 10)
   );
+  const [floor, setFloor] = useState(initialData?.floor || "");
+  const [dropdowns, setDropdowns] = useState<DropdownData>({ factories: [] });
   const [articles, setArticles] = useState<ArticleForm[]>(
     initialData ? articleFromRecord(initialData) : [makeDefaultArticle()]
   );
@@ -167,9 +169,14 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
   const [expandedArticles, setExpandedArticles] = useState<Record<number, Record<string, boolean>>>({});
 
   useEffect(() => {
+    dropdownApi.getFactoriesFloors().then(setDropdowns).catch(() => {});
     // Default all article sections expanded
     setExpandedArticles({ 0: { sensory: true, physical: true, label: true, chemical: true } });
   }, []);
+
+  // Get floors for the current warehouse
+  const matchedFactory = dropdowns.factories?.find((f) => f.factory_code === warehouse);
+  const availableFloors = matchedFactory?.floors || [];
 
   function toggleSection(artIdx: number, section: string) {
     setExpandedArticles((prev) => ({
@@ -277,7 +284,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
       ...a,
       chemical_parameter: isA185 ? a.chemical_parameter : [],
     }));
-    onSubmit({ check_date: checkDate, warehouse, articles: payload });
+    onSubmit({ check_date: checkDate, warehouse, floor, articles: payload });
   }
 
   return (
@@ -308,6 +315,20 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
               disabled
               className={`${inputCls} disabled:opacity-60 bg-gray-50`}
             />
+          </div>
+          <div>
+            <label className={labelCls}>Floor</label>
+            <select
+              value={floor}
+              onChange={(e) => setFloor(e.target.value)}
+              required
+              className={inputCls}
+            >
+              <option value="">Select floor…</option>
+              {availableFloors.map((fl) => (
+                <option key={fl.id} value={fl.floor_name}>{fl.floor_name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>

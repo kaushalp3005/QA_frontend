@@ -607,7 +607,7 @@ export default function MetalDetectorPage() {
                           <div className="flex items-center space-x-2">
                             {record.status === 'pending' && (
                               <button
-                                onClick={() => router.push(`/documentations/metaldetector/entry?resumeRecordId=${record.id}`)}
+                                onClick={() => router.push(`/documentations/metaldetector/entry?resumeRecordId=${record.id}&warehouse=${warehouse}`)}
                                 className="text-orange-600 hover:text-orange-900 flex items-center font-semibold"
                               >
                                 <Edit2 className="h-4 w-4 mr-1" />

@@ -32,10 +32,37 @@ class APIClient {
       return config;
     });
 
-    // Response interceptor for error handling + auto-logout on 401
+    // Response interceptor: try silent token refresh on 401, then retry once
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError<ErrorResponse>) => {
+      async (error: AxiosError<ErrorResponse>) => {
+        const original = error.config;
+        if (
+          error.response?.status === 401 &&
+          original &&
+          !(original as any)._retried
+        ) {
+          (original as any)._retried = true;
+          const baseURL = original.baseURL || this.client.defaults.baseURL || '';
+          try {
+            const refreshRes = await axios.post(`${baseURL}/auth/refresh`, null, {
+              headers: { Authorization: original.headers?.Authorization as string },
+            });
+            const newToken: string = refreshRes.data.access_token;
+            if (newToken && typeof window !== 'undefined') {
+              localStorage.setItem('access_token', newToken);
+            }
+            original.headers = original.headers || {};
+            original.headers.Authorization = `Bearer ${newToken}`;
+            return this.client.request(original);
+          } catch {
+            // Refresh failed — proceed with force-logout
+          }
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('force-logout'));
+          }
+          throw new APIError('Session expired — please log in again', 'TOKEN_EXPIRED', 401);
+        }
         if (error.response?.status === 401) {
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('force-logout'));

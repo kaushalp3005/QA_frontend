@@ -42,11 +42,13 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
     });
   };
 
-  const markAllOK = (param: string) => {
+  const markAllOKForDay = (day: number) => {
     setGrid((prev) => {
-      const updated = { ...prev[param] };
-      for (let d = 1; d <= daysInMonth; d++) updated[d] = "\u2713";
-      return { ...prev, [param]: updated };
+      const next: Record<string, Record<number, CellStatus>> = {};
+      parameters.forEach((p) => {
+        next[p] = { ...prev[p], [day]: "\u2713" };
+      });
+      return next;
     });
   };
 
@@ -64,26 +66,33 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
         <div><label className="block text-sm font-medium mb-1">Area</label><input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
       </div>
 
-      <p className="text-xs text-gray-600 mb-2 italic">Click cells to toggle: {'\u2713'} {'\u2192'} {'\u2715'} {'\u2192'} Empty. Use &quot;All {'\u2713'}&quot; button on the left to quickly mark all days.</p>
+      <p className="text-xs text-gray-600 mb-2 italic">Click cells to toggle: {'\u2713'} {'\u2192'} {'\u2715'} {'\u2192'} Empty. Use &quot;All {'\u2713'}&quot; button under each day to mark all parameters for that day.</p>
 
       <div className="overflow-x-auto border border-gray-300 rounded">
         <table className="text-[10px]">
           <thead className="bg-gray-100">
             <tr>
               <th className="border border-gray-300 px-1 py-1 sticky left-0 bg-gray-100 z-10 min-w-[160px]">Parameters</th>
-              <th className="border border-gray-300 px-1 py-1 sticky left-[160px] bg-gray-100 z-10"></th>
               {Array.from({ length: daysInMonth }, (_, i) => (
                 <th key={i + 1} className="border border-gray-300 px-1 py-1 text-center min-w-[24px]">{i + 1}</th>
               ))}
+            </tr>
+            <tr>
+              <th className="border border-gray-300 px-1 py-1 sticky left-0 bg-gray-100 z-10 text-[9px] text-gray-500">All {'\u2713'} {'\u2193'}</th>
+              {Array.from({ length: daysInMonth }, (_, i) => {
+                const day = i + 1;
+                return (
+                  <th key={day} className="border border-gray-300 px-0.5 py-0.5 text-center">
+                    <button onClick={() => markAllOKForDay(day)} className="text-[8px] bg-green-100 text-green-700 px-1 rounded hover:bg-green-200" title={`Mark all parameters as \u2713 for day ${day}`}>{'\u2713'}</button>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
             {parameters.map((param) => (
               <tr key={param} className="hover:bg-blue-50">
                 <td className="border border-gray-300 px-1 py-0.5 sticky left-0 bg-white z-10 font-medium whitespace-nowrap text-xs">{param}</td>
-                <td className="border border-gray-300 px-0.5 py-0.5 sticky left-[160px] bg-white z-10">
-                  <button onClick={() => markAllOK(param)} className="text-[8px] bg-green-100 text-green-700 px-1 rounded hover:bg-green-200" title="Mark all days as \u2713">All {'\u2713'}</button>
-                </td>
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const day = i + 1;
                   const val = grid[param]?.[day] || "";
@@ -103,14 +112,12 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
             ))}
             <tr className="bg-gray-50">
               <td className="border border-gray-300 px-1 py-0.5 sticky left-0 bg-gray-50 z-10 font-bold">CHECKED BY</td>
-              <td className="border border-gray-300 sticky left-[160px] bg-gray-50 z-10"></td>
               <td colSpan={daysInMonth} className="border border-gray-300 px-1 py-0.5">
                 <input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="w-64 border rounded px-1 py-0.5 text-xs" placeholder="Name" />
               </td>
             </tr>
             <tr className="bg-gray-50">
               <td className="border border-gray-300 px-1 py-0.5 sticky left-0 bg-gray-50 z-10 font-bold">VERIFIED BY</td>
-              <td className="border border-gray-300 sticky left-[160px] bg-gray-50 z-10"></td>
               <td colSpan={daysInMonth} className="border border-gray-300 px-1 py-0.5">
                 <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="w-64 border rounded px-1 py-0.5 text-xs" placeholder="Name" />
               </td>

@@ -2,63 +2,261 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Brand palette tokens (CSS vars for non-Tailwind usage) ─────────── */
+:root {
+  --brand-red:  #A41F13;
+  --brand-red-deep: #83180F;
+  --cream:      #FAF5F1;
+  --soft-gray:  #E0DBD8;
+  --ink:        #292F36;
+  --ink-soft:   #3D434B;
+  --ink-mute:   #5C636C;
+
+  /* ── LIGHT theme — RGB triplets consumed by Tailwind tokens ─────── */
+  --c-cream-50:  255 255 255;
+  --c-cream-100: 250 245 241;
+  --c-cream-200: 242 235 229;
+  --c-cream-300: 224 219 216;
+  --c-tan-200:   201 194 190;
+  --c-tan-300:   169 162 157;
+
+  --c-ink-50:  244 245 246;
+  --c-ink-100: 226 228 230;
+  --c-ink-200: 191 195 200;
+  --c-ink-300: 156 161 168;
+  --c-ink-400: 92 99 108;
+  --c-ink-500: 61 67 75;
+  --c-ink-600: 41 47 54;
+  --c-ink-700: 31 36 42;
+  --c-ink-800: 20 24 29;
+  --c-ink-900: 10 13 17;
+
+  /* Page background gradient blobs */
+  --bg-blob-1: rgba(164, 31, 19, 0.04);
+  --bg-blob-2: rgba(41, 47, 54, 0.03);
+
+  color-scheme: light;
+}
+
+/* ── DARK theme — flip surface + text scales ─────────────────────── */
+.dark {
+  --c-cream-50:  26 31 37;     /* was white  → very dark navy */
+  --c-cream-100: 20 24 29;     /* page bg    → near black */
+  --c-cream-200: 36 42 49;     /* subtle bg  → dark navy */
+  --c-cream-300: 51 58 66;     /* borders    → lighter dark */
+  --c-tan-200:   78 86 95;
+  --c-tan-300:   120 128 138;
+
+  --c-ink-50:  20 24 29;
+  --c-ink-100: 36 42 49;
+  --c-ink-200: 78 86 95;
+  --c-ink-300: 140 146 154;    /* subtle text */
+  --c-ink-400: 184 188 195;    /* muted text */
+  --c-ink-500: 218 220 224;    /* secondary text */
+  --c-ink-600: 248 245 241;    /* primary text */
+  --c-ink-700: 255 255 255;
+  --c-ink-800: 255 255 255;
+  --c-ink-900: 255 255 255;
+
+  --bg-blob-1: rgba(164, 31, 19, 0.10);
+  --bg-blob-2: rgba(255, 255, 255, 0.04);
+
+  color-scheme: dark;
+}
+
+/* ── Keyframes (shared with Tailwind animation extension) ───────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+@keyframes ripple {
+  0%   { transform: scale(0);   opacity: 0.5; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* ── Base ───────────────────────────────────────────────────────────── */
 @layer base {
   html {
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;     /* prevent iOS auto-zoom */
+    -webkit-tap-highlight-color: transparent;
   }
-  
   body {
-    @apply bg-cream-100 text-sage-900 antialiased;
-    background-color: #F5F5F0;
+    @apply text-ink-600 antialiased bg-cream-100;
+    background-image:
+      radial-gradient(at 0% 0%,   var(--bg-blob-1) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, var(--bg-blob-2) 0px, transparent 50%);
+    min-height: 100vh;
+    /* Respect iOS safe areas (notch, home indicator) */
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    overscroll-behavior-y: none;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+  ::selection {
+    background-color: rgba(164, 31, 19, 0.18);
+    color: #292F36;
+  }
+
+  /* Mobile: 16px+ on inputs prevents iOS zoom-on-focus */
+  @media (max-width: 640px) {
+    input, select, textarea {
+      font-size: 16px;
+    }
+  }
+
+  /* Smooth scrollbar (desktop) */
+  @media (min-width: 768px) {
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track  { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: rgb(var(--c-cream-300));
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgb(var(--c-tan-200)); background-clip: padding-box; border: 2px solid transparent;
+    }
+  }
+  @media (max-width: 767px) {
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgb(var(--c-cream-300)); border-radius: 999px; }
   }
 }
 
+/* ── Components ─────────────────────────────────────────────────────── */
 @layer components {
-  /* Button Base - Minimal component layer */
   .btn-base {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg text-sm font-semibold
+           transition-all duration-200 ease-out
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500/40
+           disabled:pointer-events-none disabled:opacity-50;
   }
-  
-  /* Form Elements */
+  .btn-primary {
+    @apply btn-base bg-brand-500 text-white px-4 py-2.5
+           hover:bg-brand-600 active:bg-brand-700
+           shadow-brand hover:shadow-lift
+           hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-ghost {
+    @apply btn-base bg-transparent text-ink-600 px-4 py-2.5
+           hover:bg-cream-200 active:bg-cream-300;
+  }
+  .btn-outline {
+    @apply btn-base bg-cream-50 text-ink-600 px-4 py-2.5
+           border border-cream-300 hover:border-brand-500 hover:text-brand-500
+           shadow-soft;
+  }
+
   .input-base {
-    @apply block w-full rounded-md border-tan-200 bg-cream-50 shadow-sm transition-colors focus:border-sage-300 focus:ring-1 focus:ring-sage-300 sm:text-sm text-sage-900 placeholder:text-tan-300;
+    @apply block w-full rounded-lg border border-cream-300 bg-cream-50
+           shadow-soft transition-all duration-200
+           focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20
+           text-sm text-ink-600 placeholder:text-ink-300
+           px-3.5 py-2.5;
   }
-  
   .label-base {
-    @apply block text-sm font-medium text-sage-700 mb-1;
+    @apply block text-sm font-semibold text-ink-600 mb-1.5;
   }
-  
-  /* Status Indicators */
-  .status-draft {
-    @apply bg-gray-100 text-gray-800;
+
+  /* Glass card — translucent surface with backdrop blur */
+  .glass {
+    background-color: rgb(var(--c-cream-50) / 0.72);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    border: 1px solid rgb(var(--c-cream-300) / 0.6);
   }
-  
-  .status-submitted {
-    @apply bg-blue-100 text-blue-800;
+  .glass-strong {
+    background-color: rgb(var(--c-cream-50) / 0.85);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid rgb(var(--c-cream-300) / 0.7);
   }
-  
-  .status-in-review {
-    @apply bg-yellow-100 text-yellow-800;
+
+  /* Shimmer skeleton */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgb(var(--c-cream-300)) 0%,
+      rgb(var(--c-cream-200)) 40%,
+      rgb(var(--c-cream-300)) 80%
+    );
+    background-size: 800px 100%;
+    animation: shimmer 1.6s linear infinite;
+    border-radius: 0.5rem;
   }
-  
-  .status-resolved {
-    @apply bg-green-100 text-green-800;
+
+  /* Soft surface card — uses cream-50 token so it flips to dark navy in dark mode */
+  .surface-card {
+    @apply bg-cream-50 rounded-2xl border border-cream-300 shadow-card;
   }
-  
-  .status-rejected {
-    @apply bg-red-100 text-red-800;
+
+  /* Dark-mode override for the literal `bg-white` utility — every existing
+     page that uses bg-white will get a dark navy surface in dark mode. */
+  .dark .bg-white { background-color: rgb(var(--c-cream-50)); }
+  .dark .text-white { color: #FAF5F1; }
+
+  /* Status badges (kept legacy class names for compatibility) */
+  .status-draft     { @apply bg-cream-200    text-ink-600;       }
+  .status-submitted { @apply bg-blue-100     text-blue-800;      }
+  .status-in-review { @apply bg-warning-100  text-warning-800;   }
+  .status-resolved  { @apply bg-success-100  text-success-700;   }
+  .status-rejected  { @apply bg-danger-100   text-danger-700;    }
+
+  .confidence-high   { @apply text-success-600 border-success-300 bg-success-50; }
+  .confidence-medium { @apply text-warning-600 border-warning-300 bg-warning-50; }
+  .confidence-low    { @apply text-danger-600  border-danger-300  bg-danger-50;  }
+
+  /* Smooth link/icon transitions, applied page-wide */
+  a, button, [role="button"], input, select, textarea {
+    transition-property: background-color, border-color, color, fill, stroke,
+                         opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
-  
-  /* Confidence Indicators */
-  .confidence-high {
-    @apply text-green-600 border-green-300 bg-green-50;
+
+  /* Touch-friendly tap targets on mobile (>= 44px is Apple HIG) */
+  @media (max-width: 640px) {
+    button, [role="button"], a.btn-base,
+    .btn-primary, .btn-outline, .btn-ghost {
+      min-height: 40px;
+    }
   }
-  
-  .confidence-medium {
-    @apply text-yellow-600 border-yellow-300 bg-yellow-50;
+
+  /* Wrapper that lets a wide table scroll horizontally on mobile
+     while showing a subtle right-edge fade hint. */
+  .table-wrap {
+    @apply overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
   }
-  
-  .confidence-low {
-    @apply text-red-600 border-red-300 bg-red-50;
+
+  /* On mobile, hide a column. Apply to <th> + matching <td>. */
+  .col-mobile-hide {
+    @apply hidden sm:table-cell;
+  }
+
+  /* Modal sheet pattern: bottom-sheet on mobile, centered card on desktop */
+  .modal-sheet {
+    @apply w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl
+           max-h-[92vh] sm:max-h-[85vh]
+           bg-cream-50 border border-cream-300 shadow-lift
+           flex flex-col;
+  }
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-end sm:items-center justify-center
+           bg-ink-700/40 backdrop-blur-sm p-0 sm:p-4
+           animate-fade-in;
   }
 }

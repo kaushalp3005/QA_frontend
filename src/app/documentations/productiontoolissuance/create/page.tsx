@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const TOOLS = ["SIEVES", "SCOOPS", "Scissors", "SS BOWLS", "SS GLASS", "HAND MAGNET", "Gloves"];
+const TOOLS = ["SIEVES", "SCOOPS", "Scissors/Knife", "SS BOWLS", "SS GLASS", "HAND MAGNET", "Gloves"];
 const PARAMETERS = ["Quantity Issued", "Condition at issuance", "Quantity Received", "Condition when Received", "Cleaning up Starting of production + after each product Change"];
 
 interface EntryBlock {
@@ -14,9 +14,14 @@ interface EntryBlock {
   verifiedBy: string;
 }
 
+const currentDate = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 const createBlock = (id: number): EntryBlock => ({
-  id, date: "", remark: "", checkedBy: "", verifiedBy: "",
-  data: Object.fromEntries(PARAMETERS.map((p) => [p, Object.fromEntries(TOOLS.map((t) => [t, ""]))])),
+  id, date: currentDate(), remark: "", checkedBy: "", verifiedBy: "",
+  data: Object.fromEntries(PARAMETERS.map((p) => [p, Object.fromEntries(TOOLS.map((t) => [t, "-"]))])),
 });
 
 export default function ProductionToolsIssuanceRecord() {

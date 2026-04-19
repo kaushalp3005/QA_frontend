@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { niRecordsApi, niReportsApi, NIRecord, NIReport } from '@/lib/api/ni-report'
 import toast from 'react-hot-toast'
-import { Plus, Upload, Trash2, Download, Eye, AlertTriangle, Search, FileText, X, Type } from 'lucide-react'
+import { Plus, Upload, Trash2, Download, Eye, AlertTriangle, Search, FileText, X, Type, Pencil, Save } from 'lucide-react'
 import Link from 'next/link'
 
 // ── RDA Reference (FSSAI/ICMR 2020) ────────────────
@@ -48,6 +48,41 @@ const NUTRIENT_LABELS: Record<string, [string, string]> = {
 }
 
 const NUTRIENT_KEYS = Object.keys(NUTRIENT_LABELS)
+
+// Map to handle spelling differences between DB ni keys and our standard keys
+const NI_KEY_ALIASES: Record<string, string[]> = {
+  added_sugars_g: ['added_sugars_g', 'added_sugar_g'],
+  dietary_fiber_g: ['dietary_fiber_g', 'dietary_fibre_g'],
+}
+
+/**
+ * Extract per-100g value for a nutrient from an NI record.
+ * Handles both schemas:
+ *   - New: flat columns like record.energy_kcal = 599
+ *   - Production: nested ni JSONB like record.ni.energy_kcal.total_per_100g = 599
+ */
+function getNutrientValue(record: any, nutrientKey: string): number {
+  // 1. Try flat column
+  if (record[nutrientKey] !== undefined && record[nutrientKey] !== null) {
+    return Number(record[nutrientKey]) || 0
+  }
+
+  // 2. Try ni JSONB object
+  const ni = record.ni
+  if (ni && typeof ni === 'object') {
+    const keysToTry = NI_KEY_ALIASES[nutrientKey] || [nutrientKey]
+    for (const k of keysToTry) {
+      const val = ni[k]
+      if (val == null) continue
+      if (typeof val === 'object') {
+        return Number(val.total_per_100g ?? val.per_100g ?? val.value ?? 0) || 0
+      }
+      return Number(val) || 0
+    }
+  }
+
+  return 0
+}
 
 // ── Interfaces ──────────────────────────────────────
 
@@ -134,7 +169,7 @@ function CreateReportTab() {
       let total = 0
       for (const ing of ingredients) {
         if (ing.ni_data) {
-          const val = (ing.ni_data as any)[key] || 0
+          const val = getNutrientValue(ing.ni_data, key)
           total += (ing.percentage / 100) * val
         }
       }
@@ -307,12 +342,12 @@ function CreateReportTab() {
                         .map((record) => (
                           <div
                             key={record.id}
-                            className="px-3 py-2 text-sm hover:bg-sage-50 cursor-pointer"
+                            className="px-3 py-2 hover:bg-sage-50 cursor-pointer border-b border-tan-50 last:border-0"
                             onClick={() => selectIngredient(idx, record)}
                           >
-                            {record.ingred_name}
-                            {record.vendor_name && (
-                              <span className="text-sage-400 ml-2 text-xs">({record.vendor_name})</span>
+                            <div className="text-sm text-sage-800">{record.ingred_name}</div>
+                            {record.source_ref && (
+                              <p className="text-[11px] text-sage-400 mt-0.5 leading-snug">{record.source_ref}</p>
                             )}
                           </div>
                         ))}
@@ -382,6 +417,9 @@ function CreateReportTab() {
               </thead>
               <tbody className="divide-y divide-tan-100">
                 {NUTRIENT_KEYS.map((key) => {
+                  // Only hide these optional micronutrients when 0
+                  const HIDE_WHEN_ZERO = ['vitamin_a_mcg', 'vitamin_c_mg', 'vitamin_d_mcg', 'calcium_mg', 'iron_mg']
+                  if (HIDE_WHEN_ZERO.includes(key) && !per100g[key] && !perServing[key]) return null
                   const [label, unit] = NUTRIENT_LABELS[key]
                   return (
                     <tr key={key} className="hover:bg-cream-50">
@@ -429,6 +467,9 @@ function UploadDataTab() {
   const [manualData, setManualData] = useState<Partial<NIRecord>>({})
   const [searchFilter, setSearchFilter] = useState('')
   const [viewRecord, setViewRecord] = useState<NIRecord | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValues, setEditValues] = useState<Record<string, number>>({})
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const fetchRecords = useCallback(async () => {
     setLoading(true)
@@ -753,7 +794,7 @@ function UploadDataTab() {
         {viewRecord && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            onClick={() => setViewRecord(null)}
+            onClick={() => { if (!isEditing) { setViewRecord(null); setIsEditing(false) } }}
           >
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/40 animate-[fadeIn_0.2s_ease-out]" />
@@ -772,98 +813,163 @@ function UploadDataTab() {
                       <span className="text-xs text-sage-500">Vendor: {viewRecord.vendor_name}</span>
                     )}
                     {viewRecord.source_ref && (
-                      <span className="text-xs text-sage-500">Ref: {viewRecord.source_ref}</span>
+                      <p className="text-xs text-sage-500 leading-snug">{viewRecord.source_ref}</p>
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => setViewRecord(null)}
-                  className="p-1.5 rounded-md text-sage-400 hover:text-sage-700 hover:bg-cream-100 transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {!isEditing && (
+                    <button
+                      onClick={() => {
+                        const vals: Record<string, number> = {}
+                        NUTRIENT_KEYS.forEach((key) => {
+                          vals[key] = getNutrientValue(viewRecord as any, key)
+                        })
+                        setEditValues(vals)
+                        setIsEditing(true)
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-sage-100 text-sage-700 hover:bg-sage-200 transition-colors"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setViewRecord(null); setIsEditing(false) }}
+                    className="p-1.5 rounded-md text-sage-400 hover:text-sage-700 hover:bg-cream-100 transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Body */}
               <div className="overflow-y-auto p-5">
-                <h4 className="text-sm font-semibold text-sage-600 uppercase tracking-wide mb-3">Nutritional Information</h4>
+                <h4 className="text-sm font-semibold text-sage-600 uppercase tracking-wide mb-3">
+                  {isEditing ? 'Edit Nutritional Values (per 100g)' : 'Nutritional Information'}
+                </h4>
 
-                {viewRecord.ni && typeof viewRecord.ni === 'object' && Object.keys(viewRecord.ni).length > 0 ? (
-                  <table className="w-full text-sm border border-tan-200 rounded-lg overflow-hidden">
-                    <thead>
-                      <tr className="bg-sage-50">
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-sage-600 border-b border-tan-200">Nutrient</th>
-                        <th className="px-4 py-2.5 text-right text-xs font-semibold text-sage-600 border-b border-tan-200">Per 100g</th>
-                        <th className="px-4 py-2.5 text-right text-xs font-semibold text-sage-600 border-b border-tan-200">Unit</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-tan-100">
-                      {Object.entries(viewRecord.ni).map(([key, value]) => {
-                        const labelInfo = NUTRIENT_LABELS[key]
-                        const displayName = labelInfo ? labelInfo[0] : key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                <table className="w-full text-sm border border-tan-200 rounded-lg overflow-hidden">
+                  <thead>
+                    <tr className="bg-sage-50">
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-sage-600 border-b border-tan-200">Nutrient</th>
+                      {isEditing ? (
+                        <th className="px-4 py-2.5 text-right text-xs font-semibold text-sage-600 border-b border-tan-200">Value (per 100g)</th>
+                      ) : (
+                        <>
+                          <th className="px-4 py-2.5 text-right text-xs font-semibold text-sage-600 border-b border-tan-200">Per 100g</th>
+                          <th className="px-4 py-2.5 text-right text-xs font-semibold text-sage-600 border-b border-tan-200">Per Serving</th>
+                          <th className="px-4 py-2.5 text-right text-xs font-semibold text-sage-600 border-b border-tan-200">%RDA</th>
+                        </>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-tan-100">
+                    {NUTRIENT_KEYS.map((key) => {
+                      const [label, unit] = NUTRIENT_LABELS[key]
 
-                        // Handle nested object: { per_100g: X, unit: "g" } or { value: X } etc.
-                        let displayValue: string = '—'
-                        let displayUnit: string = labelInfo ? labelInfo[1] : ''
-
-                        if (value != null && typeof value === 'object' && !Array.isArray(value)) {
-                          const obj = value as Record<string, any>
-                          // Try common keys for the numeric value
-                          const numVal = obj.per_100g ?? obj.value ?? obj.amount ?? obj.per100g ?? null
-                          if (numVal != null) {
-                            displayValue = String(numVal)
-                          }
-                          // Try to get unit from the object
-                          if (obj.unit) displayUnit = obj.unit
-                        } else if (value != null) {
-                          displayValue = String(value)
-                        }
-
+                      if (isEditing) {
                         return (
                           <tr key={key} className="hover:bg-cream-50 transition-colors">
-                            <td className="px-4 py-2 text-sage-700">{displayName}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-sage-800 font-medium">{displayValue}</td>
-                            <td className="px-4 py-2 text-right text-sage-400 text-xs">{displayUnit}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                ) : (
-                  <table className="w-full text-sm border border-tan-200 rounded-lg overflow-hidden">
-                    <thead>
-                      <tr className="bg-sage-50">
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-sage-600 border-b border-tan-200">Nutrient</th>
-                        <th className="px-4 py-2.5 text-right text-xs font-semibold text-sage-600 border-b border-tan-200">Per 100g</th>
-                        <th className="px-4 py-2.5 text-right text-xs font-semibold text-sage-600 border-b border-tan-200">Unit</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-tan-100">
-                      {NUTRIENT_KEYS.map((key) => {
-                        const [label, unit] = NUTRIENT_LABELS[key]
-                        return (
-                          <tr key={key} className="hover:bg-cream-50 transition-colors">
-                            <td className="px-4 py-2 text-sage-700">{label}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-sage-800 font-medium">
-                              {(viewRecord as any)[key] ?? 0}
+                            <td className="px-4 py-1.5 text-sage-700">{label} ({unit})</td>
+                            <td className="px-4 py-1.5 text-right">
+                              <input
+                                type="number"
+                                value={editValues[key] ?? ''}
+                                onChange={(e) => setEditValues({ ...editValues, [key]: parseFloat(e.target.value) || 0 })}
+                                className="w-28 ml-auto text-right rounded-md border border-tan-200 px-2 py-1 text-sm tabular-nums focus:border-sage-400 focus:ring-1 focus:ring-sage-400"
+                                step="0.01"
+                                min="0"
+                              />
                             </td>
-                            <td className="px-4 py-2 text-right text-sage-400 text-xs">{unit}</td>
                           </tr>
                         )
-                      })}
-                    </tbody>
-                  </table>
-                )}
+                      }
+
+                      const rec = viewRecord as any
+                      const ni = rec.ni && typeof rec.ni === 'object' ? rec.ni : null
+                      const per100g = getNutrientValue(rec, key)
+                      let perServing: number | null = null
+                      let rdaPct: number | null = null
+
+                      if (ni) {
+                        const keysToTry = NI_KEY_ALIASES[key] || [key]
+                        for (const niKey of keysToTry) {
+                          const niVal = ni[niKey]
+                          if (niVal != null && typeof niVal === 'object') {
+                            const serveKey = Object.keys(niVal).find(k => k.startsWith('per_serve'))
+                            perServing = serveKey ? niVal[serveKey] : (niVal.per_serving ?? null)
+                            rdaPct = niVal.rda_percent ?? null
+                            break
+                          }
+                        }
+                      }
+
+                      if (per100g === 0 && perServing === null) return null
+
+                      const fmt = (v: number | null) => v != null ? Math.round(v * 100) / 100 : '—'
+
+                      return (
+                        <tr key={key} className="hover:bg-cream-50 transition-colors">
+                          <td className="px-4 py-2 text-sage-700">{label} ({unit})</td>
+                          <td className="px-4 py-2 text-right tabular-nums text-sage-800 font-medium">{fmt(per100g)}</td>
+                          <td className="px-4 py-2 text-right tabular-nums text-sage-800 font-medium">{fmt(perServing)}</td>
+                          <td className="px-4 py-2 text-right tabular-nums text-sage-800 font-medium">
+                            {rdaPct != null && rdaPct > 0 ? `${Math.round(rdaPct * 100) / 100}%` : '—'}
+                          </td>
+                        </tr>
+                      )
+                    }).filter(Boolean)}
+                  </tbody>
+                </table>
+                {!isEditing && (() => {
+                  const ss = (viewRecord as any).ni?.serve_size || (viewRecord as any).serve_size
+                  return ss ? (
+                    <p className="text-xs text-sage-500 mt-2">Serving Size: {ss}</p>
+                  ) : null
+                })()}
               </div>
 
               {/* Footer */}
-              <div className="flex justify-end p-4 border-t border-tan-200">
-                <button
-                  onClick={() => setViewRecord(null)}
-                  className="px-4 py-2 text-sm font-medium rounded-md bg-sage-100 text-sage-700 hover:bg-sage-200 transition-colors"
-                >
-                  Close
-                </button>
+              <div className="flex justify-end gap-2 p-4 border-t border-tan-200">
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="px-4 py-2 text-sm font-medium rounded-md bg-cream-100 text-sage-600 hover:bg-cream-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={savingEdit}
+                      onClick={async () => {
+                        setSavingEdit(true)
+                        try {
+                          await niRecordsApi.update(viewRecord.id, editValues)
+                          toast.success('NI values updated!')
+                          setIsEditing(false)
+                          setViewRecord(null)
+                          fetchRecords()
+                        } catch (e: any) {
+                          toast.error(e.message || 'Failed to update')
+                        } finally {
+                          setSavingEdit(false)
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-sage-600 text-white hover:bg-sage-700 disabled:opacity-50 transition-colors"
+                    >
+                      <Save className="h-4 w-4" />
+                      {savingEdit ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { setViewRecord(null); setIsEditing(false) }}
+                    className="px-4 py-2 text-sm font-medium rounded-md bg-sage-100 text-sage-700 hover:bg-sage-200 transition-colors"
+                  >
+                    Close
+                  </button>
+                )}
               </div>
             </div>
           </div>

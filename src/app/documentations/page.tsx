@@ -1,460 +1,213 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  BookOpen,
+  Search,
+  FileText,
+  ShieldAlert,
+  Scan,
+  ClipboardCheck,
+  Scale,
+  Wrench,
+  Sparkles,
+  Hammer,
+  ListChecks,
+  GitBranch,
+  HeartPulse,
+  Flame,
+  Gauge,
+  Droplets,
+  AlertTriangle,
+  Users,
+  PackageCheck,
+  Siren,
+  Eye,
+  Thermometer,
+  CalendarRange,
+  Truck,
+  Package,
+  Beaker,
+  EyeOff,
+  Cross,
+  Compass,
+  Sun,
+  Bug,
+  TrendingDown,
+  CircleSlash,
+  Recycle,
+  Trash2,
+  TestTube2,
+  Brush,
+} from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector from '@/components/ui/WarehouseSelector'
+import PageHeader from '@/components/ui/PageHeader'
+
+type DocItem = {
+  href: string
+  title: string
+  description: string
+  icon: typeof BookOpen
+  category: 'CCP' | 'QC' | 'Hygiene' | 'Maintenance' | 'Safety' | 'Records'
+  tone?: 'brand' | 'warning' | 'ink'
+}
+
+const DOCS: DocItem[] = [
+  { href: '/documentations/metaldetector', title: 'Metal Detector', description: 'CCP calibration, Monitoring and Verification Record', icon: ShieldAlert, category: 'CCP', tone: 'warning' },
+  { href: '/documentations/xray', title: 'X-Ray', description: 'X-Ray Detection Monitoring and Verification Record', icon: Scan, category: 'CCP', tone: 'warning' },
+  { href: '/documentations/ipqc', title: 'IPQC', description: 'In-Process Quality Control Monitoring and Verification Record', icon: ClipboardCheck, category: 'QC' },
+  { href: '/documentations/productweightcheck', title: 'Product Weight Check', description: 'Product Weight and Sealing Check Record', icon: Scale, category: 'QC' },
+  { href: '/documentations/productiontoolissuance', title: 'Production Tool Issuance', description: 'Production Tools Issuance and Integrity Check Record', icon: Wrench, category: 'Maintenance' },
+  { href: '/documentations/dailycleaningchecklist', title: 'Daily Cleaning Checklist', description: 'Daily Cleaning Checklists (Floor, Toilet, Facility, Changing Room, Storage, Service Floor)', icon: Sparkles, category: 'Hygiene' },
+  { href: '/documentations/equipmentcleaningsanitation', title: 'Equipment Cleaning & Sanitation', description: 'Equipment Cleaning and Sanitation Record', icon: Brush, category: 'Hygiene' },
+  { href: '/documentations/preproductioninspection', title: 'Pre-Production Inspection', description: 'Pre-Production Inspection Checklist (Floor, Basements, First/Second Floor, Terrace)', icon: ListChecks, category: 'QC' },
+  { href: '/documentations/lineclearancerecord', title: 'Line Clearance Record', description: 'Product Changeover Line Clearance Record', icon: GitBranch, category: 'QC' },
+  { href: '/documentations/personalhygienecheckup', title: 'Personal Hygiene & Health', description: 'Personal Hygiene and Health Checkup Record', icon: HeartPulse, category: 'Hygiene' },
+  { href: '/documentations/roastingtemperature', title: 'Roasting Temperature & Time', description: 'CCP Monitoring and Verification of Roasting Temperature and Time', icon: Flame, category: 'CCP', tone: 'warning' },
+  { href: '/documentations/weighingscalecalibration', title: 'Weighing Scale Calibration', description: 'In-house Weighing Scale Calibration Record', icon: Gauge, category: 'Maintenance' },
+  { href: '/documentations/water-analysis', title: 'Water Analysis', description: 'Water Analysis Record (CFPLA.C4.F.04)', icon: Droplets, category: 'QC' },
+  { href: '/documentations/incident-report', title: 'Food Safety Incident Report', description: 'Food Safety Incident Report Register (CFPLA.C5.F.05)', icon: AlertTriangle, category: 'Safety', tone: 'warning' },
+  { href: '/documentations/safety-meeting', title: 'Food Safety Meeting Minutes', description: 'Food Safety Meeting Minutes (CFPLA.C.F.09)', icon: Users, category: 'Records' },
+  { href: '/documentations/new-product-verification', title: 'New Product Verification', description: 'New Product Verification (CFPLA.C5.F.13)', icon: PackageCheck, category: 'QC' },
+  { href: '/documentations/mock-drill', title: 'Emergency Mock Drill', description: 'Emergency Fire Evacuation Mock Drill (CFPLA.C4.F.14)', icon: Siren, category: 'Safety', tone: 'warning' },
+  { href: '/documentations/gmp-ghp-inspection', title: 'Monthly GMP & GHP Inspection', description: 'Monthly Facility (GMP) & GHP Inspection (CFPLA.C3.F.15)', icon: Eye, category: 'Hygiene' },
+  { href: '/documentations/temperature-humidity', title: 'Temperature & Humidity', description: 'Temperature & Humidity Record Register (CFPLA.C6.F.17)', icon: Thermometer, category: 'Records' },
+  { href: '/documentations/inprocess-qc-record', title: 'In-process QC Record', description: 'In-process Quality Check Record (CFPLA.C6.F.18)', icon: ClipboardCheck, category: 'QC' },
+  { href: '/documentations/gmp-schedule', title: 'Monthly GMP Schedule', description: 'Monthly Facility GMP & GHP Inspection Schedule (CFPLA.C3.F.23)', icon: CalendarRange, category: 'Hygiene' },
+  { href: '/documentations/inward-rm-check', title: 'Inward Raw Material Check', description: 'Inward Raw Material Check Records (CFPLA.C5.F.25)', icon: Package, category: 'QC' },
+  { href: '/documentations/fg-chemical-analysis', title: 'FG Chemical Analysis', description: 'Finished Good Chemical Analysis (CFPLA.C5.F.26)', icon: Beaker, category: 'QC' },
+  { href: '/documentations/eyewash-refill', title: 'Eye Wash Bottle Refilling', description: 'Eye Wash Bottle Refilling Record (CFPLA.C7.F.27)', icon: EyeOff, category: 'Safety' },
+  { href: '/documentations/first-aid-box', title: 'First Aid Box', description: 'First Aid Box Record (CFPLA.C7.F.29)', icon: Cross, category: 'Safety' },
+  { href: '/documentations/traceability', title: 'Traceability Report', description: 'Traceability Report (CFPLA.C3.F.30)', icon: Compass, category: 'Records' },
+  { href: '/documentations/lux-monitoring', title: 'Lux Monitoring', description: 'Lux Monitoring Record (CFPLA.C4.F.32)', icon: Sun, category: 'Maintenance' },
+  { href: '/documentations/pre-weighing', title: 'Pre Weighing Check', description: 'Pre Weighing Check Record (CFPLA.C6.F.34)', icon: Scale, category: 'QC' },
+  { href: '/documentations/fly-catcher', title: 'Daily Fly Catcher Check', description: 'Daily Checks for Fly Catcher - Inhouse (CFPLA.C7.F.37)', icon: Bug, category: 'Hygiene' },
+  { href: '/documentations/ccp-roasting-bar', title: 'CCP Roasting (Bar Line)', description: 'CCP Roasting Temp & Time - Bar Line (CFPLA.C2.F.43)', icon: Flame, category: 'CCP', tone: 'warning' },
+  { href: '/documentations/vehicle-inspection', title: 'Incoming Vehicle Inspection', description: 'Incoming Vehicle Inspection Record (CFPLA.C3.F.45)', icon: Truck, category: 'QC' },
+  { href: '/documentations/outgoing-vehicle-inspection', title: 'Outgoing Vehicle Inspection', description: 'Outgoing Vehicle Inspection Record (CFPLA.C5.F.46)', icon: Truck, category: 'QC' },
+  { href: '/documentations/glass-brittle-check', title: 'Glass & Brittle Check', description: 'Glass and Brittle Check Record (CFPLA.C4.F.48)', icon: TrendingDown, category: 'Safety' },
+  { href: '/documentations/preventive-maintenance', title: 'Preventive Maintenance', description: 'Preventive Maintenance Checklist - Monthly (CFPLA.C4.F.50a/b)', icon: Hammer, category: 'Maintenance' },
+  { href: '/documentations/new-equipment-clearance', title: 'New Equipment Clearance', description: 'New Equipment Clearance (Commissioning) Record (CFPLA.C4.F.51)', icon: PackageCheck, category: 'Maintenance' },
+  { href: '/documentations/waste-disposal', title: 'Waste Disposal', description: 'Waste Disposal Record (CFPLA.C4.F.52)', icon: Trash2, category: 'Hygiene' },
+  { href: '/documentations/chemical-preparation', title: 'Chemical Preparation', description: 'Chemical Preparation Record - Housekeeping (CFPLA.C4.F.53)', icon: TestTube2, category: 'Hygiene' },
+  { href: '/documentations/deep-cleaning', title: 'Deep Cleaning', description: 'Housekeeping Deep Cleaning Record (CFPLA.C4.F.55)', icon: Sparkles, category: 'Hygiene' },
+  { href: '/documentations/non-conforming-product', title: 'Non Conforming Product', description: 'Product Non Conformity / Rejection Record (CFPLA.C5.F.57)', icon: CircleSlash, category: 'QC', tone: 'warning' },
+  { href: '/documentations/rework-recycling', title: 'Re-Work / Re-Cycling / Re-Packing', description: 'Re-Work / Re-Cycling / Re-Packing Record (CFPLA.C5.F.58)', icon: Recycle, category: 'QC' },
+]
+
+const CATEGORIES: Array<DocItem['category'] | 'All'> = ['All', 'CCP', 'QC', 'Hygiene', 'Maintenance', 'Safety', 'Records']
 
 export default function DocumentationsPage() {
   const router = useRouter()
+  const [search, setSearch] = useState('')
+  const [activeCategory, setActiveCategory] = useState<DocItem['category'] | 'All'>('All')
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return DOCS.filter((d) => {
+      if (activeCategory !== 'All' && d.category !== activeCategory) return false
+      if (!q) return true
+      return (
+        d.title.toLowerCase().includes(q) ||
+        d.description.toLowerCase().includes(q) ||
+        d.category.toLowerCase().includes(q)
+      )
+    })
+  }, [search, activeCategory])
+
+  const toneClass = (tone?: DocItem['tone']) => {
+    if (tone === 'warning') return 'bg-warning-500'
+    if (tone === 'ink') return 'bg-ink-600'
+    return 'bg-brand-500'
+  }
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Warehouse selector */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-900">Documentations</h1>
-          <WarehouseSelector />
-        </div>
-        {/* Metal Detector & X-Ray Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div
-            onClick={() => router.push('/documentations/metaldetector')}
-            className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-          >
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900">Metal Detector</h2>
-              <p className="mt-2 text-sm text-gray-500">Click to open CCP calibration, Monitoring and Verification Record</p>
+      <div className="max-w-7xl mx-auto">
+        <PageHeader
+          title="Documentations"
+          subtitle="Quality, safety & compliance record registers"
+          icon={BookOpen}
+          actions={<WarehouseSelector />}
+        />
+
+        {/* Search + Filters */}
+        <div className="surface-card p-4 mb-6 animate-fade-in">
+          <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-300" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search documents by title, description or category..."
+                className="input-base pl-10 w-full"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map((cat) => {
+                const isActive = activeCategory === cat
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      isActive
+                        ? 'bg-brand-500 text-white shadow-soft'
+                        : 'bg-cream-200 text-ink-500 hover:bg-cream-300'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                )
+              })}
             </div>
           </div>
+        </div>
 
-          <div
-            onClick={() => router.push('/documentations/xray')}
-            className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-          >
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900">X-Ray</h2>
-              <p className="mt-2 text-sm text-gray-500">Click to open X-Ray Detection Monitoring and Verification Record</p>
+        {/* Cards */}
+        {filtered.length === 0 ? (
+          <div className="surface-card p-12 flex flex-col items-center text-center animate-fade-in">
+            <div className="bg-cream-200 w-16 h-16 rounded-full flex items-center justify-center mb-3">
+              <FileText className="w-7 h-7 text-ink-300" />
             </div>
+            <p className="text-sm font-semibold text-ink-500">No documents found</p>
+            <p className="text-xs text-ink-400 mt-0.5">Try adjusting your search or category filter</p>
           </div>
-        </div>
-
-        {/* IPQC Container */}
-        <div
-          onClick={() => router.push('/documentations/ipqc')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">IPQC</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open In-Process Quality Control Monitoring and Verification Record</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((doc, i) => {
+              const Icon = doc.icon
+              return (
+                <div
+                  key={doc.href}
+                  onClick={() => router.push(doc.href)}
+                  className="surface-card p-5 hover:shadow-lift hover:-translate-y-0.5 transition-all cursor-pointer animate-fade-in-up"
+                  style={{ animationDelay: `${Math.min(i, 20) * 30}ms` }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`shrink-0 w-11 h-11 rounded-xl ${toneClass(doc.tone)} text-white flex items-center justify-center shadow-soft`}
+                    >
+                      <Icon className="w-5 h-5" strokeWidth={2.25} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h2 className="text-sm font-bold text-ink-600 line-clamp-2">{doc.title}</h2>
+                      </div>
+                      <p className="text-[11px] text-ink-400 font-medium mt-1 line-clamp-2">{doc.description}</p>
+                      <span className="inline-block mt-2 rounded-full text-[11px] font-semibold px-2.5 py-0.5 bg-brand-50 text-brand-600">
+                        {doc.category}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        </div>
-
-        {/* Product Weight Check Container */}
-        <div
-          onClick={() => router.push('/documentations/productweightcheck')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Product Weight Check</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Product Weight and Sealing Check Record</p>
-          </div>
-        </div>
-
-        {/* Production Tool Issuance Container */}
-        <div
-          onClick={() => router.push('/documentations/productiontoolissuance')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Production Tool Issuance</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Production Tools Issuance and Integrity Check Record</p>
-          </div>
-        </div>
-
-        {/* Daily Cleaning Checklist Container */}
-        <div
-          onClick={() => router.push('/documentations/dailycleaningchecklist')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Daily Cleaning Checklist</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Daily Cleaning Checklists (Floor, Toilet, Facility, Changing Room, Storage, Service Floor)</p>
-          </div>
-        </div>
-
-        {/* Equipment Cleaning & Sanitation Container */}
-        <div
-          onClick={() => router.push('/documentations/equipmentcleaningsanitation')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Equipment Cleaning &amp; Sanitation</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Equipment Cleaning and Sanitation Record</p>
-          </div>
-        </div>
-
-        {/* Pre-Production Inspection Checklist Container */}
-        <div
-          onClick={() => router.push('/documentations/preproductioninspection')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Pre-Production Inspection Checklist</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Pre-Production Inspection Checklist (Floor, Basements, First Floor, Second Floor, Terrace)</p>
-          </div>
-        </div>
-
-        {/* Line Clearance Record Container */}
-        <div
-          onClick={() => router.push('/documentations/lineclearancerecord')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Line Clearance Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Product Changeover Line Clearance Record</p>
-          </div>
-        </div>
-
-        {/* Personal Hygiene & Health Checkup Container */}
-        <div
-          onClick={() => router.push('/documentations/personalhygienecheckup')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Personal Hygiene &amp; Health Checkup</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Personal Hygiene and Health Checkup Record</p>
-          </div>
-        </div>
-
-        {/* Roasting Temperature & Time Container */}
-        <div
-          onClick={() => router.push('/documentations/roastingtemperature')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Roasting Temperature &amp; Time</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open CCP Monitoring and Verification of Roasting Temperature and Time</p>
-          </div>
-        </div>
-
-        {/* In-house Weighing Scale Calibration Container */}
-        <div
-          onClick={() => router.push('/documentations/weighingscalecalibration')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">In-house Weighing Scale Calibration</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open In-house Weighing Scale Calibration Record</p>
-          </div>
-        </div>
-
-        {/* Water Analysis Record Container */}
-        <div
-          onClick={() => router.push('/documentations/water-analysis')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Water Analysis Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Water Analysis Record (CFPLA.C4.F.04)</p>
-          </div>
-        </div>
-
-        {/* Food Safety Incident Report Container */}
-        <div
-          onClick={() => router.push('/documentations/incident-report')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Food Safety Incident Report</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Food Safety Incident Report Register (CFPLA.C5.F.05)</p>
-          </div>
-        </div>
-
-        {/* Food Safety Meeting Minutes Container */}
-        <div
-          onClick={() => router.push('/documentations/safety-meeting')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Food Safety Meeting Minutes</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Food Safety Meeting Minutes (CFPLA.C.F.09)</p>
-          </div>
-        </div>
-
-        {/* New Product Verification Container */}
-        <div
-          onClick={() => router.push('/documentations/new-product-verification')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">New Product Verification</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open New Product Verification (CFPLA.C5.F.13)</p>
-          </div>
-        </div>
-
-        {/* Emergency Mock Drill Container */}
-        <div
-          onClick={() => router.push('/documentations/mock-drill')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Emergency Fire Evacuation Mock Drill</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Emergency Fire Evacuation Mock Drill (CFPLA.C4.F.14)</p>
-          </div>
-        </div>
-
-        {/* Monthly GMP & GHP Inspection Container */}
-        <div
-          onClick={() => router.push('/documentations/gmp-ghp-inspection')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Monthly GMP &amp; GHP Inspection</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Monthly Facility (GMP) &amp; GHP Inspection (CFPLA.C3.F.15)</p>
-          </div>
-        </div>
-
-        {/* Temperature & Humidity Record Container */}
-        <div
-          onClick={() => router.push('/documentations/temperature-humidity')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Temperature &amp; Humidity Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Temperature &amp; Humidity Record Register (CFPLA.C6.F.17)</p>
-          </div>
-        </div>
-
-        {/* In-process Quality Check Record Container */}
-        <div
-          onClick={() => router.push('/documentations/inprocess-qc-record')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">In-process Quality Check Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open In-process Quality Check Record (CFPLA.C6.F.18)</p>
-          </div>
-        </div>
-
-        {/* Monthly GMP Schedule Container */}
-        <div
-          onClick={() => router.push('/documentations/gmp-schedule')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Monthly GMP Inspection Schedule</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Monthly Facility GMP &amp; GHP Inspection Schedule (CFPLA.C3.F.23)</p>
-          </div>
-        </div>
-
-        {/* Inward Raw Material Check Container */}
-        <div
-          onClick={() => router.push('/documentations/inward-rm-check')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Inward Raw Material Check</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Inward Raw Material Check Records (CFPLA.C5.F.25)</p>
-          </div>
-        </div>
-
-        {/* Finished Good Chemical Analysis Container */}
-        <div
-          onClick={() => router.push('/documentations/fg-chemical-analysis')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Finished Good Chemical Analysis</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Finished Good Chemical Analysis (CFPLA.C5.F.26)</p>
-          </div>
-        </div>
-
-        {/* Eye Wash Bottle Refilling Container */}
-        <div
-          onClick={() => router.push('/documentations/eyewash-refill')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Eye Wash Bottle Refilling Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Eye Wash Bottle Refilling Record (CFPLA.C7.F.27)</p>
-          </div>
-        </div>
-
-        {/* First Aid Box Container */}
-        <div
-          onClick={() => router.push('/documentations/first-aid-box')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">First Aid Box Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open First Aid Box Record (CFPLA.C7.F.29)</p>
-          </div>
-        </div>
-
-        {/* Traceability Report Container */}
-        <div
-          onClick={() => router.push('/documentations/traceability')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Traceability Report</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Traceability Report (CFPLA.C3.F.30)</p>
-          </div>
-        </div>
-
-        {/* Lux Monitoring Container */}
-        <div
-          onClick={() => router.push('/documentations/lux-monitoring')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Lux Monitoring Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Lux Monitoring Record (CFPLA.C4.F.32)</p>
-          </div>
-        </div>
-
-        {/* Pre Weighing Check Container */}
-        <div
-          onClick={() => router.push('/documentations/pre-weighing')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Pre Weighing Check Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Pre Weighing Check Record (CFPLA.C6.F.34)</p>
-          </div>
-        </div>
-
-        {/* Daily Fly Catcher Check Container */}
-        <div
-          onClick={() => router.push('/documentations/fly-catcher')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Daily Fly Catcher Check</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Daily Checks for Fly Catcher - Inhouse (CFPLA.C7.F.37)</p>
-          </div>
-        </div>
-
-        {/* CCP Roasting Bar Line Container */}
-        <div
-          onClick={() => router.push('/documentations/ccp-roasting-bar')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">CCP Roasting (Bar Line)</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open CCP Roasting Temp &amp; Time - Bar Line (CFPLA.C2.F.43)</p>
-          </div>
-        </div>
-
-        {/* Incoming Vehicle Inspection Container */}
-        <div
-          onClick={() => router.push('/documentations/vehicle-inspection')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Incoming Vehicle Inspection</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Incoming Vehicle Inspection Record (CFPLA.C3.F.45)</p>
-          </div>
-        </div>
-
-        {/* Outgoing Vehicle Inspection Container */}
-        <div
-          onClick={() => router.push('/documentations/outgoing-vehicle-inspection')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Outgoing Vehicle Inspection</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Outgoing Vehicle Inspection Record (CFPLA.C5.F.46)</p>
-          </div>
-        </div>
-
-        {/* Glass & Brittle Check Container */}
-        <div
-          onClick={() => router.push('/documentations/glass-brittle-check')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Glass &amp; Brittle Check Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Glass and Brittle Check Record (CFPLA.C4.F.48)</p>
-          </div>
-        </div>
-
-        {/* Preventive Maintenance Container */}
-        <div
-          onClick={() => router.push('/documentations/preventive-maintenance')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Preventive Maintenance Checklist</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Preventive Maintenance Checklist - Monthly (CFPLA.C4.F.50a/b)</p>
-          </div>
-        </div>
-
-        {/* New Equipment Clearance Container */}
-        <div
-          onClick={() => router.push('/documentations/new-equipment-clearance')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">New Equipment Clearance</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open New Equipment Clearance (Commissioning) Record (CFPLA.C4.F.51)</p>
-          </div>
-        </div>
-
-        {/* Waste Disposal Container */}
-        <div
-          onClick={() => router.push('/documentations/waste-disposal')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Waste Disposal Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Waste Disposal Record (CFPLA.C4.F.52)</p>
-          </div>
-        </div>
-
-        {/* Chemical Preparation Container */}
-        <div
-          onClick={() => router.push('/documentations/chemical-preparation')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Chemical Preparation Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Chemical Preparation Record - Housekeeping (CFPLA.C4.F.53)</p>
-          </div>
-        </div>
-
-        {/* Deep Cleaning Container */}
-        <div
-          onClick={() => router.push('/documentations/deep-cleaning')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Deep Cleaning Record</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Housekeeping Deep Cleaning Record (CFPLA.C4.F.55)</p>
-          </div>
-        </div>
-
-        {/* Non Conforming Product Container */}
-        <div
-          onClick={() => router.push('/documentations/non-conforming-product')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Non Conforming Product Report</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Product Non Conformity / Rejection Record (CFPLA.C5.F.57)</p>
-          </div>
-        </div>
-
-        {/* Re-Work / Re-Cycling / Re-Packing Container */}
-        <div
-          onClick={() => router.push('/documentations/rework-recycling')}
-          className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 cursor-pointer hover:shadow-xl transition-shadow hover:border-blue-300"
-        >
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Re-Work / Re-Cycling / Re-Packing</h2>
-            <p className="mt-2 text-sm text-gray-500">Click to open Re-Work / Re-Cycling / Re-Packing Record (CFPLA.C5.F.58)</p>
-          </div>
-        </div>
+        )}
       </div>
     </DashboardLayout>
   )

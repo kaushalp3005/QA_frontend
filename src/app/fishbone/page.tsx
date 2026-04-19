@@ -2,13 +2,15 @@
 // zale pushh
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Edit3, FileText, Printer, Eye, Trash2 } from 'lucide-react'
+import { Plus, Search, Edit3, FileText, Printer, Eye, Trash2, BarChart3 } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDateShort } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getFishboneAnalyses, deleteFishbone } from '@/lib/api/fishbone'
 import { toast } from 'react-hot-toast'
+import PageHeader from '@/components/ui/PageHeader'
+import { Spinner } from '@/components/ui/Loader'
 
 export default function FishbonePage() {
   const { currentCompany } = useCompany()
@@ -31,7 +33,7 @@ export default function FishbonePage() {
         status: statusFilter !== 'all' ? statusFilter : undefined,
         search: searchTerm || undefined
       })
-      
+
       setFishboneData(response.data)
       setTotalPages(response.pages)
     } catch (error: any) {
@@ -56,7 +58,7 @@ export default function FishbonePage() {
         setCurrentPage(1)
       }
     }, 500)
-    
+
     return () => clearTimeout(timer)
   }, [searchTerm])
 
@@ -88,105 +90,101 @@ export default function FishbonePage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">FishBone Method</h1>
-            <p className="text-gray-600 mt-1">Cause and Effect Analysis using Ishikawa Diagram</p>
-          </div>
-          {/* Create Fishbone Button - Only show if user can create */}
-          {canCreate('fishbone') && (
-            <Link
-              href="/fishbone/create"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create FishBone Analysis
-            </Link>
-          )}
-        </div>
+      <div className="max-w-7xl mx-auto">
+        <PageHeader
+          title="FishBone Method"
+          subtitle="Cause and Effect Analysis using Ishikawa Diagram"
+          icon={BarChart3}
+          actions={
+            canCreate('fishbone') ? (
+              <Link href="/fishbone/create" className="btn-primary">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Create FishBone Analysis
+              </Link>
+            ) : undefined
+          }
+        />
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="surface-card p-4 mb-4 animate-fade-in">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search */}
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-300" />
               <input
                 type="text"
                 placeholder="Search by title, problem statement, or complaint ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="input-base pl-10"
               />
             </div>
-
           </div>
         </div>
 
         {/* FishBone Analysis List */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">FishBone Analyses Records</h2>
+        <div className="surface-card overflow-hidden animate-fade-in">
+          <div className="px-5 py-4 border-b border-cream-300 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-ink-600">FishBone Analyses Records</h2>
+            <span className="text-xs text-ink-400 font-medium tabular-nums">{filteredData.length} records</span>
           </div>
-          
+
           {isLoading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-4 text-sm text-gray-500">Loading fishbone analyses...</p>
+            <div className="text-center py-16">
+              <Spinner size={32} className="text-brand-500 mx-auto" />
+              <p className="mt-3 text-sm text-ink-400 font-medium">Loading fishbone analyses...</p>
             </div>
           ) : filteredData.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
+              <table className="w-full divide-y divide-cream-300">
+                <thead className="bg-cream-100">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Analysis Details
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Complaint ID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Created Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Created By
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-right text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-cream-300 bg-white">
                   {filteredData.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
+                    <tr key={item.id} className="hover:bg-cream-100/50 transition-colors">
+                      <td className="px-5 py-3.5">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-semibold text-ink-600">
                             {item.fishbone_number || `FA-${item.id}`}
                           </div>
-                          <div className="text-sm text-gray-500 mt-1 line-clamp-2">
+                          <div className="text-xs text-ink-400 mt-0.5 line-clamp-2">
                             {item.problem_statement}
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-blue-600 font-medium">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className="text-xs text-brand-500 font-semibold tabular-nums">
                           {item.complaint_id || '-'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-5 py-3.5 whitespace-nowrap text-xs text-ink-400 font-medium tabular-nums">
                         {item.analysis_date ? formatDateShort(item.analysis_date) : formatDateShort(item.created_at)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-5 py-3.5 whitespace-nowrap text-sm text-ink-500">
                         {item.created_by || '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
+                      <td className="px-5 py-3.5 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <Link
                             href={`/fishbone/${item.id}`}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                            className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
                             title="View"
                           >
                             <Eye className="h-4 w-4" />
@@ -194,7 +192,7 @@ export default function FishbonePage() {
                           {canEdit('fishbone') && (
                             <Link
                               href={`/fishbone/${item.id}/edit`}
-                              className="text-green-600 hover:text-green-900 p-1 rounded"
+                              className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
                               title="Edit"
                             >
                               <Edit3 className="h-4 w-4" />
@@ -203,7 +201,7 @@ export default function FishbonePage() {
                           <Link
                             href={`/fishbone/${item.id}/print`}
                             target="_blank"
-                            className="text-purple-600 hover:text-purple-900 p-1 rounded"
+                            className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
                             title="Print"
                           >
                             <Printer className="h-4 w-4" />
@@ -211,7 +209,7 @@ export default function FishbonePage() {
                           {canDelete('fishbone') && (
                             <button
                               onClick={() => handleDelete(item.id)}
-                              className="text-red-600 hover:text-red-800 p-1 rounded"
+                              className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
                               title="Delete"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -225,22 +223,21 @@ export default function FishbonePage() {
               </table>
             </div>
           ) : (
-            <div className="text-center py-12">
-              <FileText className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No FishBone analyses records found</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {searchTerm || statusFilter !== 'all' 
+            <div className="text-center py-16">
+              <div className="bg-cream-200 w-14 h-14 rounded-full mx-auto flex items-center justify-center">
+                <FileText className="h-6 w-6 text-ink-400" />
+              </div>
+              <h3 className="mt-3 text-sm font-semibold text-ink-500">No FishBone analyses records found</h3>
+              <p className="text-xs text-ink-400 mt-0.5">
+                {searchTerm || statusFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria.'
                   : 'Get started by creating your first FishBone analysis.'
                 }
               </p>
-              {(!searchTerm && statusFilter === 'all') && (
-                <div className="mt-6">
-                  <Link
-                    href="/fishbone/create"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
+              {(!searchTerm && statusFilter === 'all') && canCreate('fishbone') && (
+                <div className="mt-5">
+                  <Link href="/fishbone/create" className="btn-primary inline-flex">
+                    <Plus className="w-4 h-4 mr-1.5" />
                     Create FishBone Analysis
                   </Link>
                 </div>

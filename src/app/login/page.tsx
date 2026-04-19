@@ -2,7 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Shield, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import Image from 'next/image'
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Spinner } from '@/components/ui/Loader'
+import ThemeToggle from '@/components/ui/ThemeToggle'
 
 interface LoginFormData {
   email: string
@@ -11,17 +14,14 @@ interface LoginFormData {
 
 export default function LoginPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState<LoginFormData>({
-    email: '',
-    password: ''
-  })
+  const [formData, setFormData] = useState<LoginFormData>({ email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
     setError('')
   }
 
@@ -31,16 +31,14 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/auth/login`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: formData.email, password: formData.password }),
         },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
-      })
+      )
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -48,76 +46,80 @@ export default function LoginPage() {
       }
 
       const data = await response.json()
-      
-      // Store token and user data in localStorage
       localStorage.setItem('access_token', data.access_token)
       localStorage.setItem('user', JSON.stringify(data))
-      // Default to first company if available
+
       if (data.companies && data.companies.length > 0) {
         localStorage.setItem('company', data.companies[0].code)
-        
-        // Fetch user permissions for the selected company
         try {
-          const permissionsResponse = await fetch(
+          const permsResp = await fetch(
             `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/auth/permissions/${data.companies[0].code}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${data.access_token}`
-              }
-            }
+            { headers: { Authorization: `Bearer ${data.access_token}` } },
           )
-          
-          if (permissionsResponse.ok) {
-            const permissionsData = await permissionsResponse.json()
-            localStorage.setItem('permissions', JSON.stringify(permissionsData.permissions || {}))
+          if (permsResp.ok) {
+            const permsData = await permsResp.json()
+            localStorage.setItem('permissions', JSON.stringify(permsData.permissions || {}))
           }
         } catch (permError) {
           console.error('Failed to fetch permissions:', permError)
-          // Continue with login even if permissions fetch fails
         }
       }
-      
-      // Check for return URL in query params
+
       const urlParams = new URLSearchParams(window.location.search)
       const returnUrl = urlParams.get('returnUrl')
-      
-      // Redirect to return URL if provided, otherwise to dashboard
-      if (returnUrl) {
-        router.push(decodeURIComponent(returnUrl))
-      } else {
-        router.push('/dashboard')
-      }
-      
-    } catch (error: any) {
-      setError(error.message || 'Login failed. Please check your credentials.')
+      router.push(returnUrl ? decodeURIComponent(returnUrl) : '/dashboard')
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please check your credentials.')
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 flex items-center justify-center p-4" style={{ backgroundImage: 'linear-gradient(135deg, #F5F5F0 0%, #E6D8C3 50%, #F5F5F0 100%)' }}>
-      <div className="max-w-md w-full">
-        {/* Logo and Title */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-sage-300 rounded-full mb-4 shadow-lg border-4 border-cream-50">
-            <Shield className="w-10 h-10 text-sage-900" />
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      {/* Theme toggle in corner */}
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
+
+      {/* Decorative background blobs */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full bg-brand-500/12 blur-3xl animate-float" />
+        <div
+          className="absolute -bottom-40 -right-40 w-[560px] h-[560px] rounded-full bg-ink-600/8 blur-3xl animate-float"
+          style={{ animationDelay: '1.5s' }}
+        />
+        <div className="absolute top-1/3 right-1/3 w-[300px] h-[300px] rounded-full bg-brand-300/10 blur-3xl" />
+      </div>
+
+      <div className="w-full max-w-md animate-fade-in-up">
+        {/* Brand header */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="relative w-24 h-24 rounded-2xl bg-white shadow-lift ring-1 ring-cream-300 overflow-hidden mb-5 animate-scale-in">
+            <Image
+              src="/candor-logo.jpg"
+              alt="Candor Foods"
+              fill
+              sizes="96px"
+              className="object-contain p-2"
+              priority
+            />
           </div>
-          <h1 className="text-3xl font-bold text-sage-800 mb-2 tracking-tight">
-            Quality Control System
+          <h1 className="text-3xl font-bold text-ink-600 tracking-tight text-center">
+            Welcome back
           </h1>
-          <p className="text-sage-600 font-medium">
-            Sign in to access your account
+          <p className="text-sm text-ink-400 mt-1.5 font-medium">
+            Sign in to the Candor Foods QA / QC system
           </p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-beige-50 rounded-2xl shadow-2xl border border-tan-200 p-8 backdrop-blur-sm">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email Input */}
+        {/* Glass card */}
+        <div className="glass-strong rounded-3xl shadow-lift p-7 sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-sage-700 mb-2">
-                <Mail className="w-4 h-4 inline mr-2 text-sage-600" />
+              <label htmlFor="email" className="label-base flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5 text-brand-500" />
                 Email Address
               </label>
               <input
@@ -126,16 +128,17 @@ export default function LoginPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-tan-200 bg-cream-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-300 focus:border-sage-300 text-sage-900 placeholder:text-tan-300 transition-all"
+                className="input-base"
                 placeholder="your.email@candorfoods.in"
                 required
+                autoComplete="email"
               />
             </div>
 
-            {/* Password Input */}
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-sage-700 mb-2">
-                <Lock className="w-4 h-4 inline mr-2 text-sage-600" />
+              <label htmlFor="password" className="label-base flex items-center gap-2">
+                <Lock className="w-3.5 h-3.5 text-brand-500" />
                 Password
               </label>
               <div className="relative">
@@ -145,67 +148,71 @@ export default function LoginPage() {
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-tan-200 bg-cream-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-300 focus:border-sage-300 pr-12 text-sage-900 placeholder:text-tan-300 transition-all"
+                  className="input-base pr-11"
                   placeholder="Enter your password"
                   required
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-tan-300 hover:text-sage-400 transition-colors"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-ink-300 hover:text-brand-500 hover:bg-cream-200"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-xs text-sage-500 mt-1">
-                Password format: firstname+lastname (e.g., shraddhajadhav)
+              <p className="text-[11px] text-ink-300 mt-1.5 font-medium">
+                Format: firstname+lastname (e.g. <span className="font-mono">shraddhajadhav</span>)
               </p>
             </div>
 
-            {/* Error Message */}
+            {/* Error */}
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-700 text-sm">{error}</p>
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-danger-50 border border-danger-200 animate-fade-in">
+                <p className="text-sm text-danger-700 font-medium">{error}</p>
               </div>
             )}
 
-            {/* Submit Button */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-sage-300 text-sage-900 py-3 rounded-lg font-semibold hover:bg-sage-400 focus:outline-none focus:ring-2 focus:ring-sage-300 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full inline-flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600
+                         text-white py-3 rounded-xl font-semibold tracking-wide
+                         shadow-brand hover:shadow-lift transition-all
+                         hover:-translate-y-0.5 active:translate-y-0
+                         disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
               {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-sage-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Signing in...
-                </span>
+                <>
+                  <Spinner size={18} className="text-white" />
+                  Signing in…
+                </>
               ) : (
-                'Sign In'
+                <>
+                  Sign In
+                  <ArrowRight className="w-4 h-4" />
+                </>
               )}
             </button>
           </form>
 
-          {/* Sample Credentials */}
-          <div className="mt-6 pt-6 border-t border-tan-200">
-            <p className="text-xs text-sage-600 text-center mb-3 font-medium">Sample Login Credentials:</p>
-            <div className="bg-cream-50 rounded-lg p-3 text-xs space-y-1 border border-tan-200">
-              <p className="font-mono text-sage-700">Email: quality.inward@candorfoods.in</p>
-              <p className="font-mono text-sage-700">Password: abhishekdalvi</p>
+          {/* Sample creds */}
+          <div className="mt-6 pt-5 border-t border-cream-300">
+            <p className="text-[11px] text-ink-400 text-center mb-2.5 font-semibold tracking-wider uppercase">
+              Sample Credentials
+            </p>
+            <div className="rounded-lg bg-cream-100 border border-cream-300 p-3 text-xs space-y-1 font-mono">
+              <p className="text-ink-500">quality.inward@candorfoods.in</p>
+              <p className="text-ink-400">abhishekdalvi</p>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-sage-600 mt-6 font-medium">
-          © 2025 Candor Foods. All rights reserved.
+        <p className="text-center text-xs text-ink-400 mt-6 font-medium">
+          © {new Date().getFullYear()} Candor Foods · Quality Management System
         </p>
       </div>
     </div>

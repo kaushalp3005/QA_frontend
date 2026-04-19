@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 interface WeightRow {
@@ -8,21 +8,34 @@ interface WeightRow {
   packingMaterialWeight: string;
   netWeight: string;
   observedGrossWeight: string;
-  deviationsNoted: "Yes" | "No" | "";
-  sealingCheck: "Ok" | "Not Ok" | "";
+  deviationsNoted: "Ok" | "Not Ok";
+  sealingCheck: "Ok" | "Not Ok";
   n2Percent: string;
   checkedBy: string;
   verifiedBy: string;
 }
 
+const currentTime = () => {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+const currentDate = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 const emptyRow = (id: number): WeightRow => ({
-  id, time: "", packingMaterialWeight: "", netWeight: "", observedGrossWeight: "",
-  deviationsNoted: "", sealingCheck: "", n2Percent: "", checkedBy: "", verifiedBy: "",
+  id, time: currentTime(), packingMaterialWeight: "", netWeight: "", observedGrossWeight: "",
+  deviationsNoted: "Not Ok", sealingCheck: "Not Ok", n2Percent: "", checkedBy: "", verifiedBy: "",
 });
+
+const DRAFT_KEY = "pwc-draft";
+const DRAFT_TTL_MS = 5 * 60 * 1000;
 
 export default function ProductWeightSealCheckRecord() {
   const router = useRouter();
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(currentDate());
   const [location, setLocation] = useState("");
   const [productName, setProductName] = useState("");
   const [batchNo, setBatchNo] = useState("");
@@ -33,11 +46,58 @@ export default function ProductWeightSealCheckRecord() {
   const [totalPktsProduced, setTotalPktsProduced] = useState("");
   const [remarks, setRemarks] = useState("");
   const [rows, setRows] = useState<WeightRow[]>(Array.from({ length: 10 }, (_, i) => emptyRow(i + 1)));
+  const hydrated = useRef(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { savedAt: number; data: Record<string, unknown> };
+        if (parsed.savedAt && Date.now() - parsed.savedAt < DRAFT_TTL_MS) {
+          const d = parsed.data;
+          if (typeof d.date === "string") setDate(d.date);
+          if (typeof d.location === "string") setLocation(d.location);
+          if (typeof d.productName === "string") setProductName(d.productName);
+          if (typeof d.batchNo === "string") setBatchNo(d.batchNo);
+          if (typeof d.customer === "string") setCustomer(d.customer);
+          if (typeof d.pkd === "string") setPkd(d.pkd);
+          if (typeof d.declaredNetWeight === "string") setDeclaredNetWeight(d.declaredNetWeight);
+          if (typeof d.permissibleError === "string") setPermissibleError(d.permissibleError);
+          if (typeof d.totalPktsProduced === "string") setTotalPktsProduced(d.totalPktsProduced);
+          if (typeof d.remarks === "string") setRemarks(d.remarks);
+          if (Array.isArray(d.rows)) setRows(d.rows as WeightRow[]);
+        } else {
+          localStorage.removeItem(DRAFT_KEY);
+        }
+      }
+    } catch {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+    hydrated.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const payload = {
+      savedAt: Date.now(),
+      data: { date, location, productName, batchNo, customer, pkd, declaredNetWeight, permissibleError, totalPktsProduced, remarks, rows },
+    };
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(payload)); } catch {}
+  }, [date, location, productName, batchNo, customer, pkd, declaredNetWeight, permissibleError, totalPktsProduced, remarks, rows]);
 
   const addRow = () => setRows((prev) => [...prev, emptyRow(prev.length + 1)]);
 
   const updateRow = (id: number, field: keyof WeightRow, value: string) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    setRows((prev) => prev.map((r) => {
+      if (r.id !== id) return r;
+      const next = { ...r, [field]: value };
+      if (field === "packingMaterialWeight" || field === "netWeight") {
+        const p = parseFloat(next.packingMaterialWeight);
+        const n = parseFloat(next.netWeight);
+        next.observedGrossWeight = (!isNaN(p) && !isNaN(n)) ? String(+(p + n).toFixed(3)) : "";
+      }
+      return next;
+    }));
   };
 
   const removeRow = (id: number) => {
@@ -120,7 +180,7 @@ export default function ProductWeightSealCheckRecord() {
               <th className="border border-gray-300 px-2 py-2">Packing Material Weight (g)</th>
               <th className="border border-gray-300 px-2 py-2">Net Weight (g)</th>
               <th className="border border-gray-300 px-2 py-2">Observed Gross Weight (g)</th>
-              <th className="border border-gray-300 px-2 py-2">Deviations Noted (Yes/No)</th>
+              <th className="border border-gray-300 px-2 py-2">Deviations Noted (Ok/Not Ok)</th>
               <th className="border border-gray-300 px-2 py-2">Sealing Check (Ok/Not Ok)</th>
               <th className="border border-gray-300 px-2 py-2">N2 %</th>
               <th className="border border-gray-300 px-2 py-2">Checked By</th>
@@ -142,21 +202,29 @@ export default function ProductWeightSealCheckRecord() {
                   <input type="number" value={row.netWeight} onChange={(e) => updateRow(row.id, "netWeight", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
-                  <input type="number" value={row.observedGrossWeight} onChange={(e) => updateRow(row.id, "observedGrossWeight", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
+                  <input type="number" value={row.observedGrossWeight} readOnly className="w-full border rounded px-1 py-1 text-sm bg-gray-50" />
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.deviationsNoted} onChange={(e) => updateRow(row.id, "deviationsNoted", e.target.value)} className="w-full border rounded px-1 py-1 text-sm">
-                    <option value="">-</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
+                  <label className="flex items-center justify-center gap-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={row.deviationsNoted === "Ok"}
+                      onChange={(e) => updateRow(row.id, "deviationsNoted", e.target.checked ? "Ok" : "Not Ok")}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-xs">{row.deviationsNoted}</span>
+                  </label>
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.sealingCheck} onChange={(e) => updateRow(row.id, "sealingCheck", e.target.value)} className="w-full border rounded px-1 py-1 text-sm">
-                    <option value="">-</option>
-                    <option value="Ok">Ok</option>
-                    <option value="Not Ok">Not Ok</option>
-                  </select>
+                  <label className="flex items-center justify-center gap-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={row.sealingCheck === "Ok"}
+                      onChange={(e) => updateRow(row.id, "sealingCheck", e.target.checked ? "Ok" : "Not Ok")}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-xs">{row.sealingCheck}</span>
+                  </label>
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
                   <input type="number" value={row.n2Percent} onChange={(e) => updateRow(row.id, "n2Percent", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
@@ -184,7 +252,7 @@ export default function ProductWeightSealCheckRecord() {
       </div>
 
       <div className="mt-2 text-xs text-gray-500">Prepared By: Production | Approved By: FSTL</div>
-      <button className="mt-4 bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 w-full sm:w-auto text-base">Submit</button>
+      <button onClick={() => { try { localStorage.removeItem(DRAFT_KEY); } catch {} }} className="mt-4 bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 w-full sm:w-auto text-base">Submit</button>
     </div>
   );
 }

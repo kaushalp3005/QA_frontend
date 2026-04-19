@@ -36,8 +36,6 @@ const emptyRow = (): ChangeoverRow => ({
   verifiedBy: "",
 });
 
-const TICK_OPTIONS = ["\u2713", "\u2715", ""];
-
 export default function ProductChangeoverLineClearance() {
   const router = useRouter();
   const [area, setArea] = useState("");
@@ -50,17 +48,19 @@ export default function ProductChangeoverLineClearance() {
     setRows((r) => r.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
   };
 
-  const TickCell = ({ id, field, value }: { id: number; field: keyof ChangeoverRow; value: string }) => (
-    <select
-      value={value}
-      onChange={(e) => updateRow(id, field, e.target.value)}
-      className="w-full text-center bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-red-400 rounded text-sm cursor-pointer"
-    >
-      {TICK_OPTIONS.map((o) => (
-        <option key={o} value={o}>{o || "\u2014"}</option>
-      ))}
-    </select>
-  );
+  const TickCell = ({ id, field, value }: { id: number; field: keyof ChangeoverRow; value: string }) => {
+    const ok = value === "\u2713";
+    return (
+      <label className={`flex items-center justify-center cursor-pointer py-0.5 rounded ${ok ? "bg-green-50" : value === "\u2715" ? "bg-red-50" : ""}`}>
+        <input
+          type="checkbox"
+          checked={ok}
+          onChange={(e) => updateRow(id, field, e.target.checked ? "\u2713" : "\u2715")}
+          className="h-4 w-4 accent-red-600 cursor-pointer"
+        />
+      </label>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 font-mono">

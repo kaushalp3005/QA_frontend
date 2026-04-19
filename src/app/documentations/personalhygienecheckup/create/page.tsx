@@ -75,15 +75,28 @@ export default function PersonalHygieneHealthCheckup() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
-  const CheckSelect = ({ id, field, value, bgClass }: { id: number; field: keyof HygieneRow; value: string; bgClass: string }) => (
-    <select value={value}
-      onChange={(e) => updateRow(id, field, e.target.value)}
-      className={`w-full text-center border-0 focus:outline-none focus:ring-1 focus:ring-red-300 rounded text-sm py-0.5 ${bgClass} ${value === "\u2713" ? "text-green-700 font-bold" : value === "\u2715" ? "text-red-700 font-bold" : "text-gray-400"}`}>
-      <option value="">{'\u2014'}</option>
-      <option value={'\u2713'}>{'\u2713'}</option>
-      <option value={'\u2715'}>{'\u2715'}</option>
-    </select>
-  );
+  const markRowAllOK = (id: number) => {
+    setRows((prev) => prev.map((r) => {
+      if (r.id !== id) return r;
+      const patch: Partial<HygieneRow> = {};
+      CHECK_FIELDS.forEach(({ field }) => { (patch[field] as CheckValue) = "\u2713"; });
+      return { ...r, ...patch };
+    }));
+  };
+
+  const CheckSelect = ({ id, field, value, bgClass }: { id: number; field: keyof HygieneRow; value: string; bgClass: string }) => {
+    const ok = value === "\u2713";
+    return (
+      <label className={`flex items-center justify-center cursor-pointer py-0.5 rounded ${bgClass}`}>
+        <input
+          type="checkbox"
+          checked={ok}
+          onChange={(e) => updateRow(id, field, e.target.checked ? "\u2713" : "\u2715")}
+          className="h-4 w-4 accent-red-600 cursor-pointer"
+        />
+      </label>
+    );
+  };
 
   const failCount = (field: keyof HygieneRow) =>
     rows.filter((r) => r[field] === "\u2715").length;
@@ -161,7 +174,7 @@ export default function PersonalHygieneHealthCheckup() {
                   ))}
                   <th rowSpan={2} className="border border-gray-400 p-1.5 text-center w-20 bg-gray-100">Employee Sign</th>
                   <th rowSpan={2} className="border border-gray-400 p-1.5 text-center w-36 bg-gray-100">Corrective Action (If any)</th>
-                  <th rowSpan={2} className="border border-gray-400 p-1.5 text-center w-6 bg-gray-100 text-red-400">{'\u2715'}</th>
+                  <th rowSpan={2} className="border border-gray-400 p-1.5 text-center w-14 bg-gray-100 text-[10px] text-gray-600">Actions</th>
                 </tr>
                 <tr>
                   {CHECK_FIELDS.map(({ field, label, color }) => (
@@ -198,7 +211,22 @@ export default function PersonalHygieneHealthCheckup() {
                           className="w-full border-0 focus:outline-none focus:ring-1 focus:ring-red-300 rounded px-1 text-xs bg-transparent disabled:text-gray-300" />
                       </td>
                       <td className="border border-gray-300 p-1 text-center">
-                        <button onClick={() => removeRow(row.id)} className="text-red-400 hover:text-red-600 font-bold">{'\u2715'}</button>
+                        <div className="flex flex-col items-center gap-1">
+                          <button
+                            onClick={() => markRowAllOK(row.id)}
+                            className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded hover:bg-green-200 whitespace-nowrap"
+                            title="Mark all checks as \u2713 for this row"
+                          >
+                            All {'\u2713'}
+                          </button>
+                          <button
+                            onClick={() => removeRow(row.id)}
+                            className="text-red-400 hover:text-red-600 font-bold text-sm leading-none"
+                            title="Remove row"
+                          >
+                            {'\u2715'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

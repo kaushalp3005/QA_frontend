@@ -1,6 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { docsApi } from "@/lib/api/documentations";
+
+const FORM_TYPE = "equipmentcleaningsanitation";
 
 const EQUIPMENT_LIST = [
   "Weight Machine", "Sealing Machine", "Foot Sealer", "Strapping Machine", "Shrink Wrap Machine",
@@ -12,6 +15,7 @@ const EQUIPMENT_LIST = [
 ];
 
 type BAStatus = "\u2713" | "\u2715" | "";
+type Grid = Record<string, Record<number, { B: BAStatus; A: BAStatus }>>;
 
 export default function EquipmentCleaningSanitationRecord() {
   const router = useRouter();
@@ -22,9 +26,12 @@ export default function EquipmentCleaningSanitationRecord() {
   const [observations, setObservations] = useState("");
   const [correctiveActions, setCorrectiveActions] = useState("");
   const [selectedDates, setSelectedDates] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [recordId, setRecordId] = useState<number | null>(null);
+  const [saving, setSaving] = useState<false | "draft" | "final">(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
-  const [grid, setGrid] = useState<Record<string, Record<number, { B: BAStatus; A: BAStatus }>>>(() => {
-    const init: Record<string, Record<number, { B: BAStatus; A: BAStatus }>> = {};
+  const [grid, setGrid] = useState<Grid>(() => {
+    const init: Grid = {};
     EQUIPMENT_LIST.forEach((eq) => {
       init[eq] = {};
       for (let d = 1; d <= 31; d++) init[eq][d] = { B: "", A: "" };
@@ -40,9 +47,54 @@ export default function EquipmentCleaningSanitationRecord() {
     });
   };
 
+  const markRowAllOK = (eq: string) => {
+    setGrid((prev) => {
+      const updated: Record<number, { B: BAStatus; A: BAStatus }> = { ...prev[eq] };
+      selectedDates.forEach((d) => { updated[d] = { B: "\u2713", A: "\u2713" }; });
+      return { ...prev, [eq]: updated };
+    });
+  };
+
   const addDate = () => {
     const next = selectedDates.length > 0 ? Math.max(...selectedDates) + 1 : 1;
     if (next <= 31) setSelectedDates((prev) => [...prev, next]);
+  };
+
+  const buildPayload = (status: "draft" | "submitted") => ({
+    month,
+    area,
+    checked_by: checkedBy,
+    verified_by: verifiedBy,
+    observations,
+    corrective_action: correctiveActions,
+    grid: { selectedDates, cells: grid },
+    status,
+  });
+
+  const handleSave = async (status: "draft" | "submitted") => {
+    setSaving(status === "draft" ? "draft" : "final");
+    setMessage(null);
+    try {
+      const payload = buildPayload(status);
+      if (recordId == null) {
+        const res = await docsApi.create(FORM_TYPE, payload);
+        const newId = res.data?.id as number | undefined;
+        if (typeof newId === "number") setRecordId(newId);
+      } else {
+        await docsApi.update(FORM_TYPE, recordId, payload);
+      }
+      if (status === "submitted") {
+        setMessage({ kind: "ok", text: "Record submitted." });
+        setTimeout(() => router.push(`/documentations/${FORM_TYPE}`), 800);
+      } else {
+        setMessage({ kind: "ok", text: "Draft saved." });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setMessage({ kind: "err", text: msg });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -56,6 +108,12 @@ export default function EquipmentCleaningSanitationRecord() {
         <div className="p-2 text-sm font-semibold text-center border-b border-gray-300">Format: Equipment Cleaning &amp; Sanitation Record</div>
         <div className="p-2 text-sm text-center">Document No: CFPLA.C4.F.19 | Issue No: 05 | Rev Date: 01/12/2025 | Rev No: 04</div>
       </div>
+
+      {recordId != null && (
+        <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
+          Draft #{recordId} in progress. Click <strong>Submit Partially</strong> to save progress, or <strong>Submit</strong> to finalize.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
@@ -78,6 +136,7 @@ export default function EquipmentCleaningSanitationRecord() {
             <tr>
               <th className="border border-gray-300 px-2 py-1 sticky left-0 bg-gray-100 z-10">Sr</th>
               <th className="border border-gray-300 px-2 py-1 sticky left-8 bg-gray-100 z-10 min-w-[140px]">Equipment</th>
+              <th className="border border-gray-300 px-1 py-1 sticky left-[188px] bg-gray-100 z-10 text-[9px] text-gray-500">All {'\u2713'}</th>
               {selectedDates.map((d) => (
                 <th key={d} className="border border-gray-300 px-1 py-1 text-center" colSpan={2}>
                   {d}
@@ -87,6 +146,7 @@ export default function EquipmentCleaningSanitationRecord() {
             <tr>
               <th className="border border-gray-300 sticky left-0 bg-gray-100 z-10"></th>
               <th className="border border-gray-300 sticky left-8 bg-gray-100 z-10"></th>
+              <th className="border border-gray-300 sticky left-[188px] bg-gray-100 z-10"></th>
               {selectedDates.map((d) => (
                 <>
                   <th key={`${d}-b`} className="border border-gray-300 px-1 py-0.5 text-center text-[10px]">B</th>
@@ -100,6 +160,15 @@ export default function EquipmentCleaningSanitationRecord() {
               <tr key={eq} className="hover:bg-blue-50">
                 <td className="border border-gray-300 px-1 py-0.5 text-center sticky left-0 bg-white">{idx + 1}</td>
                 <td className="border border-gray-300 px-1 py-0.5 sticky left-8 bg-white font-medium whitespace-nowrap">{eq}</td>
+                <td className="border border-gray-300 px-1 py-0.5 sticky left-[188px] bg-white">
+                  <button
+                    onClick={() => markRowAllOK(eq)}
+                    className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded hover:bg-green-200 whitespace-nowrap"
+                    title={`Mark all selected dates (B & A) as \u2713 for ${eq}`}
+                  >
+                    All {'\u2713'}
+                  </button>
+                </td>
                 {selectedDates.map((d) => (
                   <>
                     <td
@@ -150,7 +219,29 @@ export default function EquipmentCleaningSanitationRecord() {
       </div>
 
       <div className="mt-2 text-xs text-gray-500">Prepared By: FST | Approved By: FSTL</div>
-      <button className="mt-4 bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 w-full sm:w-auto text-base">Submit</button>
+
+      {message && (
+        <div className={`mt-4 px-3 py-2 rounded text-sm ${message.kind === "ok" ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+          {message.text}
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-col sm:flex-row gap-2">
+        <button
+          onClick={() => handleSave("draft")}
+          disabled={saving !== false}
+          className="bg-amber-500 text-white px-5 py-2.5 rounded hover:bg-amber-600 disabled:opacity-50 text-sm font-medium w-full sm:w-auto"
+        >
+          {saving === "draft" ? "Saving draft..." : "Submit Partially"}
+        </button>
+        <button
+          onClick={() => handleSave("submitted")}
+          disabled={saving !== false}
+          className="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 disabled:opacity-50 text-base w-full sm:w-auto"
+        >
+          {saving === "final" ? "Submitting..." : "Submit"}
+        </button>
+      </div>
     </div>
   );
 }

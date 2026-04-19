@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, FileText, Image as ImageIcon, Eye, Download, Search, Trash2 } from 'lucide-react'
+import { Plus, FileText, Image as ImageIcon, Eye, Download, Search, Trash2, ClipboardCheck } from 'lucide-react'
 import Link from 'next/link'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { usePermissions } from '@/hooks/usePermissions'
+import PageHeader from '@/components/ui/PageHeader'
+import { Spinner } from '@/components/ui/Loader'
 
 interface VendorCOA {
   id: number
@@ -72,7 +74,7 @@ export default function VendorCOAPage() {
     }
   }
 
-  const filteredRecords = coaRecords.filter(record => 
+  const filteredRecords = coaRecords.filter(record =>
     record.vendor_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     record.lot_batch_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
     record.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -81,112 +83,109 @@ export default function VendorCOAPage() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-full bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Vendor COA Records</h1>
-                <p className="text-sm text-gray-600 mt-2">
-                  View and manage vendor Certificate of Analysis documents
-                </p>
-              </div>
-              {canCreate('vendor_coa') && (
+      <div className="max-w-7xl mx-auto">
+        <PageHeader
+          title="Vendor COA Records"
+          subtitle="View and manage vendor Certificate of Analysis documents"
+          icon={ClipboardCheck}
+          actions={
+            canCreate('vendor_coa') ? (
+              <button
+                onClick={() => router.push('/vendor-coa/create')}
+                className="btn-primary"
+              >
+                <Plus className="w-4 h-4 mr-1.5" />
+                Upload New COA
+              </button>
+            ) : undefined
+          }
+        />
+
+        {/* Search Bar */}
+        <div className="surface-card p-4 mb-4 animate-fade-in">
+          <div className="space-y-2.5">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-300" />
+              <input
+                type="text"
+                placeholder="Search by vendor name, lot/batch number, item name, or subcategory..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input-base pl-10 pr-24"
+              />
+              {searchQuery && (
                 <button
-                  onClick={() => router.push('/vendor-coa/create')}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 text-[11px] font-semibold text-ink-500 hover:text-brand-500 bg-cream-100 hover:bg-cream-200 rounded-md transition-colors"
                 >
-                  <Plus className="h-5 w-5" />
-                  Upload New COA
+                  Clear
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
-            <div className="space-y-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search by vendor name, lot/batch number, item name, or subcategory..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-24 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="font-medium">Searchable fields:</span>
-                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded">Vendor Name</span>
-                <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded">Lot/Batch No.</span>
-                <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded">Item Name</span>
-                <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded">Subcategory</span>
-              </div>
+            <div className="flex items-center gap-2 text-[11px] text-ink-400 flex-wrap">
+              <span className="font-semibold uppercase tracking-wider">Searchable:</span>
+              <span className="px-2 py-0.5 bg-cream-100 text-ink-500 rounded-full font-medium">Vendor Name</span>
+              <span className="px-2 py-0.5 bg-cream-100 text-ink-500 rounded-full font-medium">Lot/Batch No.</span>
+              <span className="px-2 py-0.5 bg-cream-100 text-ink-500 rounded-full font-medium">Item Name</span>
+              <span className="px-2 py-0.5 bg-cream-100 text-ink-500 rounded-full font-medium">Subcategory</span>
             </div>
           </div>
+        </div>
 
-          {/* COA Records Table */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Loading COA records...</p>
-                </div>
+        {/* COA Records Table */}
+        <div className="surface-card overflow-hidden animate-fade-in">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="text-center">
+                <Spinner size={32} className="text-brand-500 mx-auto" />
+                <p className="mt-3 text-sm text-ink-400 font-medium">Loading COA records...</p>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-cream-300">
+                <thead className="bg-cream-100">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Sr. No.
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Date
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Vendor Name
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Lot/Batch Number
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Item Name
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Item Subcategory
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Item Type
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Document
                     </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-right text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-cream-300 bg-white">
                   {filteredRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-2 py-3 text-center">
-                        <div className="flex flex-col items-center justify-center text-gray-500">
-                          <FileText className="h-12 w-12 mb-3 text-gray-400" />
-                          <p className="text-sm font-medium">No COA records found</p>
-                          <p className="text-xs mt-1">
-                            {searchQuery 
+                      <td colSpan={9} className="px-5 py-16 text-center">
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="bg-cream-200 w-14 h-14 rounded-full flex items-center justify-center">
+                            <FileText className="h-6 w-6 text-ink-400" />
+                          </div>
+                          <p className="mt-3 text-sm font-semibold text-ink-500">No COA records found</p>
+                          <p className="text-xs text-ink-400 mt-0.5">
+                            {searchQuery
                               ? 'Try adjusting your search query'
                               : 'Click "Upload New COA" to add your first record'
                             }
@@ -196,60 +195,60 @@ export default function VendorCOAPage() {
                     </tr>
                   ) : (
                     filteredRecords.map((record, index) => (
-                      <tr key={record.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
+                      <tr key={record.id} className="hover:bg-cream-100/50 transition-colors">
+                        <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-ink-500 tabular-nums">
                           {index + 1}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-5 py-3.5 whitespace-nowrap text-xs text-ink-400 font-medium tabular-nums">
                           {record.date}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-ink-600">
                           {record.vendor_name}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="inline-flex items-center rounded-full text-[11px] font-semibold px-2.5 py-0.5 bg-cream-200 text-ink-500 font-mono">
                             {record.lot_batch_number}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-sm text-gray-700">
+                        <td className="px-5 py-3.5 text-sm text-ink-500">
                           {record.item_name}
                         </td>
-                        <td className="px-4 py-2 text-sm text-gray-700">
+                        <td className="px-5 py-3.5 text-sm text-ink-500">
                           {record.item_subcategory}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           {record.item_type ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                            <span className="inline-flex items-center rounded-full text-[11px] font-semibold px-2.5 py-0.5 bg-success-50 text-success-700">
                               {record.item_type}
                             </span>
                           ) : (
-                            <span className="text-gray-400">-</span>
+                            <span className="text-ink-300 text-sm">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-5 py-3.5 whitespace-nowrap text-sm text-ink-500">
                           <div className="flex items-center gap-2">
                             {record.file_type.startsWith('image/') ? (
-                              <ImageIcon className="h-5 w-5 text-blue-600" />
+                              <ImageIcon className="h-4 w-4 text-ink-400 shrink-0" />
                             ) : (
-                              <FileText className="h-5 w-5 text-red-600" />
+                              <FileText className="h-4 w-4 text-brand-500 shrink-0" />
                             )}
-                            <span className="truncate max-w-[150px]" title={record.file_name}>
+                            <span className="truncate max-w-[150px] text-xs" title={record.file_name}>
                               {record.file_name}
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-5 py-3.5 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-1">
                             <Link
                               href={`/vendor-coa/${record.id}`}
-                              className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-md transition-colors"
+                              className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
                               title="View Details"
                             >
                               <Eye className="h-4 w-4" />
                             </Link>
                             <button
                               onClick={() => window.open(record.file_url, '_blank')}
-                              className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                              className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
                               title="View Document"
                             >
                               <FileText className="h-4 w-4" />
@@ -264,7 +263,7 @@ export default function VendorCOAPage() {
                                 link.click()
                                 document.body.removeChild(link)
                               }}
-                              className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors"
+                              className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
                               title="Download Document"
                             >
                               <Download className="h-4 w-4" />
@@ -272,7 +271,7 @@ export default function VendorCOAPage() {
                             {canDelete('vendor_coa') && (
                               <button
                                 onClick={() => handleDelete(record.id, record.vendor_name)}
-                                className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                                className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
                                 title="Delete Record"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -286,23 +285,24 @@ export default function VendorCOAPage() {
                 </tbody>
               </table>
             </div>
-            )}
-          </div>
-
-          {/* Footer Stats */}
-          {!isLoading && (
-            <div className="mt-4 bg-white rounded-lg shadow-sm p-3">
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>
-                  Showing {filteredRecords.length} of {coaRecords.length} records
-                </span>
-                <span>
-                  {searchQuery && `Filtered by: "${searchQuery}"`}
-                </span>
-              </div>
-            </div>
           )}
         </div>
+
+        {/* Footer Stats */}
+        {!isLoading && (
+          <div className="mt-4 surface-card px-5 py-3 animate-fade-in">
+            <div className="flex items-center justify-between text-xs text-ink-400 font-medium">
+              <span className="tabular-nums">
+                Showing <span className="text-ink-600 font-semibold">{filteredRecords.length}</span> of <span className="text-ink-600 font-semibold">{coaRecords.length}</span> records
+              </span>
+              {searchQuery && (
+                <span className="truncate">
+                  Filtered by: <span className="text-ink-600 font-semibold">"{searchQuery}"</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   )

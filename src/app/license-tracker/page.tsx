@@ -193,7 +193,7 @@ export default function LicenseTrackerPage() {
           subtitle="Manage and track your licenses"
           icon={Shield}
           actions={
-            canCreate('license') ? (
+            canCreate('license_tracker') ? (
               <button className="btn-primary">
                 <Plus className="w-4 h-4 mr-1.5" />
                 Add License
@@ -306,7 +306,7 @@ export default function LicenseTrackerPage() {
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {canView('license') && (
+                          {canView('license_tracker') && (
                             <Link
                               href={`/license-tracker/${license.id}`}
                               className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
@@ -315,7 +315,7 @@ export default function LicenseTrackerPage() {
                               <Eye className="h-4 w-4" />
                             </Link>
                           )}
-                          {canEdit('license') && (
+                          {canEdit('license_tracker') && (
                             <button
                               onClick={() => handleEdit(license)}
                               className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"
@@ -324,7 +324,7 @@ export default function LicenseTrackerPage() {
                               <Edit className="h-4 w-4" />
                             </button>
                           )}
-                          {canDelete('license') && (
+                          {canDelete('license_tracker') && (
                             <button
                               onClick={() => handleDelete(license.id)}
                               className="text-ink-400 hover:text-brand-500 transition-colors p-1.5 rounded-md hover:bg-cream-100"

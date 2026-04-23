@@ -134,7 +134,7 @@ export default function XRayFillForm() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="px-6 py-6 space-y-8">
+            <form id="xray-form" onSubmit={handleSubmit} className="px-6 py-6 space-y-8">
 
               {/* Batch Info */}
               <div>
@@ -359,12 +359,12 @@ export default function XRayFillForm() {
                 />
               </div>
 
-              {/* Footer */}
-              <div className="border-t border-gray-200 pt-6 flex items-center justify-end gap-3">
+              {/* Submit Button */}
+              <div className="pt-2">
                 <button
                   type="submit"
                   disabled={saving}
-                  className={cn(buttonStyles.base, buttonStyles.primary, "gap-2")}
+                  className={cn(buttonStyles.base, "gap-2 bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-500")}
                 >
                   {saving ? (
                     <span>Saving…</span>

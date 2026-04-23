@@ -18,6 +18,7 @@ const CHEMICAL_PARAMS = [
 ];
 
 interface ArticleForm {
+  floor: string;
   item_description: string;
   customer: string;
   batch_number: string;
@@ -32,8 +33,9 @@ interface ArticleForm {
   overall_remark: string;
 }
 
-function makeDefaultArticle(): ArticleForm {
+function makeDefaultArticle(floor = ""): ArticleForm {
   return {
+    floor,
     item_description: "",
     customer: "",
     batch_number: "",
@@ -58,6 +60,7 @@ function mergePrams(defaults: IPQCCheckItem[], saved: IPQCCheckItem[]): IPQCChec
 function articleFromRecord(record: IPQCRecord): ArticleForm[] {
   if (record.articles?.length) {
     return record.articles.map((a) => ({
+      floor: (a as any).floor || record.floor || "",
       item_description: a.item_description || "",
       customer: a.customer || "",
       batch_number: a.batch_number || "",
@@ -83,7 +86,7 @@ function articleFromRecord(record: IPQCRecord): ArticleForm[] {
       overall_remark: a.overall_remark || "",
     }));
   }
-  const def = makeDefaultArticle();
+  const def = makeDefaultArticle(record.floor || "");
   return [{
     ...def,
     item_description: record.item_description || "",
@@ -122,7 +125,6 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
   const [checkDate, setCheckDate] = useState(
     initialData?.check_date || new Date().toISOString().slice(0, 10)
   );
-  const [floor, setFloor] = useState(initialData?.floor || "");
   const [dropdowns, setDropdowns] = useState<DropdownData>({ factories: [] });
   const [articles, setArticles] = useState<ArticleForm[]>(
     initialData ? articleFromRecord(initialData) : [makeDefaultArticle()]
@@ -284,7 +286,9 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
       ...a,
       chemical_parameter: isA185 ? a.chemical_parameter : [],
     }));
-    onSubmit({ check_date: checkDate, warehouse, floor, articles: payload });
+    // Use the first article's floor as the record-level floor for backward compatibility
+    const recordFloor = articles[0]?.floor || "";
+    onSubmit({ check_date: checkDate, warehouse, floor: recordFloor, articles: payload });
   }
 
   return (
@@ -296,7 +300,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
           <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />
           Record Details
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Check Date</label>
             <input
@@ -315,20 +319,6 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
               disabled
               className={`${inputCls} disabled:opacity-60 bg-gray-50`}
             />
-          </div>
-          <div>
-            <label className={labelCls}>Floor</label>
-            <select
-              value={floor}
-              onChange={(e) => setFloor(e.target.value)}
-              required
-              className={inputCls}
-            >
-              <option value="">Select floor…</option>
-              {availableFloors.map((fl) => (
-                <option key={fl.id} value={fl.floor_name}>{fl.floor_name}</option>
-              ))}
-            </select>
           </div>
         </div>
       </div>
@@ -365,7 +355,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
             <div className="p-4 sm:p-5 space-y-5">
 
               {/* Article identity fields */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-5">
                 {/* SKU search */}
                 {useAllSkuDropdown ? (
                   <div
@@ -520,6 +510,20 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
                       className={inputCls + " mt-2"}
                     />
                   )}
+                </div>
+                <div>
+                  <label className={labelCls}>Floor <span className="text-red-500">*</span></label>
+                  <select
+                    value={art.floor}
+                    onChange={(e) => updateArticle(artIdx, { floor: e.target.value })}
+                    required
+                    className={inputCls}
+                  >
+                    <option value="">Select floor…</option>
+                    {availableFloors.map((fl) => (
+                      <option key={fl.id} value={fl.floor_name}>{fl.floor_name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

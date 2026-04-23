@@ -5,6 +5,7 @@ import {
 } from "@/lib/constant";
 
 interface Article {
+  floor?: string;
   item_description: string;
   customer: string;
   batch_number: string;
@@ -132,13 +133,81 @@ function buildArticleRows(article: any, record: PrintRecord): string {
   return rows;
 }
 
+function buildPageHtml(
+  floorName: string,
+  floorArticles: Article[],
+  record: PrintRecord,
+  logoUrl: string,
+): string {
+  let bodyTableRows = "";
+  for (let ai = 0; ai < floorArticles.length; ai++) {
+    if (ai > 0) {
+      bodyTableRows += '<tr class="art-sep"><td colspan="11"></td></tr>';
+    }
+    bodyTableRows += buildArticleRows(floorArticles[ai], record);
+  }
+
+  return `
+  <table class="mt">
+    <thead>
+      <tr class="hdr-row">
+        <td class="logo" rowspan="4"><img src="${logoUrl}" alt="Candor Foods" /></td>
+        <td class="co co-name" colspan="7" rowspan="2">CANDOR FOODS PRIVATE LIMITED</td>
+        <td class="il" colspan="2">Issue Date:</td>
+        <td class="iv">01/11/2017</td>
+      </tr>
+      <tr class="hdr-row">
+        <td class="il" colspan="2">Issue No:</td>
+        <td class="iv">03</td>
+      </tr>
+      <tr class="hdr-row">
+        <td class="co co-fmt" colspan="7">Format:&nbsp; In-process quality check record</td>
+        <td class="il" colspan="2">Revision Date:</td>
+        <td class="iv">01/10/2025</td>
+      </tr>
+      <tr class="hdr-row">
+        <td class="co co-doc" colspan="7">Document No: CFPLA.C6.F.18</td>
+        <td class="il" colspan="2">Revision No.:</td>
+        <td class="iv">02</td>
+      </tr>
+      <tr class="info-row">
+        <td colspan="11">
+          <b>Date:</b> ${esc(record.check_date)} &nbsp;&nbsp;&nbsp;
+          <b>Factory:</b> ${esc(record.factory_code)} &nbsp;&nbsp;&nbsp;
+          <b>Floor:</b> ${esc(floorName)}
+        </td>
+      </tr>
+      <tr class="col-hdr">
+        <th>SKU Name</th>
+        <th>Customer</th>
+        <th>Batch No.</th>
+        <th>Sensory evaluation</th>
+        <th>Physical parameter</th>
+        <th>Label Check</th>
+        <th>Seal Check</th>
+        <th>Accept /Reject</th>
+        <th>Remarks</th>
+        <th>Checked By</th>
+        <th>Verified By</th>
+      </tr>
+    </thead>
+    <tfoot>
+      <tr class="ft-spacer"><td colspan="11"></td></tr>
+    </tfoot>
+    <tbody>
+      ${bodyTableRows}
+    </tbody>
+  </table>`;
+}
+
 function buildHtml(record: PrintRecord): string {
   const logoUrl = window.location.origin + "/candor-logo.jpg";
   const stampUrl = window.location.origin + "/controlled-copy-stamp.png";
 
-  const articles = record.articles?.length
+  const allArticles: Article[] = record.articles?.length
     ? record.articles
     : [{
+        floor: record.floor,
         item_description: record.item_description,
         customer: record.customer,
         batch_number: record.batch_number,
@@ -151,13 +220,21 @@ function buildHtml(record: PrintRecord): string {
         overall_remark: record.overall_remark,
       }];
 
-  let bodyTableRows = "";
-  for (let ai = 0; ai < articles.length; ai++) {
-    if (ai > 0) {
-      bodyTableRows += '<tr class="art-sep"><td colspan="11"></td></tr>';
-    }
-    bodyTableRows += buildArticleRows(articles[ai], record);
+  // Group articles by floor, preserving insertion order
+  const floorMap = new Map<string, Article[]>();
+  for (const a of allArticles) {
+    const fl = a.floor || record.floor || "";
+    if (!floorMap.has(fl)) floorMap.set(fl, []);
+    floorMap.get(fl)!.push(a);
   }
+
+  const floorGroups = Array.from(floorMap.entries());
+  const pages = floorGroups.map(([floorName, floorArticles], idx) => {
+    const isLast = idx === floorGroups.length - 1;
+    return `<div class="print-page" style="page-break-after:${isLast ? "auto" : "always"};break-after:${isLast ? "auto" : "page"};">
+      ${buildPageHtml(floorName, floorArticles, record, logoUrl)}
+    </div>`;
+  }).join("\n");
 
   return `<!DOCTYPE html>
 <html>
@@ -168,13 +245,16 @@ function buildHtml(record: PrintRecord): string {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { font-family: Arial, sans-serif; font-size: 9pt; color: #000; }
 
-  /* ── single flat table ── */
+  /* ── per-floor page wrapper ── */
+  .print-page { width: 100%; }
+
+  /* ── table per floor ── */
   .mt { width: 100%; border-collapse: collapse; }
   .mt > thead { display: table-header-group; }
   .mt > tfoot { display: table-footer-group; }
   .mt > tbody > tr > td { border: 1pt solid #000; padding: 2pt 4pt; font-size: 8pt; vertical-align: top; text-align: left; }
 
-  /* ── header rows inside thead (no side borders) ── */
+  /* ── header rows ── */
   .hdr-row > td { border: 1pt solid #000; padding: 3pt 6pt; vertical-align: middle; }
   .logo { width: 100px; text-align: center; padding: 4pt; }
   .logo img { height: 50px; }
@@ -200,10 +280,10 @@ function buildHtml(record: PrintRecord): string {
   .lc-inner td + td { border-left: 1pt solid #000; }
   .lc-rm { font-size: 7pt; color: #444; }
 
-  /* ── invisible spacer in tfoot: repeats on every page to reserve space for the footer ── */
+  /* ── spacer in tfoot reserves footer space on every page ── */
   .ft-spacer td { height: 50px; border: none !important; padding: 0 !important; }
 
-  /* ── actual footer: fixed to the bottom of every printed page ── */
+  /* ── footer: fixed to bottom of every printed page ── */
   .page-footer { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 4pt 8pt; }
   .ft-text { font-family: Cambria, serif; font-size: 12pt; font-weight: bold; }
   img.cc-stamp { height: 40px; }
@@ -211,61 +291,7 @@ function buildHtml(record: PrintRecord): string {
 </head>
 <body>
 
-<table class="mt">
-  <!-- ═══ REPEATING HEADER + COLUMN HEADERS ═══ -->
-  <thead>
-    <tr class="hdr-row">
-      <td class="logo" rowspan="4"><img src="${logoUrl}" alt="Candor Foods" /></td>
-      <td class="co co-name" colspan="7" rowspan="2">CANDOR FOODS PRIVATE LIMITED</td>
-      <td class="il" colspan="2">Issue Date:</td>
-      <td class="iv">01/11/2017</td>
-    </tr>
-    <tr class="hdr-row">
-      <td class="il" colspan="2">Issue No:</td>
-      <td class="iv">03</td>
-    </tr>
-    <tr class="hdr-row">
-      <td class="co co-fmt" colspan="7">Format:&nbsp; In-process quality check record</td>
-      <td class="il" colspan="2">Revision Date:</td>
-      <td class="iv">01/10/2025</td>
-    </tr>
-    <tr class="hdr-row">
-      <td class="co co-doc" colspan="7">Document No: CFPLA.C6.F.18</td>
-      <td class="il" colspan="2">Revision No.:</td>
-      <td class="iv">02</td>
-    </tr>
-    <tr class="info-row">
-      <td colspan="11">
-        <b>Date:</b> ${esc(record.check_date)} &nbsp;&nbsp;&nbsp;
-        <b>Factory:</b> ${esc(record.factory_code)} &nbsp;&nbsp;&nbsp;
-        <b>Floor:</b> ${esc(record.floor)}
-      </td>
-    </tr>
-    <tr class="col-hdr">
-      <th>SKU Name</th>
-      <th>Customer</th>
-      <th>Batch No.</th>
-      <th>Sensory evaluation</th>
-      <th>Physical parameter</th>
-      <th>Label Check</th>
-      <th>Seal Check</th>
-      <th>Accept /Reject</th>
-      <th>Remarks</th>
-      <th>Checked By</th>
-      <th>Verified By</th>
-    </tr>
-  </thead>
-
-  <!-- ═══ INVISIBLE SPACER: repeats on every page to block data from entering the footer zone ═══ -->
-  <tfoot>
-    <tr class="ft-spacer"><td colspan="11"></td></tr>
-  </tfoot>
-
-  <!-- ═══ DATA ROWS ═══ -->
-  <tbody>
-    ${bodyTableRows}
-  </tbody>
-</table>
+${pages}
 
 <!-- ═══ FOOTER: pinned to the bottom of every printed page ═══ -->
 <div class="page-footer">

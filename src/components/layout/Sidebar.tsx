@@ -63,7 +63,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         setViewable(allowed)
       })
       .catch(() => setViewable(new Set()))
-  }, [])
+  }, [pathname])
 
   // Lock body scroll when the mobile drawer is open
   useEffect(() => {

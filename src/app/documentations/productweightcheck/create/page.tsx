@@ -27,7 +27,7 @@ const currentDate = () => {
 
 const emptyRow = (id: number): WeightRow => ({
   id, time: currentTime(), packingMaterialWeight: "", netWeight: "", observedGrossWeight: "",
-  deviationsNoted: "Not Ok", sealingCheck: "Not Ok", n2Percent: "", checkedBy: "", verifiedBy: "",
+  deviationsNoted: "Ok", sealingCheck: "Ok", n2Percent: "-", checkedBy: "", verifiedBy: "",
 });
 
 const DRAFT_KEY = "pwc-draft";
@@ -104,6 +104,23 @@ export default function ProductWeightSealCheckRecord() {
     if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id));
   };
 
+  const autofillColumn = (field: "packingMaterialWeight" | "netWeight" | "observedGrossWeight") => {
+    const firstFilled = rows.find((r) => r[field] !== "");
+    if (!firstFilled) return;
+    const val = firstFilled[field];
+    setRows((prev) =>
+      prev.map((r) => {
+        const next = { ...r, [field]: val };
+        if (field === "packingMaterialWeight" || field === "netWeight") {
+          const p = parseFloat(next.packingMaterialWeight);
+          const n = parseFloat(next.netWeight);
+          next.observedGrossWeight = !isNaN(p) && !isNaN(n) ? String(+(p + n).toFixed(3)) : "";
+        }
+        return next;
+      })
+    );
+  };
+
   return (
     <div className="p-3 sm:p-4 max-w-7xl mx-auto">
       <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-4">
@@ -177,9 +194,24 @@ export default function ProductWeightSealCheckRecord() {
             <tr>
               <th className="border border-gray-300 px-2 py-2">Sr. No</th>
               <th className="border border-gray-300 px-2 py-2">Time</th>
-              <th className="border border-gray-300 px-2 py-2">Packing Material Weight (g)</th>
-              <th className="border border-gray-300 px-2 py-2">Net Weight (g)</th>
-              <th className="border border-gray-300 px-2 py-2">Observed Gross Weight (g)</th>
+              <th className="border border-gray-300 px-2 py-2">
+                <div className="flex flex-col items-center gap-1">
+                  <span>Packing Material Weight (g)</span>
+                  <button type="button" onClick={() => autofillColumn("packingMaterialWeight")} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded whitespace-nowrap">Fill All ↓</button>
+                </div>
+              </th>
+              <th className="border border-gray-300 px-2 py-2">
+                <div className="flex flex-col items-center gap-1">
+                  <span>Net Weight (g)</span>
+                  <button type="button" onClick={() => autofillColumn("netWeight")} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded whitespace-nowrap">Fill All ↓</button>
+                </div>
+              </th>
+              <th className="border border-gray-300 px-2 py-2">
+                <div className="flex flex-col items-center gap-1">
+                  <span>Observed Gross Weight (g)</span>
+                  <button type="button" onClick={() => autofillColumn("observedGrossWeight")} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded whitespace-nowrap">Fill All ↓</button>
+                </div>
+              </th>
               <th className="border border-gray-300 px-2 py-2">Deviations Noted (Ok/Not Ok)</th>
               <th className="border border-gray-300 px-2 py-2">Sealing Check (Ok/Not Ok)</th>
               <th className="border border-gray-300 px-2 py-2">N2 %</th>
@@ -196,13 +228,13 @@ export default function ProductWeightSealCheckRecord() {
                   <input type="time" value={row.time} onChange={(e) => updateRow(row.id, "time", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
-                  <input type="number" value={row.packingMaterialWeight} onChange={(e) => updateRow(row.id, "packingMaterialWeight", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
+                  <input type="text" inputMode="decimal" value={row.packingMaterialWeight} onChange={(e) => updateRow(row.id, "packingMaterialWeight", e.target.value.replace(/[^0-9.]/g, ""))} className="w-full border rounded px-1 py-1 text-sm" />
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
-                  <input type="number" value={row.netWeight} onChange={(e) => updateRow(row.id, "netWeight", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
+                  <input type="text" inputMode="decimal" value={row.netWeight} onChange={(e) => updateRow(row.id, "netWeight", e.target.value.replace(/[^0-9.]/g, ""))} className="w-full border rounded px-1 py-1 text-sm" />
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
-                  <input type="number" value={row.observedGrossWeight} readOnly className="w-full border rounded px-1 py-1 text-sm bg-gray-50" />
+                  <input type="text" inputMode="decimal" value={row.observedGrossWeight} readOnly className="w-full border rounded px-1 py-1 text-sm bg-gray-50" />
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
                   <label className="flex items-center justify-center gap-1 cursor-pointer">
@@ -227,7 +259,7 @@ export default function ProductWeightSealCheckRecord() {
                   </label>
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
-                  <input type="number" value={row.n2Percent} onChange={(e) => updateRow(row.id, "n2Percent", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
+                  <input type="text" value={row.n2Percent} onChange={(e) => updateRow(row.id, "n2Percent", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
                 </td>
                 <td className="border border-gray-300 px-1 py-1">
                   <input type="text" value={row.checkedBy} onChange={(e) => updateRow(row.id, "checkedBy", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />

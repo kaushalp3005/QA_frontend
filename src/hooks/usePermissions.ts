@@ -18,7 +18,7 @@ export function usePermissions() {
   const [permissions, setPermissions] = useState<Permissions>({})
 
   useEffect(() => {
-    // Load permissions from localStorage
+    // Load cached permissions immediately to avoid flicker
     const storedPermissions = localStorage.getItem('permissions')
     if (storedPermissions) {
       try {
@@ -26,6 +26,24 @@ export function usePermissions() {
       } catch (e) {
         console.error('Failed to parse permissions:', e)
       }
+    }
+
+    // Always refresh from server so admin changes take effect without re-login
+    const token = localStorage.getItem('access_token')
+    const company = localStorage.getItem('currentCompany') || localStorage.getItem('company')
+    if (token && company) {
+      fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/auth/permissions/${company}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          if (data?.permissions) {
+            setPermissions(data.permissions)
+            localStorage.setItem('permissions', JSON.stringify(data.permissions))
+          }
+        })
+        .catch(() => {/* keep cached permissions on network error */})
     }
   }, [])
 

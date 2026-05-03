@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { HeartPulse, Plus, X } from "lucide-react";
+import DocFormShell from "@/components/documentations/DocFormShell";
+import DocSection from "@/components/documentations/DocSection";
 
-type CheckValue = "\u2713" | "\u2715" | "";
+type CheckValue = "✓" | "✕" | "";
 
 interface HygieneRow {
   id: number;
@@ -40,27 +42,40 @@ const emptyRow = (): HygieneRow => ({
   correctiveAction: "",
 });
 
-const CHECK_FIELDS: { field: keyof HygieneRow; label: string; group: string; color: string }[] = [
-  { field: "respiratory", label: "Respiratory/Fever/GI", group: "Injury/Infectious Diseases", color: "bg-red-50" },
-  { field: "skinDisease", label: "Skin Disease/Burned Skin", group: "Injury/Infectious Diseases", color: "bg-red-50" },
-  { field: "wounds", label: "Wounds/Cuts (No Bandage)", group: "Injury/Infectious Diseases", color: "bg-red-50" },
-  { field: "earNoseThroat", label: "Ear, Nose & Throat Infection", group: "Injury/Infectious Diseases", color: "bg-red-50" },
-  { field: "gowning", label: "Gowning: Apron, Gloves, Footwear, Mask", group: "Personal Cleanliness", color: "bg-blue-50" },
-  { field: "handHygiene", label: "Hand Hygiene", group: "Personal Cleanliness", color: "bg-blue-50" },
-  { field: "nails", label: "Nails Trimmed / No Nail Paint", group: "Personal Cleanliness", color: "bg-blue-50" },
-  { field: "cleanShaven", label: "Clean Shaven / Trim Hairs (Male)", group: "Personal Cleanliness", color: "bg-blue-50" },
-  { field: "hairPins", label: "Hair/Nose/Ear Pins, Rings, Bangles, Mehandi", group: "Personal Belongings", color: "bg-green-50" },
-  { field: "tobacco", label: "Cigarettes, Tobacco, Pan Masala, Chewing Gums", group: "Personal Belongings", color: "bg-green-50" },
+const CHECK_FIELDS: { field: keyof HygieneRow; label: string; group: string; tone: "danger" | "info" | "success" }[] = [
+  { field: "respiratory", label: "Respiratory/Fever/GI", group: "Injury/Infectious Diseases", tone: "danger" },
+  { field: "skinDisease", label: "Skin Disease/Burned Skin", group: "Injury/Infectious Diseases", tone: "danger" },
+  { field: "wounds", label: "Wounds/Cuts (No Bandage)", group: "Injury/Infectious Diseases", tone: "danger" },
+  { field: "earNoseThroat", label: "Ear, Nose & Throat Infection", group: "Injury/Infectious Diseases", tone: "danger" },
+  { field: "gowning", label: "Gowning: Apron, Gloves, Footwear, Mask", group: "Personal Cleanliness", tone: "info" },
+  { field: "handHygiene", label: "Hand Hygiene", group: "Personal Cleanliness", tone: "info" },
+  { field: "nails", label: "Nails Trimmed / No Nail Paint", group: "Personal Cleanliness", tone: "info" },
+  { field: "cleanShaven", label: "Clean Shaven / Trim Hairs (Male)", group: "Personal Cleanliness", tone: "info" },
+  { field: "hairPins", label: "Hair/Nose/Ear Pins, Rings, Bangles, Mehandi", group: "Personal Belongings", tone: "success" },
+  { field: "tobacco", label: "Cigarettes, Tobacco, Pan Masala, Chewing Gums", group: "Personal Belongings", tone: "success" },
 ];
 
-const GROUPS = [
-  { name: "Injury/Infectious Diseases", color: "bg-red-100", span: 4 },
-  { name: "Personal Cleanliness", color: "bg-blue-100", span: 4 },
-  { name: "Personal Belongings", color: "bg-green-100", span: 2 },
+const GROUPS: { name: string; tone: "danger" | "info" | "success"; span: number }[] = [
+  { name: "Injury/Infectious Diseases", tone: "danger", span: 4 },
+  { name: "Personal Cleanliness", tone: "info", span: 4 },
+  { name: "Personal Belongings", tone: "success", span: 2 },
 ];
+
+const groupHeaderClass = (tone: "danger" | "info" | "success") =>
+  tone === "danger"
+    ? "text-danger-600 bg-danger-50/70"
+    : tone === "info"
+    ? "text-blue-700 bg-blue-50/70"
+    : "text-success-700 bg-success-50/70";
+
+const cellTintClass = (tone: "danger" | "info" | "success") =>
+  tone === "danger"
+    ? "bg-danger-50/30"
+    : tone === "info"
+    ? "bg-blue-50/30"
+    : "bg-success-50/30";
 
 export default function PersonalHygieneHealthCheckup() {
-  const router = useRouter();
   const [date, setDate] = useState("");
   const [area, setArea] = useState("");
   const [checkedBy, setCheckedBy] = useState("");
@@ -79,199 +94,185 @@ export default function PersonalHygieneHealthCheckup() {
     setRows((prev) => prev.map((r) => {
       if (r.id !== id) return r;
       const patch: Partial<HygieneRow> = {};
-      CHECK_FIELDS.forEach(({ field }) => { (patch[field] as CheckValue) = "\u2713"; });
+      CHECK_FIELDS.forEach(({ field }) => { (patch[field] as CheckValue) = "✓"; });
       return { ...r, ...patch };
     }));
   };
 
-  const CheckSelect = ({ id, field, value, bgClass }: { id: number; field: keyof HygieneRow; value: string; bgClass: string }) => {
-    const ok = value === "\u2713";
+  const CheckCell = ({ id, field, value, tone }: { id: number; field: keyof HygieneRow; value: string; tone: "danger" | "info" | "success" }) => {
+    const ok = value === "✓";
     return (
-      <label className={`flex items-center justify-center cursor-pointer py-0.5 rounded ${bgClass}`}>
+      <label className={`flex items-center justify-center cursor-pointer py-1 rounded ${cellTintClass(tone)}`}>
         <input
           type="checkbox"
           checked={ok}
-          onChange={(e) => updateRow(id, field, e.target.checked ? "\u2713" : "\u2715")}
-          className="h-4 w-4 accent-red-600 cursor-pointer"
+          onChange={(e) => updateRow(id, field, e.target.checked ? "✓" : "✕")}
+          className="h-4 w-4 accent-brand-500 cursor-pointer"
         />
       </label>
     );
   };
 
-  const failCount = (field: keyof HygieneRow) =>
-    rows.filter((r) => r[field] === "\u2715").length;
+  const failCount = (field: keyof HygieneRow) => rows.filter((r) => r[field] === "✕").length;
 
   return (
-    <div className="min-h-screen bg-gray-50 font-mono p-3">
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-        <span>Back</span>
-      </button>
-      <div className="max-w-[1600px] mx-auto bg-white shadow-lg rounded-sm border border-gray-200">
-        {/* Header */}
-        <div className="border-b border-gray-300">
-          <div className="flex flex-col sm:grid sm:grid-cols-3 sm:divide-x divide-gray-300">
-            <div className="flex items-center gap-2 p-3">
-              <div className="w-9 h-9 bg-red-700 rounded flex items-center justify-center">
-                <span className="text-white text-xs font-bold">CF</span>
-              </div>
-              <div>
-                <div className="font-bold text-gray-800 text-xs">Candor Foods</div>
-                <div className="text-xs text-gray-400">Private Limited</div>
-              </div>
-            </div>
-            <div className="p-3 text-center">
-              <div className="font-bold text-gray-800 text-xs">CANDOR FOODS PRIVATE LIMITED</div>
-              <div className="text-xs text-gray-600 mt-0.5">Personal Hygiene &amp; Health Checkup Record</div>
-              <div className="text-xs text-gray-500">Document No: CFPLA.C7.F.39</div>
-            </div>
-            <div className="p-3 text-xs text-gray-600 space-y-0.5">
-              <div className="flex justify-between"><span>Frequency:</span><span className="font-medium">Daily</span></div>
-            </div>
+    <DocFormShell
+      title="Personal Hygiene & Health Checkup"
+      docNo="CFPLA.C7.F.39"
+      subtitle="Frequency: Daily"
+      icon={HeartPulse}
+      width="full"
+    >
+      <DocSection title="Period & Area">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Area</label>
+            <input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="input-base" placeholder="Enter area" />
           </div>
         </div>
+      </DocSection>
 
-        <div className="p-3">
-          {/* Date/Area Row */}
-          <p className="text-xs text-gray-400 mb-1 italic sm:hidden">{'\u2190'} Swipe to view all columns</p>
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-8 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-700">DATE:</span>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-700">Area:</span>
-              <input type="text" value={area} onChange={(e) => setArea(e.target.value)}
-                className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs w-40"
-                placeholder="Enter area" />
-            </div>
-          </div>
-
-          {/* Column Stats */}
-          <div className="flex flex-wrap gap-2 mb-3">
+      {CHECK_FIELDS.some(({ field }) => failCount(field) > 0) && (
+        <div className="surface-card p-3">
+          <p className="text-[11px] font-bold text-ink-400 uppercase tracking-wider mb-2">Failed Checks</p>
+          <div className="flex flex-wrap gap-1.5">
             {CHECK_FIELDS.map(({ field, label }) => {
               const fails = failCount(field);
               return fails > 0 ? (
-                <span key={field} className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                  {'\u2715'} {label}: {fails}
+                <span key={field} className="text-[11px] font-semibold bg-danger-50 text-danger-600 px-2 py-0.5 rounded-full">
+                  ✕ {label}: {fails}
                 </span>
               ) : null;
             })}
           </div>
-
-          {/* Main Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-xs border border-gray-400">
-              <thead>
-                <tr>
-                  <th rowSpan={2} className="border border-gray-400 p-1.5 text-center w-8 bg-gray-100">Sr.</th>
-                  <th rowSpan={2} className="border border-gray-400 p-1.5 text-center w-32 bg-gray-100">Name</th>
-                  {GROUPS.map((g) => (
-                    <th key={g.name} colSpan={g.span} className={`border border-gray-400 p-1.5 text-center ${g.color}`}>
-                      {g.name} ({'\u2713'}/{'\u2715'})
-                    </th>
-                  ))}
-                  <th rowSpan={2} className="border border-gray-400 p-1.5 text-center w-20 bg-gray-100">Employee Sign</th>
-                  <th rowSpan={2} className="border border-gray-400 p-1.5 text-center w-36 bg-gray-100">Corrective Action (If any)</th>
-                  <th rowSpan={2} className="border border-gray-400 p-1.5 text-center w-14 bg-gray-100 text-[10px] text-gray-600">Actions</th>
-                </tr>
-                <tr>
-                  {CHECK_FIELDS.map(({ field, label, color }) => (
-                    <th key={field} className={`border border-gray-400 p-1 text-center w-20 ${color} leading-tight`}>
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, idx) => {
-                  const hasIssue = CHECK_FIELDS.some(({ field }) => row[field] === "\u2715");
-                  return (
-                    <tr key={row.id} className={hasIssue ? "bg-red-50" : "hover:bg-gray-50"}>
-                      <td className="border border-gray-300 p-1 text-center text-gray-400">{idx + 1}</td>
-                      <td className="border border-gray-300 p-1">
-                        <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)}
-                          placeholder="Employee name"
-                          className="w-full border-0 focus:outline-none focus:ring-1 focus:ring-red-300 rounded px-1 text-xs bg-transparent" />
-                      </td>
-                      {CHECK_FIELDS.map(({ field, color }) => (
-                        <td key={field} className={`border border-gray-300 p-0.5 ${color}/30`}>
-                          <CheckSelect id={row.id} field={field} value={row[field] as string} bgClass={color + "/30"} />
-                        </td>
-                      ))}
-                      <td className="border border-gray-300 p-1">
-                        <input type="text" value={row.employeeSign} onChange={(e) => updateRow(row.id, "employeeSign", e.target.value)}
-                          className="w-full border-0 focus:outline-none focus:ring-1 focus:ring-red-300 rounded px-1 text-xs bg-transparent" />
-                      </td>
-                      <td className="border border-gray-300 p-1">
-                        <input type="text" value={row.correctiveAction} onChange={(e) => updateRow(row.id, "correctiveAction", e.target.value)}
-                          disabled={!hasIssue}
-                          placeholder={hasIssue ? "Describe action\u2026" : "\u2014"}
-                          className="w-full border-0 focus:outline-none focus:ring-1 focus:ring-red-300 rounded px-1 text-xs bg-transparent disabled:text-gray-300" />
-                      </td>
-                      <td className="border border-gray-300 p-1 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <button
-                            onClick={() => markRowAllOK(row.id)}
-                            className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded hover:bg-green-200 whitespace-nowrap"
-                            title="Mark all checks as \u2713 for this row"
-                          >
-                            All {'\u2713'}
-                          </button>
-                          <button
-                            onClick={() => removeRow(row.id)}
-                            className="text-red-400 hover:text-red-600 font-bold text-sm leading-none"
-                            title="Remove row"
-                          >
-                            {'\u2715'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {/* Observation row */}
-                <tr className="bg-gray-100">
-                  <td colSpan={2} className="border border-gray-400 p-2 font-semibold text-xs text-gray-700">Observation:</td>
-                  <td colSpan={10} className="border border-gray-400 p-1">
-                    <input type="text" value={observation} onChange={(e) => setObservation(e.target.value)}
-                      className="w-full border-0 focus:outline-none text-xs bg-transparent px-1"
-                      placeholder="Overall observation notes\u2026" />
-                  </td>
-                  <td colSpan={3} className="border border-gray-400 p-1"></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <button onClick={addRow}
-            className="mt-3 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-700 text-white text-sm rounded hover:bg-red-800 transition-colors w-full sm:w-auto">
-            <span className="text-base leading-none">+</span> Add Row
-          </button>
-
-          {/* Footer */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600">Checked By:</span>
-              <input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)}
-                className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs flex-1" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600">Verified By:</span>
-              <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)}
-                className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs flex-1" />
-            </div>
-          </div>
-
-          <div className="flex justify-between mt-4 text-xs text-gray-500">
-            <span>Prepared By: <strong>FST</strong></span>
-            <span>Approved By: <strong>FSTL</strong></span>
-          </div>
-
-          <button className="mt-4 bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 w-full sm:w-auto text-base">Submit</button>
         </div>
+      )}
+
+      <DocSection
+        title="Hygiene Roster"
+        description={`${rows.length} employees`}
+        bleed
+        actions={
+          <button onClick={addRow} className="btn-primary !py-1.5 !px-3 text-xs">
+            <Plus className="w-3.5 h-3.5 mr-1" /> Add Row
+          </button>
+        }
+      >
+        <p className="text-[11px] text-ink-400 italic px-4 pt-3 sm:hidden">← Swipe to view all columns</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70">
+              <tr className="border-b border-cream-300">
+                <th rowSpan={2} className="px-2 py-2 text-center w-8 text-[11px] font-semibold uppercase text-ink-400">Sr.</th>
+                <th rowSpan={2} className="px-2 py-2 text-center w-32 text-[11px] font-semibold uppercase text-ink-400">Name</th>
+                {GROUPS.map((g) => (
+                  <th key={g.name} colSpan={g.span} className={`px-2 py-2 text-center text-[11px] font-bold ${groupHeaderClass(g.tone)}`}>
+                    {g.name}
+                  </th>
+                ))}
+                <th rowSpan={2} className="px-2 py-2 text-center w-20 text-[11px] font-semibold uppercase text-ink-400">Sign</th>
+                <th rowSpan={2} className="px-2 py-2 text-center w-36 text-[11px] font-semibold uppercase text-ink-400">Corrective Action</th>
+                <th rowSpan={2} className="px-2 py-2 text-center w-14 text-[11px] font-semibold uppercase text-ink-400"></th>
+              </tr>
+              <tr className="border-b border-cream-300">
+                {CHECK_FIELDS.map(({ field, label, tone }) => (
+                  <th key={field} className={`px-1 py-1.5 text-center w-20 text-[10px] font-semibold leading-tight ${groupHeaderClass(tone)}`}>
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((row, idx) => {
+                const hasIssue = CHECK_FIELDS.some(({ field }) => row[field] === "✕");
+                return (
+                  <tr key={row.id} className={hasIssue ? "bg-danger-50/30" : "hover:bg-cream-100/60"}>
+                    <td className="px-2 py-1 text-center text-ink-400 font-medium">{idx + 1}</td>
+                    <td className="px-1 py-1">
+                      <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} placeholder="Employee name" className="input-base !py-1 !px-2 text-xs" />
+                    </td>
+                    {CHECK_FIELDS.map(({ field, tone }) => (
+                      <td key={field} className="px-0.5 py-0.5">
+                        <CheckCell id={row.id} field={field} value={row[field] as string} tone={tone} />
+                      </td>
+                    ))}
+                    <td className="px-1 py-1">
+                      <input type="text" value={row.employeeSign} onChange={(e) => updateRow(row.id, "employeeSign", e.target.value)} className="input-base !py-1 !px-2 text-xs" />
+                    </td>
+                    <td className="px-1 py-1">
+                      <input
+                        type="text"
+                        value={row.correctiveAction}
+                        onChange={(e) => updateRow(row.id, "correctiveAction", e.target.value)}
+                        disabled={!hasIssue}
+                        placeholder={hasIssue ? "Describe action…" : "—"}
+                        className="input-base !py-1 !px-2 text-xs disabled:bg-cream-200/60 disabled:text-ink-300"
+                      />
+                    </td>
+                    <td className="px-1 py-1 text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <button
+                          onClick={() => markRowAllOK(row.id)}
+                          className="text-[9px] font-semibold bg-success-50 text-success-700 px-1.5 py-0.5 rounded hover:bg-success-100 whitespace-nowrap"
+                          title="Mark all checks ✓"
+                        >
+                          All ✓
+                        </button>
+                        <button
+                          onClick={() => removeRow(row.id)}
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50"
+                          title="Remove row"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-cream-100/60">
+                <td colSpan={2} className="px-3 py-2 font-bold text-xs text-ink-500">Observation</td>
+                <td colSpan={10} className="px-1 py-1">
+                  <input
+                    type="text"
+                    value={observation}
+                    onChange={(e) => setObservation(e.target.value)}
+                    className="input-base !py-1 !px-2 text-xs"
+                    placeholder="Overall observation notes…"
+                  />
+                </td>
+                <td colSpan={3}></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </DocSection>
+
+      <DocSection title="Approvals">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Checked By</label>
+            <input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Verified By</label>
+            <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" />
+          </div>
+        </div>
+      </DocSection>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <button className="btn-primary">Submit Record</button>
       </div>
-    </div>
+    </DocFormShell>
   );
 }

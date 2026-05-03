@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ArrowLeft, Plus, Calendar, Package, Check, Eye, Loader2, Trash2, Printer, Pencil, X, AlertCircle } from 'lucide-react'
 import { getXRayRecords, deleteXRayRecord, updateXRayRecord } from '@/lib/api/xray'
 import type { XRayRecord } from '@/lib/api/xray'
+import Time12Picker from '@/components/Time12Picker'
 
 type EditForm = {
   date: string
@@ -335,7 +336,7 @@ export default function XRayDetectionPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                  <input type="time" className={inputCls} value={editForm.time} onChange={e => setF('time', e.target.value)} />
+                  <Time12Picker value={editForm.time} onChange={(v) => setF('time', v)} />
                 </div>
               </div>
 

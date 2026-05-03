@@ -17,6 +17,7 @@ import {
   BookOpen,
   GraduationCap,
   Beaker,
+  Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/styles'
 import { getStoredUser } from '@/lib/api/auth'
@@ -41,6 +42,7 @@ const navigation = [
   { name: 'Documentations',  href: '/documentations',  icon: BookOpen,        moduleCode: 'documentations' },
   { name: 'Training',        href: '/training',        icon: GraduationCap,   moduleCode: 'training' },
   { name: 'NI Report',       href: '/ni-report',       icon: ClipboardList,   moduleCode: 'ni_report' },
+  { name: 'PM Inspection',   href: '/pm-inspection',   icon: Wrench,          moduleCode: 'pm_inspection' },
 ]
 
 const settingsNavItem = { name: 'Settings', href: '/settings', icon: Settings }

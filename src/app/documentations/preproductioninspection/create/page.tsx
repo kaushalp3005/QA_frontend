@@ -1,6 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { ListChecks } from "lucide-react";
+import Time12Picker from "@/components/Time12Picker";
+import DocFormShell from "@/components/documentations/DocFormShell";
+import DocSection from "@/components/documentations/DocSection";
 
 type Status = "OK" | "NOT OK" | "";
 
@@ -117,7 +120,6 @@ const INITIAL_SECTIONS: AreaSection[] = [
 ];
 
 export default function PreProductionInspection() {
-  const router = useRouter();
   const [date, setDate] = useState("");
   const [timeOfInspection, setTimeOfInspection] = useState("");
   const [sections, setSections] = useState<AreaSection[]>(INITIAL_SECTIONS);
@@ -151,159 +153,166 @@ export default function PreProductionInspection() {
   const stats = getStats(section);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-mono">
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-        <span>Back</span>
-      </button>
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:grid sm:grid-cols-3 sm:divide-x divide-gray-200">
-            <div className="flex items-center gap-3 p-4 border-b sm:border-b-0">
-              <div className="w-10 h-10 bg-red-700 rounded flex items-center justify-center">
-                <span className="text-white text-xs font-bold">CF</span>
-              </div>
-              <div>
-                <div className="font-bold text-gray-800 text-sm">Candor Foods</div>
-                <div className="text-xs text-gray-500">Private Limited</div>
-              </div>
-            </div>
-            <div className="p-4 text-center">
-              <div className="font-bold text-gray-800 text-sm">Pre-production Inspection Checklist</div>
-              <div className="text-xs text-gray-500 mt-1">Document No: CFPLA.C6.F.07</div>
-            </div>
-            <div className="p-4 text-xs text-gray-600 space-y-0.5">
-              <div className="flex justify-between"><span>Issue Date:</span><span className="font-medium">01/08/2024</span></div>
-              <div className="flex justify-between"><span>Issue No:</span><span className="font-medium">03</span></div>
-              <div className="flex justify-between"><span>Revision Date:</span><span className="font-medium">13/12/2025</span></div>
-              <div className="flex justify-between"><span>Revision No.:</span><span className="font-medium">02</span></div>
-            </div>
+    <DocFormShell
+      title="Pre-Production Inspection"
+      docNo="CFPLA.C6.F.07"
+      subtitle="Issue 03 \u00b7 Rev 02 \u00b7 13/12/2025"
+      icon={ListChecks}
+      width="full"
+    >
+      <DocSection title="Inspection Details">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Time of Inspection</label>
+            <Time12Picker value={timeOfInspection} onChange={setTimeOfInspection} />
           </div>
         </div>
-      </div>
+      </DocSection>
 
-      <div className="max-w-6xl mx-auto p-4">
-        {/* Date/Time */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 mb-4 bg-white p-3 rounded border border-gray-200">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">Date:</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-              className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-sm" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">Time of Inspection:</span>
-            <input type="time" value={timeOfInspection} onChange={(e) => setTimeOfInspection(e.target.value)}
-              className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-sm" />
-          </div>
-        </div>
-
-        {/* Area Tabs */}
-        <p className="text-xs text-gray-400 mb-1 italic sm:hidden">{'\u2190'} Swipe to view all columns</p>
-        <div className="flex flex-wrap gap-1 mb-4">
+      <div className="surface-card p-2 overflow-x-auto">
+        <div className="flex flex-wrap gap-1 min-w-max">
           {sections.map((s, i) => {
             const st = getStats(s);
             return (
-              <button key={i} onClick={() => setActiveSection(i)}
-                className={`px-3 py-1.5 text-xs rounded border transition-all ${activeSection === i
-                  ? "bg-red-700 text-white border-red-700"
-                  : "bg-white text-gray-700 border-gray-300 hover:border-red-400"}`}>
-                {s.area}
-                {st.notOk > 0 && <span className="ml-1 bg-orange-500 text-white rounded-full px-1 text-xs">{st.notOk}</span>}
+              <button
+                key={i}
+                onClick={() => setActiveSection(i)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  activeSection === i
+                    ? "bg-brand-500 text-white shadow-soft"
+                    : "text-ink-500 hover:bg-cream-200"
+                }`}
+              >
+                <span>{s.area}</span>
+                {st.notOk > 0 && (
+                  <span className="bg-warning-500 text-white rounded-full px-1.5 text-[10px] font-bold">{st.notOk}</span>
+                )}
               </button>
             );
           })}
         </div>
+      </div>
 
-        {/* Section Content */}
-        <div className="bg-white rounded border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
-            <span className="font-semibold text-gray-800 text-sm">Area: {section.area}</span>
-            <div className="flex gap-3 text-xs">
-              <span className="text-green-600 font-medium">{'\u2713'} OK: {stats.ok}</span>
-              <span className="text-red-600 font-medium">{'\u2715'} NOT OK: {stats.notOk}</span>
-              <span className="text-gray-500">Total: {stats.total}</span>
-            </div>
+      <DocSection
+        title={`Area: ${section.area}`}
+        description={`${stats.total} checkpoints`}
+        bleed
+        actions={
+          <div className="flex gap-2 text-[11px] font-semibold">
+            <span className="px-2 py-0.5 rounded-full bg-success-50 text-success-700">\u2713 OK {stats.ok}</span>
+            <span className="px-2 py-0.5 rounded-full bg-danger-50 text-danger-600">\u2715 NOT OK {stats.notOk}</span>
           </div>
-
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-200 p-2 w-10 text-center">Sr.</th>
-                <th className="border border-gray-200 p-2 w-40 text-left">Particular / Equipment</th>
-                <th className="border border-gray-200 p-2 text-left">Checkpoint</th>
-                <th className="border border-gray-200 p-2 w-28 text-center">Status</th>
-                <th className="border border-gray-200 p-2 w-48 text-left">Corrective Action</th>
+        }
+      >
+        <p className="text-[11px] text-ink-400 italic px-4 pt-3 sm:hidden">\u2190 Swipe to view all columns</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                <th className="px-2 py-2.5 w-10 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-400">Sr.</th>
+                <th className="px-2 py-2.5 w-40 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">Particular</th>
+                <th className="px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">Checkpoint</th>
+                <th className="px-2 py-2.5 w-28 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-400">Status</th>
+                <th className="px-2 py-2.5 w-48 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">Corrective Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-cream-300">
               {section.items.map((item, itemIdx) => (
-                <tr key={itemIdx} className={`${item.status === "NOT OK" ? "bg-red-50" : item.status === "OK" ? "bg-green-50/40" : "hover:bg-gray-50"}`}>
-                  <td className="border border-gray-200 p-2 text-center text-gray-500">{item.sr}</td>
-                  <td className="border border-gray-200 p-2 font-medium text-gray-700">{item.particular}</td>
-                  <td className="border border-gray-200 p-2 text-gray-600 leading-relaxed">{item.checkpoint}</td>
-                  <td className="border border-gray-200 p-2 text-center">
-                    <select value={item.status}
+                <tr
+                  key={itemIdx}
+                  className={`${
+                    item.status === "NOT OK"
+                      ? "bg-danger-50/40"
+                      : item.status === "OK"
+                      ? "bg-success-50/30"
+                      : "hover:bg-cream-100/60"
+                  }`}
+                >
+                  <td className="px-2 py-2 text-center text-ink-400 font-medium">{item.sr}</td>
+                  <td className="px-2 py-2 font-semibold text-ink-500">{item.particular}</td>
+                  <td className="px-2 py-2 text-ink-500 leading-relaxed">{item.checkpoint}</td>
+                  <td className="px-2 py-2 text-center">
+                    <select
+                      value={item.status}
                       onChange={(e) => updateItem(activeSection, itemIdx, "status", e.target.value as Status)}
-                      className={`w-full text-center border rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-400 ${item.status === "OK" ? "bg-green-100 text-green-700 border-green-300" : item.status === "NOT OK" ? "bg-red-100 text-red-700 border-red-300" : "bg-white border-gray-300"}`}>
-                      <option value="">{'\u2014'} Select {'\u2014'}</option>
+                      className={`w-full text-center border rounded-md px-1 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${
+                        item.status === "OK"
+                          ? "bg-success-50 text-success-700 border-success-200"
+                          : item.status === "NOT OK"
+                          ? "bg-danger-50 text-danger-600 border-danger-200"
+                          : "bg-cream-50 border-cream-300 text-ink-500"
+                      }`}
+                    >
+                      <option value="">\u2014 Select \u2014</option>
                       <option value="OK">OK</option>
                       <option value="NOT OK">NOT OK</option>
                     </select>
                   </td>
-                  <td className="border border-gray-200 p-1">
-                    <input type="text" value={item.correctiveAction}
+                  <td className="px-2 py-2">
+                    <input
+                      type="text"
+                      value={item.correctiveAction}
                       onChange={(e) => updateItem(activeSection, itemIdx, "correctiveAction", e.target.value)}
                       disabled={item.status !== "NOT OK"}
-                      className="w-full px-1 py-0.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-red-400 disabled:bg-gray-50 disabled:text-gray-400"
-                      placeholder={item.status === "NOT OK" ? "Describe corrective action..." : "\u2014"} />
+                      className="input-base !py-1.5 !px-2 disabled:bg-cream-200/60 disabled:text-ink-300"
+                      placeholder={item.status === "NOT OK" ? "Describe corrective action..." : "\u2014"}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-
-          {/* Section Footer */}
-          <div className="p-4 border-t border-gray-200 bg-gray-50">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-600">Line Status:</span>
-                <input type="text" value={section.lineStatus}
-                  onChange={(e) => updateSection(activeSection, "lineStatus", e.target.value)}
-                  className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs flex-1"
-                  placeholder="e.g. Ready / Hold" />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-600">Time of Verification:</span>
-                <input type="time" value={section.timeOfVerification}
-                  onChange={(e) => updateSection(activeSection, "timeOfVerification", e.target.value)}
-                  className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs" />
-              </div>
+        </div>
+        <div className="border-t border-cream-300 p-4 sm:p-5 bg-cream-100/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label-base">Line Status</label>
+              <input
+                type="text"
+                value={section.lineStatus}
+                onChange={(e) => updateSection(activeSection, "lineStatus", e.target.value)}
+                className="input-base"
+                placeholder="e.g. Ready / Hold"
+              />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-600">Checked by (Production Incharge):</span>
-                <input type="text" value={section.checkedBy}
-                  onChange={(e) => updateSection(activeSection, "checkedBy", e.target.value)}
-                  className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs flex-1" />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-600">Verified by (Quality):</span>
-                <input type="text" value={section.verifiedBy}
-                  onChange={(e) => updateSection(activeSection, "verifiedBy", e.target.value)}
-                  className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs flex-1" />
-              </div>
+            <div>
+              <label className="label-base">Time of Verification</label>
+              <Time12Picker value={section.timeOfVerification} onChange={(v) => updateSection(activeSection, "timeOfVerification", v)} />
+            </div>
+            <div>
+              <label className="label-base">Checked By (Production Incharge)</label>
+              <input
+                type="text"
+                value={section.checkedBy}
+                onChange={(e) => updateSection(activeSection, "checkedBy", e.target.value)}
+                className="input-base"
+              />
+            </div>
+            <div>
+              <label className="label-base">Verified By (Quality)</label>
+              <input
+                type="text"
+                value={section.verifiedBy}
+                onChange={(e) => updateSection(activeSection, "verifiedBy", e.target.value)}
+                className="input-base"
+              />
             </div>
           </div>
         </div>
+      </DocSection>
 
-        <div className="flex justify-between mt-4 text-xs text-gray-500">
-          <span>Prepared By: <strong>FST</strong></span>
-          <span>Approved By: <strong>FSTL / Production</strong></span>
-        </div>
-
-        <button className="mt-4 bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 w-full sm:w-auto text-base">Submit</button>
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL / Production</span>
+        </p>
+        <button className="btn-primary">Submit Record</button>
       </div>
-    </div>
+    </DocFormShell>
   );
 }

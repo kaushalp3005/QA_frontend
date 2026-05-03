@@ -1,0 +1,98 @@
+From 07128413dcaaf50c909a3d5da1aad7430db65032 Mon Sep 17 00:00:00 2001
+From: kaushalp3005 <ai.1@candorfoods.in>
+Date: Thu, 16 Apr 2026 15:07:06 +0530
+Subject: [PATCH 3/5] Implement token refresh mechanism in API requests
+
+---
+ src/lib/api/index.ts | 67 ++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 62 insertions(+), 5 deletions(-)
+
+diff --git a/src/lib/api/index.ts b/src/lib/api/index.ts
+index 37398f2..c40016c 100644
+--- a/src/lib/api/index.ts
++++ b/src/lib/api/index.ts
+@@ -7,6 +7,47 @@ interface RequestOptions extends RequestInit {
+   headers?: Record<string, string>;
+ }
+ 
++// ── Token refresh helpers ───────────────────
++let _refreshPromise: Promise<string | null> | null = null;
++let _redirecting = false;
++
++async function tryRefreshToken(): Promise<string | null> {
++  const oldToken = getToken();
++  if (!oldToken) return null;
++
++  try {
++    const res = await fetch(`${BASE}/auth/refresh`, {
++      method: "POST",
++      headers: {
++        "Content-Type": "application/json",
++        Authorization: `Bearer ${oldToken}`,
++      },
++    });
++    if (!res.ok) return null;
++    const data = await res.json();
++    const newToken: string = data.access_token;
++    if (newToken && typeof window !== "undefined") {
++      // Persist the refreshed token so future requests use it
++      localStorage.setItem("access_token", newToken);
++      const ipqcToken = localStorage.getItem("ipqc_token");
++      if (ipqcToken) localStorage.setItem("ipqc_token", newToken);
++    }
++    return newToken;
++  } catch {
++    return null;
++  }
++}
++
++/** Deduplicated refresh — concurrent callers share one in-flight attempt. */
++function refreshOnce(): Promise<string | null> {
++  if (!_refreshPromise) {
++    _refreshPromise = tryRefreshToken().finally(() => {
++      _refreshPromise = null;
++    });
++  }
++  return _refreshPromise;
++}
++
+ async function request<T = any>(path: string, options: RequestOptions = {}): Promise<T> {
+   const headers: Record<string, string> = { "Content-Type": "application/json", ...options.headers };
+ 
+@@ -18,12 +59,28 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
+   const res = await fetch(`${BASE}${path}`, { ...options, headers });
+ 
+   if (res.status === 401) {
+-    // Only clear IPQC credentials — do NOT wipe the complaint-module login,
+-    // and do NOT trigger a global force-logout. Let the caller surface the
+-    // error inline on the form so the user can re-authenticate to IPQC.
++    // Try silent token refresh before giving up
++    const newToken = await refreshOnce();
++    if (newToken) {
++      // Retry the original request with the fresh token
++      headers["Authorization"] = `Bearer ${newToken}`;
++      const retry = await fetch(`${BASE}${path}`, { ...options, headers });
++      if (retry.ok) return retry.json();
++      // If retry also fails with 401, fall through to logout
++      if (retry.status !== 401) {
++        const err = await retry.json().catch(() => ({ detail: retry.statusText }));
++        throw new Error(err.detail || `Request failed: ${retry.status}`);
++      }
++    }
++
++    // Refresh failed or retry still 401 — clear session and redirect once
+     clearIPQCSession();
+-    const err = await res.json().catch(() => ({}));
+-    throw new Error(err.detail || "IPQC session expired — please log in to IPQC again");
++    if (typeof window !== "undefined" && !_redirecting) {
++      _redirecting = true;
++      alert("Session expired — please log in again");
++      window.location.href = "/login";
++    }
++    throw new Error("Session expired — please log in again");
+   }
+ 
+   if (!res.ok) {
+-- 
+2.45.2.windows.1
+

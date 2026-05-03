@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, X, Printer, Edit2, Save, Loader2 } from 'lucide-react'
 import WarehouseSelector, { getStoredWarehouse, WarehouseCode } from '@/components/ui/WarehouseSelector'
+import Time12Picker from '@/components/Time12Picker'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 const AUTHORIZED_EMAIL = 'pooja.parkar@candorfoods.in'
@@ -771,7 +772,7 @@ export default function MetalDetectorPage() {
                                 </td>
                                 <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{entry.entry_date}</td>
                                 <td className="px-3 py-2">
-                                  <input type="time" value={inlineEditData.entry_time} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, entry_time: e.target.value } : prev)} className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                                  <Time12Picker value={inlineEditData.entry_time} onChange={(v) => setInlineEditData(prev => prev ? { ...prev, entry_time: v } : prev)} />
                                 </td>
                                 <td className="px-3 py-2">
                                   <input type="text" value={inlineEditData.customer_name} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, customer_name: e.target.value } : prev)} className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />

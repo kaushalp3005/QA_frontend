@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Sparkles, Check, X as XIcon } from "lucide-react";
+import DocFormShell from "@/components/documentations/DocFormShell";
+import DocSection from "@/components/documentations/DocSection";
 
-// ===================== Reusable Monthly Grid Component =====================
 interface MonthlyGridProps {
   title: string;
   documentNo: string;
@@ -14,7 +15,7 @@ interface MonthlyGridProps {
   defaultArea?: string;
 }
 
-type CellStatus = "\u2713" | "\u2715" | "";
+type CellStatus = "✓" | "✕" | "";
 
 function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, revNo, parameters, defaultArea }: MonthlyGridProps) {
   const [month, setMonth] = useState("");
@@ -37,7 +38,7 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
   const toggleCell = (param: string, day: number) => {
     setGrid((prev) => {
       const current = prev[param][day];
-      const next = current === "" ? "\u2713" : current === "\u2713" ? "\u2715" : "";
+      const next = current === "" ? "✓" : current === "✓" ? "✕" : "";
       return { ...prev, [param]: { ...prev[param], [day]: next } };
     });
   };
@@ -46,97 +47,127 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
     setGrid((prev) => {
       const next: Record<string, Record<number, CellStatus>> = {};
       parameters.forEach((p) => {
-        next[p] = { ...prev[p], [day]: "\u2713" };
+        next[p] = { ...prev[p], [day]: "✓" };
       });
       return next;
     });
   };
 
   return (
-    <div className="p-4 max-w-full mx-auto">
-      <div className="border border-gray-300 mb-4">
-        <div className="p-2 font-bold text-center border-b border-gray-300">CANDOR FOODS PRIVATE LIMITED</div>
-        <div className="p-2 text-sm font-semibold text-center border-b border-gray-300">Document Name: {title}</div>
-        <div className="p-2 text-xs text-center">Document No: {documentNo} | Issue Date: {issueDate} | Issue No: {issueNo} | Rev Date: {revDate} | Rev No: {revNo}</div>
-      </div>
+    <div className="space-y-5">
+      <DocSection title={title} description={`${documentNo} · Issue ${issueNo} · Rev ${revNo} · ${revDate}`}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Month</label>
+            <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Area</label>
+            <input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="input-base" />
+          </div>
+        </div>
+        <p className="text-[11px] text-ink-400 italic mt-3">
+          Click cells to toggle: <span className="text-success-600 font-bold">✓</span> → <span className="text-danger-600 font-bold">✕</span> → empty.
+          Use the day header button to mark every parameter ✓ for that day.
+        </p>
+      </DocSection>
 
-      <p className="text-xs text-gray-400 mb-1 italic sm:hidden">{'\u2190'} Swipe to view all days</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        <div><label className="block text-sm font-medium mb-1">Month</label><input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Area</label><input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-      </div>
-
-      <p className="text-xs text-gray-600 mb-2 italic">Click cells to toggle: {'\u2713'} {'\u2192'} {'\u2715'} {'\u2192'} Empty. Use &quot;All {'\u2713'}&quot; button under each day to mark all parameters for that day.</p>
-
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="text-[10px]">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-gray-300 px-1 py-1 sticky left-0 bg-gray-100 z-10 min-w-[160px]">Parameters</th>
-              {Array.from({ length: daysInMonth }, (_, i) => (
-                <th key={i + 1} className="border border-gray-300 px-1 py-1 text-center min-w-[24px]">{i + 1}</th>
-              ))}
-            </tr>
-            <tr>
-              <th className="border border-gray-300 px-1 py-1 sticky left-0 bg-gray-100 z-10 text-[9px] text-gray-500">All {'\u2713'} {'\u2193'}</th>
-              {Array.from({ length: daysInMonth }, (_, i) => {
-                const day = i + 1;
-                return (
-                  <th key={day} className="border border-gray-300 px-0.5 py-0.5 text-center">
-                    <button onClick={() => markAllOKForDay(day)} className="text-[8px] bg-green-100 text-green-700 px-1 rounded hover:bg-green-200" title={`Mark all parameters as \u2713 for day ${day}`}>{'\u2713'}</button>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {parameters.map((param) => (
-              <tr key={param} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-1 py-0.5 sticky left-0 bg-white z-10 font-medium whitespace-nowrap text-xs">{param}</td>
+      <DocSection title="Daily Status Grid" description={`${parameters.length} parameters × ${daysInMonth} days`} bleed>
+        <p className="text-[11px] text-ink-400 italic px-4 pt-3 sm:hidden">← Swipe to view all days</p>
+        <div className="overflow-x-auto">
+          <table className="text-[10px]">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                <th className="px-2 py-2 sticky left-0 bg-cream-100 z-10 min-w-[160px] text-left text-[11px] font-semibold tracking-wider uppercase text-ink-400">
+                  Parameter
+                </th>
+                {Array.from({ length: daysInMonth }, (_, i) => (
+                  <th key={i + 1} className="px-1 py-2 text-center min-w-[24px] text-[11px] font-semibold text-ink-400">{i + 1}</th>
+                ))}
+              </tr>
+              <tr className="border-t border-cream-300">
+                <th className="px-2 py-1 sticky left-0 bg-cream-100 z-10 text-[9px] text-ink-400 text-left">All ✓ ↓</th>
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const day = i + 1;
-                  const val = grid[param]?.[day] || "";
                   return (
-                    <td
-                      key={day}
-                      className={`border border-gray-300 px-0.5 py-0.5 text-center cursor-pointer select-none font-bold ${
-                        val === "\u2713" ? "bg-green-100 text-green-700" : val === "\u2715" ? "bg-red-100 text-red-700" : ""
-                      }`}
-                      onClick={() => toggleCell(param, day)}
-                    >
-                      {val}
-                    </td>
+                    <th key={day} className="px-0.5 py-0.5 text-center">
+                      <button
+                        onClick={() => markAllOKForDay(day)}
+                        className="text-[9px] bg-success-50 text-success-700 px-1 rounded hover:bg-success-100"
+                        title={`Mark all parameters ✓ for day ${day}`}
+                      >
+                        ✓
+                      </button>
+                    </th>
                   );
                 })}
               </tr>
-            ))}
-            <tr className="bg-gray-50">
-              <td className="border border-gray-300 px-1 py-0.5 sticky left-0 bg-gray-50 z-10 font-bold">CHECKED BY</td>
-              <td colSpan={daysInMonth} className="border border-gray-300 px-1 py-0.5">
-                <input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="w-64 border rounded px-1 py-0.5 text-xs" placeholder="Name" />
-              </td>
-            </tr>
-            <tr className="bg-gray-50">
-              <td className="border border-gray-300 px-1 py-0.5 sticky left-0 bg-gray-50 z-10 font-bold">VERIFIED BY</td>
-              <td colSpan={daysInMonth} className="border border-gray-300 px-1 py-0.5">
-                <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="w-64 border rounded px-1 py-0.5 text-xs" placeholder="Name" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {parameters.map((param) => (
+                <tr key={param} className="hover:bg-cream-100/60">
+                  <td className="px-2 py-1 sticky left-0 bg-cream-50 z-10 font-semibold whitespace-nowrap text-xs text-ink-500">{param}</td>
+                  {Array.from({ length: daysInMonth }, (_, i) => {
+                    const day = i + 1;
+                    const val = grid[param]?.[day] || "";
+                    return (
+                      <td
+                        key={day}
+                        className={`px-0.5 py-0.5 text-center cursor-pointer select-none font-bold border-l border-cream-300 ${
+                          val === "✓"
+                            ? "bg-success-50 text-success-700"
+                            : val === "✕"
+                            ? "bg-danger-50 text-danger-600"
+                            : ""
+                        }`}
+                        onClick={() => toggleCell(param, day)}
+                      >
+                        {val}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 sm:p-5 border-t border-cream-300">
+          <div>
+            <label className="label-base">Checked By</label>
+            <input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="input-base" placeholder="Name" />
+          </div>
+          <div>
+            <label className="label-base">Verified By</label>
+            <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" placeholder="Name" />
+          </div>
+        </div>
+      </DocSection>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-        <div><label className="text-sm font-medium">Observations</label><textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={2} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="text-sm font-medium">Corrective Action</label><textarea value={correctiveAction} onChange={(e) => setCorrectiveAction(e.target.value)} rows={2} className="border rounded px-3 py-2 w-full" /></div>
+      <DocSection title="Notes & Corrective Action">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Observations</label>
+            <textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={3} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Corrective Action</label>
+            <textarea value={correctiveAction} onChange={(e) => setCorrectiveAction(e.target.value)} rows={3} className="input-base" />
+          </div>
+        </div>
+      </DocSection>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <button className="btn-primary">Submit Record</button>
       </div>
-      <div className="mt-2 text-xs text-gray-500">Prepared By: FST | Approved By: FSTL</div>
-      <button className="mt-4 bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 w-full sm:w-auto text-base">Submit</button>
     </div>
   );
 }
 
-// ===================== Tab Definitions =====================
 const TABS = [
   { key: "floor", label: "Floor" },
   { key: "toilet", label: "Toilet" },
@@ -147,33 +178,34 @@ const TABS = [
 ];
 
 export default function DailyCleaningChecklist() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState("floor");
 
   return (
-    <div className="p-3 sm:p-4 max-w-full mx-auto">
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-        <span>Back</span>
-      </button>
-      {/* Tab Bar */}
-      <div className="flex flex-wrap gap-1 mb-6 border-b border-gray-300">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium rounded-t transition-colors ${
-              activeTab === tab.key
-                ? "bg-blue-600 text-white border border-b-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+    <DocFormShell
+      title="Daily Cleaning Checklist"
+      docNo="CFPLA.C4.F.54"
+      subtitle="Multi-tab daily housekeeping log"
+      icon={Sparkles}
+      width="full"
+    >
+      <div className="surface-card p-2 overflow-x-auto">
+        <div className="flex gap-1 min-w-max">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${
+                activeTab === tab.key
+                  ? "bg-brand-500 text-white shadow-soft"
+                  : "text-ink-500 hover:bg-cream-200"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Tab Content */}
       {activeTab === "floor" && (
         <MonthlyGridChecklist
           title="Daily Cleaning Checklist - Floor"
@@ -241,6 +273,6 @@ export default function DailyCleaningChecklist() {
           parameters={["Floor Cleaned", "Walls Cleaned", "Strip Curtains Cleaned", "Gaps cleaned floor/door/machines", "Window / Mesh Cleaned", "Racks & pallets are cleaned & dust free", "Stairs are cleaned", "No dust on stored product / No Rat droppings", "Rodent Boxes Cleaned", "Sanitization area cleaned", "Dustbins Empty & Cleaned", "No Cob-webs", "Diesel drums are stored in designated place."]}
         />
       )}
-    </div>
+    </DocFormShell>
   );
 }

@@ -38,8 +38,20 @@ export function WaterAnalysisRecord({ initialData, onSubmit, isEdit }: WaterAnal
   const removeRow = (id: number) => { if (rows.length > 1) setRows((p) => p.filter((r) => r.id !== id)); };
   const update = (id: number, field: keyof WaterRow, value: string) => setRows((p) => p.map((r) => r.id === id ? { ...r, [field]: value } : r));
   const OkSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={`w-full border rounded px-1 py-0.5 text-xs ${value === "Ok" ? "bg-green-100" : value === "Not ok" ? "bg-red-100" : ""}`}>
-      <option value="">-</option><option value="Ok">Ok</option><option value="Not ok">Not ok</option>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full border rounded-md px-1.5 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${
+        value === "Ok"
+          ? "bg-success-50 text-success-700 border-success-200"
+          : value === "Not ok"
+          ? "bg-danger-50 text-danger-600 border-danger-200"
+          : "bg-cream-50 border-cream-300 text-ink-500"
+      }`}
+    >
+      <option value="">—</option>
+      <option value="Ok">Ok</option>
+      <option value="Not ok">Not ok</option>
     </select>
   );
 
@@ -78,49 +90,63 @@ export function WaterAnalysisRecord({ initialData, onSubmit, isEdit }: WaterAnal
   };
 
   return (
-    <div className="p-4 max-w-full mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300"><h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1><p className="text-sm font-semibold">Water Analysis Record</p><p className="text-xs text-gray-600">Doc No: CFPLA.C4.F.04 | Issue No: 02 | Rev Date: 01/08/2025 | Rev No: 01</p></div>
-      </div>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100">
-            <tr>
-              {["Date", "Sampling Location", "Type of Water", "Appearance", "Turbidity", "Sensory", "TDS (ppm)", "PH", "Remark", "Checked By", "Verified By", ""].map((h) => (
-                <th key={h} className="border border-gray-300 px-1 py-2">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-1 py-1"><input type="date" value={row.date} onChange={(e) => update(row.id, "date", e.target.value)} className="w-full border rounded px-1 py-0.5 text-xs" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.samplingLocation} onChange={(e) => update(row.id, "samplingLocation", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.waterType} onChange={(e) => update(row.id, "waterType", e.target.value)} className="w-full border rounded px-1 py-0.5">
-                    <option value="">Select</option><option value="Drinking">Drinking</option><option value="Processing">Processing</option>
-                  </select>
-                </td>
-                <td className="border border-gray-300 px-1 py-1"><OkSelect value={row.appearance} onChange={(v) => update(row.id, "appearance", v)} /></td>
-                <td className="border border-gray-300 px-1 py-1"><OkSelect value={row.turbidity} onChange={(v) => update(row.id, "turbidity", v)} /></td>
-                <td className="border border-gray-300 px-1 py-1"><OkSelect value={row.sensory} onChange={(v) => update(row.id, "sensory", v)} /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="number" value={row.tds} onChange={(e) => update(row.id, "tds", e.target.value)} className="w-20 border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="number" value={row.ph} onChange={(e) => update(row.id, "ph", e.target.value)} className="w-16 border rounded px-1 py-0.5" step="0.1" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.remark} onChange={(e) => update(row.id, "remark", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.checkedBy} onChange={(e) => update(row.id, "checkedBy", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.verifiedBy} onChange={(e) => update(row.id, "verifiedBy", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => removeRow(row.id)} className="text-red-500 text-xs">✕</button></td>
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Water Samples</h2>
+          <button onClick={addRow} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Row</button>
+        </header>
+        <p className="text-[11px] text-ink-400 italic px-4 pt-3 sm:hidden">← Swipe to view all columns</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                {["Date", "Sampling Location", "Type", "Appearance", "Turbidity", "Sensory", "TDS (ppm)", "pH", "Remark", "Checked By", "Verified By", ""].map((h) => (
+                  <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((row) => (
+                <tr key={row.id} className="hover:bg-cream-100/60">
+                  <td className="px-1 py-1"><input type="date" value={row.date} onChange={(e) => update(row.id, "date", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><input type="text" value={row.samplingLocation} onChange={(e) => update(row.id, "samplingLocation", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1">
+                    <select value={row.waterType} onChange={(e) => update(row.id, "waterType", e.target.value)} className="input-base !py-1 !px-2 text-xs">
+                      <option value="">Select</option><option value="Drinking">Drinking</option><option value="Processing">Processing</option>
+                    </select>
+                  </td>
+                  <td className="px-1 py-1"><OkSelect value={row.appearance} onChange={(v) => update(row.id, "appearance", v)} /></td>
+                  <td className="px-1 py-1"><OkSelect value={row.turbidity} onChange={(v) => update(row.id, "turbidity", v)} /></td>
+                  <td className="px-1 py-1"><OkSelect value={row.sensory} onChange={(v) => update(row.id, "sensory", v)} /></td>
+                  <td className="px-1 py-1"><input type="number" value={row.tds} onChange={(e) => update(row.id, "tds", e.target.value)} className="input-base !py-1 !px-2 text-xs w-20 text-center" /></td>
+                  <td className="px-1 py-1"><input type="number" value={row.ph} onChange={(e) => update(row.id, "ph", e.target.value)} className="input-base !py-1 !px-2 text-xs w-16 text-center" step="0.1" /></td>
+                  <td className="px-1 py-1"><input type="text" value={row.remark} onChange={(e) => update(row.id, "remark", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><input type="text" value={row.checkedBy} onChange={(e) => update(row.id, "checkedBy", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><input type="text" value={row.verifiedBy} onChange={(e) => update(row.id, "verifiedBy", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1 text-center">
+                    <button onClick={() => removeRow(row.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared by: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved by: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
+        </div>
       </div>
-      <button onClick={addRow} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: FST | Approved by: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -189,46 +215,72 @@ export function FoodSafetyIncidentReport({ initialData, onSubmit, isEdit }: Inci
   };
 
   return (
-    <div className="p-4 max-w-full mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300"><h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1><p className="text-sm font-semibold">Food Safety Incident Report Register</p><p className="text-xs text-gray-600">Doc No: CFPLA.C5.F.05 | Issue No: 02 | Rev Date: 10/01/2025 | Rev No: 01</p></div>
-      </div>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100">
-            <tr>
-              {["Sr. No.", "Date of Incident", "Nature of the Incident", "Cause of the Incident", "Person Attending", "Preventive Measures", "Name of Person Filling Form", "Status", ""].map((h) => (
-                <th key={h} className="border border-gray-300 px-2 py-2">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-2 py-1 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-1 py-1"><input type="date" value={row.dateOfIncident} onChange={(e) => update(row.id, "dateOfIncident", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><textarea value={row.natureOfIncident} onChange={(e) => update(row.id, "natureOfIncident", e.target.value)} className="w-full border rounded px-1 py-0.5 min-w-[150px]" rows={2} /></td>
-                <td className="border border-gray-300 px-1 py-1"><textarea value={row.causeOfIncident} onChange={(e) => update(row.id, "causeOfIncident", e.target.value)} className="w-full border rounded px-1 py-0.5 min-w-[150px]" rows={2} /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.personAttending} onChange={(e) => update(row.id, "personAttending", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><textarea value={row.preventiveMeasures} onChange={(e) => update(row.id, "preventiveMeasures", e.target.value)} className="w-full border rounded px-1 py-0.5 min-w-[150px]" rows={2} /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.personFillingForm} onChange={(e) => update(row.id, "personFillingForm", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.status} onChange={(e) => update(row.id, "status", e.target.value)} className={`w-full border rounded px-1 py-0.5 ${row.status === "Closed" ? "bg-green-100" : row.status === "Open" ? "bg-yellow-100" : ""}`}>
-                    <option value="">Select</option><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option>
-                  </select>
-                </td>
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => removeRow(row.id)} className="text-red-500 text-xs">✕</button></td>
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Incident Register</h2>
+          <button onClick={addRow} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Row</button>
+        </header>
+        <p className="text-[11px] text-ink-400 italic px-4 pt-3 sm:hidden">← Swipe to view all columns</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                {["Sr.", "Date", "Nature", "Cause", "Attending", "Preventive Measures", "Person Filling", "Status", ""].map((h) => (
+                  <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((row, idx) => (
+                <tr key={row.id} className="hover:bg-cream-100/60 align-top">
+                  <td className="px-2 py-2 text-center text-ink-400 font-medium">{idx + 1}</td>
+                  <td className="px-1 py-1"><input type="date" value={row.dateOfIncident} onChange={(e) => update(row.id, "dateOfIncident", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><textarea value={row.natureOfIncident} onChange={(e) => update(row.id, "natureOfIncident", e.target.value)} className="input-base !py-1 !px-2 text-xs min-w-[150px]" rows={2} /></td>
+                  <td className="px-1 py-1"><textarea value={row.causeOfIncident} onChange={(e) => update(row.id, "causeOfIncident", e.target.value)} className="input-base !py-1 !px-2 text-xs min-w-[150px]" rows={2} /></td>
+                  <td className="px-1 py-1"><input type="text" value={row.personAttending} onChange={(e) => update(row.id, "personAttending", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><textarea value={row.preventiveMeasures} onChange={(e) => update(row.id, "preventiveMeasures", e.target.value)} className="input-base !py-1 !px-2 text-xs min-w-[150px]" rows={2} /></td>
+                  <td className="px-1 py-1"><input type="text" value={row.personFillingForm} onChange={(e) => update(row.id, "personFillingForm", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1">
+                    <select
+                      value={row.status}
+                      onChange={(e) => update(row.id, "status", e.target.value)}
+                      className={`w-full border rounded-md px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${
+                        row.status === "Closed"
+                          ? "bg-success-50 text-success-700 border-success-200"
+                          : row.status === "Open"
+                          ? "bg-warning-50 text-warning-700 border-warning-200"
+                          : row.status === "In Progress"
+                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : "bg-cream-50 border-cream-300 text-ink-500"
+                      }`}
+                    >
+                      <option value="">Select</option><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option>
+                    </select>
+                  </td>
+                  <td className="px-1 py-1 text-center">
+                    <button onClick={() => removeRow(row.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
+        </div>
       </div>
-      <button onClick={addRow} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="mt-2 text-xs text-gray-500">Prepared By: FST | Approved By: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -306,72 +358,120 @@ export function FoodSafetyMeeting({ initialData, onSubmit, isEdit }: FoodSafetyM
   };
 
   return (
-    <div className="p-4 max-w-5xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300"><h1 className="font-bold text-lg">Candor Foods Pvt Ltd</h1><p className="text-sm font-semibold">Food Safety Meeting Minutes</p><p className="text-xs text-gray-600">Doc No: CFPLA.C.F.09 | Issue No: 03 | Rev Date: 10/01/2025 | Rev No: 02</p></div>
-      </div>
+    <div className="space-y-5">
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Meeting Details</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label className="label-base">Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Time From</label>
+            <input type="time" value={timeFrom} onChange={(e) => setTimeFrom(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Time To</label>
+            <input type="time" value={timeTo} onChange={(e) => setTimeTo(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Venue</label>
+            <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} className="input-base" />
+          </div>
+        </div>
+      </section>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div><label className="block text-sm font-medium mb-1">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Time From</label><input type="time" value={timeFrom} onChange={(e) => setTimeFrom(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Time To</label><input type="time" value={timeTo} onChange={(e) => setTimeTo(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Venue</label><input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-      </div>
-
-      {/* Attendees */}
-      <h3 className="font-semibold text-sm mb-2">Attendees</h3>
-      <div className="overflow-x-auto border border-gray-300 rounded mb-4">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr><th className="border border-gray-300 px-2 py-1 w-12">Sr.</th><th className="border border-gray-300 px-2 py-1">Name</th><th className="border border-gray-300 px-2 py-1">Designation</th><th className="border border-gray-300 px-2 py-1">Signature</th><th className="border border-gray-300 px-2 py-1 w-8"></th></tr>
-          </thead>
-          <tbody>
-            {attendees.map((a, idx) => (
-              <tr key={a.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-2 py-1 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={a.name} onChange={(e) => setAttendees((p) => p.map((r) => r.id === a.id ? { ...r, name: e.target.value } : r))} className="w-full border rounded px-2 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={a.designation} onChange={(e) => setAttendees((p) => p.map((r) => r.id === a.id ? { ...r, designation: e.target.value } : r))} className="w-full border rounded px-2 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={a.signature} onChange={(e) => setAttendees((p) => p.map((r) => r.id === a.id ? { ...r, signature: e.target.value } : r))} className="w-full border rounded px-2 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => removeAttendee(a.id)} className="text-red-500 text-xs">✕</button></td>
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Attendees</h2>
+          <button onClick={addAttendee} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Attendee</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                <th className="px-2 py-2 w-12 text-center text-[11px] font-semibold uppercase text-ink-400">Sr.</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase text-ink-400">Name</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase text-ink-400">Designation</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase text-ink-400">Signature</th>
+                <th className="px-2 py-2 w-8"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={addAttendee} className="mb-4 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">+ Add Attendee</button>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {attendees.map((a, idx) => (
+                <tr key={a.id} className="hover:bg-cream-100/60">
+                  <td className="px-2 py-1.5 text-center text-ink-400 font-medium">{idx + 1}</td>
+                  <td className="px-1 py-1.5"><input type="text" value={a.name} onChange={(e) => setAttendees((p) => p.map((r) => r.id === a.id ? { ...r, name: e.target.value } : r))} className="input-base !py-1.5 !px-2 text-sm" /></td>
+                  <td className="px-1 py-1.5"><input type="text" value={a.designation} onChange={(e) => setAttendees((p) => p.map((r) => r.id === a.id ? { ...r, designation: e.target.value } : r))} className="input-base !py-1.5 !px-2 text-sm" /></td>
+                  <td className="px-1 py-1.5"><input type="text" value={a.signature} onChange={(e) => setAttendees((p) => p.map((r) => r.id === a.id ? { ...r, signature: e.target.value } : r))} className="input-base !py-1.5 !px-2 text-sm" /></td>
+                  <td className="px-1 py-1.5 text-center"><button onClick={() => removeAttendee(a.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      {/* Discussion Topics */}
-      <h3 className="font-semibold text-sm mb-2">Discussion Topics</h3>
-      <div className="overflow-x-auto border border-gray-300 rounded mb-4">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr><th className="border border-gray-300 px-2 py-1 w-10">Sr.</th><th className="border border-gray-300 px-2 py-1 min-w-[200px]">Topic</th><th className="border border-gray-300 px-2 py-1 w-28">Type</th><th className="border border-gray-300 px-2 py-1 min-w-[300px]">Discussion / Minutes</th><th className="border border-gray-300 px-2 py-1 w-32">Responsible</th><th className="border border-gray-300 px-2 py-1 w-8"></th></tr>
-          </thead>
-          <tbody>
-            {topics.map((t, idx) => (
-              <tr key={t.id} className="hover:bg-blue-50 align-top">
-                <td className="border border-gray-300 px-2 py-1 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-1 py-1"><textarea value={t.topic} onChange={(e) => setTopics((p) => p.map((r) => r.id === t.id ? { ...r, topic: e.target.value } : r))} className="w-full border rounded px-2 py-0.5" rows={3} /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={t.type} onChange={(e) => setTopics((p) => p.map((r) => r.id === t.id ? { ...r, type: e.target.value } : r))} className="w-full border rounded px-2 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><textarea value={t.discussion} onChange={(e) => setTopics((p) => p.map((r) => r.id === t.id ? { ...r, discussion: e.target.value } : r))} className="w-full border rounded px-2 py-0.5" rows={4} placeholder="Enter discussion points..." /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={t.responsible} onChange={(e) => setTopics((p) => p.map((r) => r.id === t.id ? { ...r, responsible: e.target.value } : r))} className="w-full border rounded px-2 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => removeTopic(t.id)} className="text-red-500 text-xs">✕</button></td>
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Discussion Topics</h2>
+          <button onClick={addTopic} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Topic</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                <th className="px-2 py-2 w-10 text-center text-[11px] font-semibold uppercase text-ink-400">Sr.</th>
+                <th className="px-2 py-2 min-w-[200px] text-left text-[11px] font-semibold uppercase text-ink-400">Topic</th>
+                <th className="px-2 py-2 w-28 text-left text-[11px] font-semibold uppercase text-ink-400">Type</th>
+                <th className="px-2 py-2 min-w-[300px] text-left text-[11px] font-semibold uppercase text-ink-400">Discussion</th>
+                <th className="px-2 py-2 w-32 text-left text-[11px] font-semibold uppercase text-ink-400">Responsible</th>
+                <th className="px-2 py-2 w-8"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={addTopic} className="mb-4 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">+ Add Topic</button>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {topics.map((t, idx) => (
+                <tr key={t.id} className="hover:bg-cream-100/60 align-top">
+                  <td className="px-2 py-1.5 text-center text-ink-400 font-medium">{idx + 1}</td>
+                  <td className="px-1 py-1.5"><textarea value={t.topic} onChange={(e) => setTopics((p) => p.map((r) => r.id === t.id ? { ...r, topic: e.target.value } : r))} className="input-base !py-1.5 !px-2 text-sm" rows={3} /></td>
+                  <td className="px-1 py-1.5"><input type="text" value={t.type} onChange={(e) => setTopics((p) => p.map((r) => r.id === t.id ? { ...r, type: e.target.value } : r))} className="input-base !py-1.5 !px-2 text-sm" /></td>
+                  <td className="px-1 py-1.5"><textarea value={t.discussion} onChange={(e) => setTopics((p) => p.map((r) => r.id === t.id ? { ...r, discussion: e.target.value } : r))} className="input-base !py-1.5 !px-2 text-sm" rows={4} placeholder="Enter discussion points..." /></td>
+                  <td className="px-1 py-1.5"><input type="text" value={t.responsible} onChange={(e) => setTopics((p) => p.map((r) => r.id === t.id ? { ...r, responsible: e.target.value } : r))} className="input-base !py-1.5 !px-2 text-sm" /></td>
+                  <td className="px-1 py-1.5 text-center"><button onClick={() => removeTopic(t.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        <div><label className="text-sm font-medium">Date of Next Meeting</label><input type="date" value={nextMeetingDate} onChange={(e) => setNextMeetingDate(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="text-sm font-medium">Meeting Adjourned At</label><input type="time" value={adjournedAt} onChange={(e) => setAdjournedAt(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Closure</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Date of Next Meeting</label>
+            <input type="date" value={nextMeetingDate} onChange={(e) => setNextMeetingDate(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Meeting Adjourned At</label>
+            <input type="time" value={adjournedAt} onChange={(e) => setAdjournedAt(e.target.value)} className="input-base" />
+          </div>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
+        </div>
       </div>
-      <div className="mt-2 text-xs text-gray-500">Prepared By: FST | Approved By: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }

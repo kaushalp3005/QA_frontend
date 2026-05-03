@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ArrowLeft, AlertCircle } from "lucide-react";
 import { cn, buttonStyles, layoutStyles } from "@/lib/styles";
 import { createXRayRecord } from "@/lib/api/xray";
+import Time12Picker from "@/components/Time12Picker";
 
 interface XRayFormData {
   date: string;
@@ -155,13 +156,7 @@ export default function XRayFillForm() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Time</label>
-                    <input
-                      type="time"
-                      className={inputCls}
-                      value={form.time}
-                      onChange={(e) => set("time", e.target.value)}
-                      required
-                    />
+                    <Time12Picker value={form.time} onChange={(v) => set("time", v)} />
                   </div>
                 </div>
                 <div className={cn(layoutStyles.grid2, "mt-4")}>

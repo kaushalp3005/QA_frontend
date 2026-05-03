@@ -1,0 +1,25 @@
+From 518a5a92544f38b21d93ac8310da22fefd0956e1 Mon Sep 17 00:00:00 2001
+From: kaushalp3005 <ai.1@candorfoods.in>
+Date: Thu, 16 Apr 2026 17:43:19 +0530
+Subject: [PATCH 4/5] Update page.tsx
+
+---
+ src/app/documentations/metaldetector/page.tsx | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/app/documentations/metaldetector/page.tsx b/src/app/documentations/metaldetector/page.tsx
+index 87b8c5d..1bf0178 100644
+--- a/src/app/documentations/metaldetector/page.tsx
++++ b/src/app/documentations/metaldetector/page.tsx
+@@ -607,7 +607,7 @@ export default function MetalDetectorPage() {
+                           <div className="flex items-center space-x-2">
+                             {record.status === 'pending' && (
+                               <button
+-                                onClick={() => router.push(`/documentations/metaldetector/entry?resumeRecordId=${record.id}`)}
++                                onClick={() => router.push(`/documentations/metaldetector/entry?resumeRecordId=${record.id}&warehouse=${warehouse}`)}
+                                 className="text-orange-600 hover:text-orange-900 flex items-center font-semibold"
+                               >
+                                 <Edit2 className="h-4 w-4 mr-1" />
+-- 
+2.45.2.windows.1
+

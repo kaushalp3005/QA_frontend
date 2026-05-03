@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Gauge, Plus, X, AlertTriangle } from "lucide-react";
+import DocFormShell from "@/components/documentations/DocFormShell";
+import DocSection from "@/components/documentations/DocSection";
 
 interface CalibrationRow {
   id: number;
@@ -45,7 +47,6 @@ function getDeviationStatus(row: CalibrationRow): "ok" | "deviation" | "empty" {
 }
 
 export default function WeighingScaleCalibration() {
-  const router = useRouter();
   const [dateOfInspection, setDateOfInspection] = useState("");
   const [calibratedBy, setCalibratedBy] = useState("");
   const [verifiedBy, setVerifiedBy] = useState("");
@@ -58,169 +59,159 @@ export default function WeighingScaleCalibration() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
-  const inp = (align = "left") =>
-    `w-full px-1 py-0.5 border-0 border-b border-transparent hover:border-gray-200 focus:border-red-400 outline-none text-xs bg-transparent text-${align}`;
-
+  const okCount = rows.filter((r) => getDeviationStatus(r) === "ok").length;
   const deviations = rows.filter((r) => getDeviationStatus(r) === "deviation").length;
+  const empty = rows.filter((r) => getDeviationStatus(r) === "empty").length;
 
   return (
-    <div className="min-h-screen bg-gray-50 font-mono p-4">
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-        <span>Back</span>
-      </button>
-      <div className="max-w-5xl mx-auto bg-white shadow-lg rounded-sm border border-gray-200">
-        {/* Header */}
-        <div className="border-b border-gray-300">
-          <div className="flex flex-col sm:grid sm:grid-cols-3 sm:divide-x divide-gray-300">
-            <div className="flex items-center gap-2 p-3">
-              <div className="w-9 h-9 bg-red-700 rounded flex items-center justify-center">
-                <span className="text-white text-xs font-bold">CF</span>
-              </div>
-              <div>
-                <div className="font-bold text-gray-800 text-xs">Candor Foods</div>
-                <div className="text-xs text-gray-400">Private Limited</div>
-              </div>
-            </div>
-            <div className="p-3 text-center">
-              <div className="font-bold text-gray-800 text-xs">CANDOR FOODS PRIVATE LIMITED</div>
-              <div className="text-xs text-gray-600 mt-0.5">FORMAT: In-house Weighing Scale Calibration Record</div>
-              <div className="text-xs text-gray-500">Document No: CFPLA.C6.F.41</div>
-            </div>
-            <div className="p-3 text-xs text-gray-600 space-y-0.5">
-              <div className="flex justify-between"><span>Issue Date:</span><span className="font-medium">01/08/2020</span></div>
-              <div className="flex justify-between"><span>Issue No:</span><span className="font-medium">04</span></div>
-              <div className="flex justify-between"><span>Revision Date:</span><span className="font-medium">01/10/2025</span></div>
-              <div className="flex justify-between"><span>Revision No.:</span><span className="font-medium">03</span></div>
-            </div>
+    <DocFormShell
+      title="Weighing Scale Calibration"
+      docNo="CFPLA.C6.F.41"
+      subtitle="Issue 04 · Rev 03 · 01/10/2025"
+      icon={Gauge}
+      width="full"
+      note="Frequency: Daily — before starting production"
+    >
+      <DocSection title="Inspection Details">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Date of Inspection</label>
+            <input type="date" value={dateOfInspection} onChange={(e) => setDateOfInspection(e.target.value)} className="input-base" />
           </div>
         </div>
+      </DocSection>
 
-        <div className="p-4">
-          {/* Date + Frequency */}
-          <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:items-center mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-700">Date of Inspection:</span>
-              <input type="date" value={dateOfInspection} onChange={(e) => setDateOfInspection(e.target.value)}
-                className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-1 text-sm" />
-            </div>
-            <div className="text-xs text-gray-600">
-              Frequency: <span className="font-semibold">Daily (Before starting the production)</span>
-            </div>
-          </div>
-          <p className="text-xs text-gray-400 mb-1 italic sm:hidden">{'\u2190'} Swipe to view all columns</p>
+      {deviations > 0 && (
+        <div className="surface-card p-3 border-l-4 border-danger-500 bg-danger-50/60 flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-danger-600 mt-0.5 shrink-0" />
+          <p className="text-xs text-danger-700">
+            <strong>{deviations} scale(s)</strong> showing deviation. Corrective action required before production start.
+          </p>
+        </div>
+      )}
 
-          {/* Status Banner */}
-          {deviations > 0 && (
-            <div className="mb-3 p-2 bg-red-50 border border-red-300 rounded text-xs text-red-700">
-              {'\u26A0\uFE0F'} <strong>{deviations} scale(s)</strong> showing deviation. Corrective action required before production start.
-            </div>
-          )}
-
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-xs border border-gray-400">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-400 p-1.5 text-center w-8">Sr.</th>
-                  <th className="border border-gray-400 p-1.5 text-center w-24">Identification No.</th>
-                  <th className="border border-gray-400 p-1.5 text-center w-20">Capacity (Kg)</th>
-                  <th className="border border-gray-400 p-1.5 text-center w-28">Location</th>
-                  <th className="border border-gray-400 p-1.5 text-center w-24">Standard Weight Used</th>
-                  {["1", "2", "3", "4", "5"].map((n) => (
-                    <th key={n} className="border border-gray-400 p-1.5 text-center w-16 bg-blue-50">Reading {n}</th>
-                  ))}
-                  <th className="border border-gray-400 p-1.5 text-center w-28 bg-orange-50">Deviation / Remark</th>
-                  <th className="border border-gray-400 p-1.5 text-center w-32 bg-red-50">Corrective Action</th>
-                  <th className="border border-gray-400 p-1.5 text-center w-6 text-red-400">{'\u2715'}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, idx) => {
-                  const status = getDeviationStatus(row);
-                  return (
-                    <tr key={row.id}
-                      className={`${status === "deviation" ? "bg-red-50" : status === "ok" ? "bg-green-50/40" : "hover:bg-gray-50"}`}>
-                      <td className="border border-gray-300 p-1 text-center text-gray-400">{idx + 1}</td>
-                      <td className="border border-gray-300 p-1">
-                        <input type="text" value={row.identificationNo} onChange={(e) => updateRow(row.id, "identificationNo", e.target.value)}
-                          placeholder="Scale ID" className={inp()} />
-                      </td>
-                      <td className="border border-gray-300 p-1">
-                        <input type="number" value={row.capacityKg} onChange={(e) => updateRow(row.id, "capacityKg", e.target.value)}
-                          placeholder="kg" className={inp("center")} />
-                      </td>
-                      <td className="border border-gray-300 p-1">
-                        <input type="text" value={row.location} onChange={(e) => updateRow(row.id, "location", e.target.value)}
-                          placeholder="Floor/Area" className={inp()} />
-                      </td>
-                      <td className="border border-gray-300 p-1">
-                        <input type="number" step="0.001" value={row.standardWeightUsed}
-                          onChange={(e) => updateRow(row.id, "standardWeightUsed", e.target.value)}
-                          placeholder="kg" className={inp("center")} />
-                      </td>
-                      {READINGS.map((field) => (
-                        <td key={field} className="border border-gray-300 p-1 bg-blue-50/20">
-                          <input type="number" step="0.001" value={row[field] as string}
-                            onChange={(e) => updateRow(row.id, field, e.target.value)}
-                            placeholder="\u2014" className={inp("center")} />
-                        </td>
-                      ))}
-                      <td className="border border-gray-300 p-1 bg-orange-50/20">
-                        <input type="text" value={row.deviation} onChange={(e) => updateRow(row.id, "deviation", e.target.value)}
-                          placeholder={status === "deviation" ? "Enter deviation" : status === "ok" ? "Within tolerance" : "\u2014"}
-                          className={inp()} />
-                      </td>
-                      <td className="border border-gray-300 p-1 bg-red-50/20">
-                        <input type="text" value={row.correctiveAction} onChange={(e) => updateRow(row.id, "correctiveAction", e.target.value)}
-                          disabled={status !== "deviation"}
-                          placeholder={status === "deviation" ? "Action taken\u2026" : "\u2014"}
-                          className={`${inp()} disabled:text-gray-300`} />
-                      </td>
-                      <td className="border border-gray-300 p-1 text-center">
-                        <button onClick={() => removeRow(row.id)} className="text-red-400 hover:text-red-600 font-bold">{'\u2715'}</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Summary */}
-          <div className="mt-3 flex gap-4 text-xs">
-            <span className="text-green-600">{'\u2713'} OK: {rows.filter((r) => getDeviationStatus(r) === "ok").length}</span>
-            <span className="text-red-600">{'\u2715'} Deviation: {rows.filter((r) => getDeviationStatus(r) === "deviation").length}</span>
-            <span className="text-gray-500">Empty: {rows.filter((r) => getDeviationStatus(r) === "empty").length}</span>
-          </div>
-
-          <button onClick={addRow}
-            className="mt-3 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-700 text-white text-sm rounded hover:bg-red-800 transition-colors w-full sm:w-auto">
-            <span className="text-base leading-none">+</span> Add Row
+      <DocSection
+        title="Calibration Log"
+        description={`${rows.length} scales`}
+        bleed
+        actions={
+          <button onClick={addRow} className="btn-primary !py-1.5 !px-3 text-xs">
+            <Plus className="w-3.5 h-3.5 mr-1" /> Add Row
           </button>
-
-          {/* Footer */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 mt-6 pt-4 border-t border-gray-200">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600">Calibrated By:</span>
-              <input type="text" value={calibratedBy} onChange={(e) => setCalibratedBy(e.target.value)}
-                className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs flex-1" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600">Verified By:</span>
-              <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)}
-                className="border-b border-gray-400 focus:border-red-600 outline-none px-2 py-0.5 text-xs flex-1" />
-            </div>
-          </div>
-
-          <div className="flex justify-between mt-4 text-xs text-gray-500">
-            <span>Prepared By: <strong>FST</strong></span>
-            <span>Approved By: <strong>FSTL</strong></span>
-          </div>
-
-          <button className="mt-4 bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 w-full sm:w-auto text-base">Submit</button>
+        }
+      >
+        <p className="text-[11px] text-ink-400 italic px-4 pt-3 sm:hidden">← Swipe to view all columns</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                <th className="px-2 py-2 text-center w-8 text-[11px] font-semibold uppercase text-ink-400">Sr.</th>
+                <th className="px-2 py-2 text-center w-24 text-[11px] font-semibold uppercase text-ink-400">ID No.</th>
+                <th className="px-2 py-2 text-center w-20 text-[11px] font-semibold uppercase text-ink-400">Capacity (Kg)</th>
+                <th className="px-2 py-2 text-center w-28 text-[11px] font-semibold uppercase text-ink-400">Location</th>
+                <th className="px-2 py-2 text-center w-24 text-[11px] font-semibold uppercase text-ink-400">Std Weight</th>
+                {["1", "2", "3", "4", "5"].map((n) => (
+                  <th key={n} className="px-2 py-2 text-center w-16 text-[11px] font-semibold text-blue-700 bg-blue-50/40">R {n}</th>
+                ))}
+                <th className="px-2 py-2 text-center w-28 text-[11px] font-semibold text-warning-700 bg-warning-50/40">Deviation</th>
+                <th className="px-2 py-2 text-center w-32 text-[11px] font-semibold text-danger-600 bg-danger-50/40">Corrective</th>
+                <th className="px-2 py-2 text-center w-6"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((row, idx) => {
+                const status = getDeviationStatus(row);
+                return (
+                  <tr
+                    key={row.id}
+                    className={`${
+                      status === "deviation"
+                        ? "bg-danger-50/40"
+                        : status === "ok"
+                        ? "bg-success-50/30"
+                        : "hover:bg-cream-100/60"
+                    }`}
+                  >
+                    <td className="px-2 py-1 text-center text-ink-400 font-medium">{idx + 1}</td>
+                    <td className="px-1 py-1">
+                      <input type="text" value={row.identificationNo} onChange={(e) => updateRow(row.id, "identificationNo", e.target.value)} placeholder="Scale ID" className="input-base !py-1 !px-2 text-xs" />
+                    </td>
+                    <td className="px-1 py-1">
+                      <input type="number" value={row.capacityKg} onChange={(e) => updateRow(row.id, "capacityKg", e.target.value)} placeholder="kg" className="input-base !py-1 !px-2 text-xs text-center" />
+                    </td>
+                    <td className="px-1 py-1">
+                      <input type="text" value={row.location} onChange={(e) => updateRow(row.id, "location", e.target.value)} placeholder="Floor/Area" className="input-base !py-1 !px-2 text-xs" />
+                    </td>
+                    <td className="px-1 py-1">
+                      <input type="number" step="0.001" value={row.standardWeightUsed} onChange={(e) => updateRow(row.id, "standardWeightUsed", e.target.value)} placeholder="kg" className="input-base !py-1 !px-2 text-xs text-center" />
+                    </td>
+                    {READINGS.map((field) => (
+                      <td key={field} className="px-1 py-1 bg-blue-50/15">
+                        <input type="number" step="0.001" value={row[field] as string} onChange={(e) => updateRow(row.id, field, e.target.value)} placeholder="—" className="input-base !py-1 !px-2 text-xs text-center" />
+                      </td>
+                    ))}
+                    <td className="px-1 py-1 bg-warning-50/15">
+                      <input
+                        type="text"
+                        value={row.deviation}
+                        onChange={(e) => updateRow(row.id, "deviation", e.target.value)}
+                        placeholder={status === "deviation" ? "Enter deviation" : status === "ok" ? "Within tolerance" : "—"}
+                        className="input-base !py-1 !px-2 text-xs"
+                      />
+                    </td>
+                    <td className="px-1 py-1 bg-danger-50/15">
+                      <input
+                        type="text"
+                        value={row.correctiveAction}
+                        onChange={(e) => updateRow(row.id, "correctiveAction", e.target.value)}
+                        disabled={status !== "deviation"}
+                        placeholder={status === "deviation" ? "Action taken…" : "—"}
+                        className="input-base !py-1 !px-2 text-xs disabled:bg-cream-200/60 disabled:text-ink-300"
+                      />
+                    </td>
+                    <td className="px-1 py-1 text-center">
+                      <button
+                        onClick={() => removeRow(row.id)}
+                        className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50"
+                        title="Remove row"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+        <div className="border-t border-cream-300 px-4 py-2.5 flex flex-wrap gap-2 text-[11px] font-semibold">
+          <span className="px-2 py-0.5 rounded-full bg-success-50 text-success-700">✓ OK {okCount}</span>
+          <span className="px-2 py-0.5 rounded-full bg-danger-50 text-danger-600">✕ Deviation {deviations}</span>
+          <span className="px-2 py-0.5 rounded-full bg-cream-200 text-ink-400">Empty {empty}</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Approvals">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Calibrated By</label>
+            <input type="text" value={calibratedBy} onChange={(e) => setCalibratedBy(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Verified By</label>
+            <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" />
+          </div>
+        </div>
+      </DocSection>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <button className="btn-primary">Submit Record</button>
       </div>
-    </div>
+    </DocFormShell>
   );
 }

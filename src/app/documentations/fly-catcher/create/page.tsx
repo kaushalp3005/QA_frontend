@@ -1,13 +1,17 @@
 "use client";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import DocBackButton from "@/components/documentations/DocBackButton";
+import { Bug } from "lucide-react";
+import DocFormShell from "@/components/documentations/DocFormShell";
 import { DailyFlyCatcherCheck } from "@/components/forms/CFPLA_QCOperationsForms";
 
 export default function Page() {
   return (
-    <DashboardLayout>
-      <DocBackButton />
+    <DocFormShell
+      title="Daily Fly Catcher Check"
+      docNo="CFPLA.C7.F.37"
+      icon={Bug}
+      width="full"
+    >
       <DailyFlyCatcherCheck />
-    </DashboardLayout>
+    </DocFormShell>
   );
 }

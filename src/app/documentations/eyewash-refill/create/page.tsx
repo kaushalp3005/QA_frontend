@@ -1,13 +1,17 @@
 "use client";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import DocBackButton from "@/components/documentations/DocBackButton";
+import { EyeOff } from "lucide-react";
+import DocFormShell from "@/components/documentations/DocFormShell";
 import { EyeWashBottleRefillingRecord } from "@/components/forms/CFPLA_QCRecordsForms";
 
 export default function Page() {
   return (
-    <DashboardLayout>
-      <DocBackButton />
+    <DocFormShell
+      title="Eye Wash Bottle Refilling"
+      docNo="CFPLA.C7.F.27"
+      icon={EyeOff}
+      width="lg"
+    >
       <EyeWashBottleRefillingRecord />
-    </DashboardLayout>
+    </DocFormShell>
   );
 }

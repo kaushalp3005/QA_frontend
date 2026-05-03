@@ -1,6 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { Scale, Plus, X } from "lucide-react";
+import Time12Picker from "@/components/Time12Picker";
+import DocFormShell from "@/components/documentations/DocFormShell";
+import DocSection from "@/components/documentations/DocSection";
 
 interface WeightRow {
   id: number;
@@ -104,7 +108,7 @@ export default function ProductWeightSealCheckRecord() {
     if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const autofillColumn = (field: "packingMaterialWeight" | "netWeight" | "observedGrossWeight") => {
+  const autofillColumn = (field: "packingMaterialWeight" | "netWeight" | "observedGrossWeight" | "checkedBy" | "verifiedBy") => {
     const firstFilled = rows.find((r) => r[field] !== "");
     if (!firstFilled) return;
     const val = firstFilled[field];
@@ -121,170 +125,208 @@ export default function ProductWeightSealCheckRecord() {
     );
   };
 
+  const fillAllBtn = (field: "packingMaterialWeight" | "netWeight" | "observedGrossWeight" | "checkedBy" | "verifiedBy") => (
+    <button
+      type="button"
+      onClick={() => autofillColumn(field)}
+      className="text-[10px] font-semibold bg-brand-50 hover:bg-brand-100 text-brand-600 px-2 py-0.5 rounded whitespace-nowrap"
+    >
+      Fill All ↓
+    </button>
+  );
+
   return (
-    <div className="p-3 sm:p-4 max-w-7xl mx-auto">
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-        <span>Back</span>
-      </button>
-      {/* Header */}
-      <div className="border border-gray-300 mb-4">
-        <div className="flex flex-col sm:grid sm:grid-cols-3 border-b border-gray-300">
-          <div className="p-2 font-bold text-center sm:border-r border-gray-300 border-b sm:border-b-0">CANDOR FOODS PRIVATE LIMITED</div>
-          <div className="p-2 text-sm sm:border-r border-gray-300 border-b sm:border-b-0">Issue Date: 01/11/2017</div>
-          <div className="p-2 text-sm">Issue No: 03</div>
+    <DocFormShell
+      title="Product Weight & Sealing Check"
+      docNo="CFPLA.C6.F.16"
+      subtitle="Issue 03 · Rev 02 · 01/10/2025"
+      icon={Scale}
+      note="Frequency: Every hour, 10 samples (Start–Mid–End)"
+    >
+      <DocSection title="Batch Information" description="Identify the run being verified.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div>
+            <label className="label-base">Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Location</label>
+            <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Frequency</label>
+            <input type="text" value="Every hour, 10 samples (Start-Mid-End)" readOnly className="input-base bg-cream-200/60" />
+          </div>
+          <div>
+            <label className="label-base">Name of Product</label>
+            <input type="text" value={productName} onChange={(e) => setProductName(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Batch No.</label>
+            <input type="text" value={batchNo} onChange={(e) => setBatchNo(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Customer</label>
+            <input type="text" value={customer} onChange={(e) => setCustomer(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">PKD</label>
+            <input type="text" value={pkd} onChange={(e) => setPkd(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Declared Net Weight (gms)</label>
+            <input type="number" value={declaredNetWeight} onChange={(e) => setDeclaredNetWeight(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Permissible Error (±gms)</label>
+            <input type="number" value={permissibleError} onChange={(e) => setPermissibleError(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Total Pkts Produced (Nos)</label>
+            <input type="number" value={totalPktsProduced} onChange={(e) => setTotalPktsProduced(e.target.value)} className="input-base" />
+          </div>
         </div>
-        <div className="flex flex-col sm:grid sm:grid-cols-3 border-b border-gray-300">
-          <div className="p-2 text-sm font-semibold sm:border-r border-gray-300 border-b sm:border-b-0">Format: Product Weight and Sealing Check Record</div>
-          <div className="p-2 text-sm sm:border-r border-gray-300 border-b sm:border-b-0">Revision Date: 01/10/2025</div>
-          <div className="p-2 text-sm">Revision No.: 02</div>
-        </div>
-        <div className="p-2 text-sm font-semibold text-center">Document No: CFPLA.C6.F.16</div>
-      </div>
+      </DocSection>
 
-      {/* Meta fields */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Location</label>
-          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="border rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Frequency</label>
-          <input type="text" value="Every hour, 10 samples (Start-Mid-End)" readOnly className="border rounded px-3 py-2 w-full bg-gray-50" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Name of Product</label>
-          <input type="text" value={productName} onChange={(e) => setProductName(e.target.value)} className="border rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Batch No.</label>
-          <input type="text" value={batchNo} onChange={(e) => setBatchNo(e.target.value)} className="border rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Customer</label>
-          <input type="text" value={customer} onChange={(e) => setCustomer(e.target.value)} className="border rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">PKD</label>
-          <input type="text" value={pkd} onChange={(e) => setPkd(e.target.value)} className="border rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Declared Product Net Weight (gms)</label>
-          <input type="number" value={declaredNetWeight} onChange={(e) => setDeclaredNetWeight(e.target.value)} className="border rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Permissible Error ({'\u00B1'}gms)</label>
-          <input type="number" value={permissibleError} onChange={(e) => setPermissibleError(e.target.value)} className="border rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Total Pkts Produced (Nos)</label>
-          <input type="number" value={totalPktsProduced} onChange={(e) => setTotalPktsProduced(e.target.value)} className="border rounded px-3 py-2 w-full" />
-        </div>
-      </div>
-
-      {/* Table */}
-      <p className="text-xs text-gray-400 mb-1 italic sm:hidden">{'\u2190'} Swipe left/right to view all columns</p>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-gray-300 px-2 py-2">Sr. No</th>
-              <th className="border border-gray-300 px-2 py-2">Time</th>
-              <th className="border border-gray-300 px-2 py-2">
-                <div className="flex flex-col items-center gap-1">
-                  <span>Packing Material Weight (g)</span>
-                  <button type="button" onClick={() => autofillColumn("packingMaterialWeight")} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded whitespace-nowrap">Fill All ↓</button>
-                </div>
-              </th>
-              <th className="border border-gray-300 px-2 py-2">
-                <div className="flex flex-col items-center gap-1">
-                  <span>Net Weight (g)</span>
-                  <button type="button" onClick={() => autofillColumn("netWeight")} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded whitespace-nowrap">Fill All ↓</button>
-                </div>
-              </th>
-              <th className="border border-gray-300 px-2 py-2">
-                <div className="flex flex-col items-center gap-1">
-                  <span>Observed Gross Weight (g)</span>
-                  <button type="button" onClick={() => autofillColumn("observedGrossWeight")} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded whitespace-nowrap">Fill All ↓</button>
-                </div>
-              </th>
-              <th className="border border-gray-300 px-2 py-2">Deviations Noted (Ok/Not Ok)</th>
-              <th className="border border-gray-300 px-2 py-2">Sealing Check (Ok/Not Ok)</th>
-              <th className="border border-gray-300 px-2 py-2">N2 %</th>
-              <th className="border border-gray-300 px-2 py-2">Checked By</th>
-              <th className="border border-gray-300 px-2 py-2">Verified By</th>
-              <th className="border border-gray-300 px-2 py-2">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-2 py-1 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="time" value={row.time} onChange={(e) => updateRow(row.id, "time", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" inputMode="decimal" value={row.packingMaterialWeight} onChange={(e) => updateRow(row.id, "packingMaterialWeight", e.target.value.replace(/[^0-9.]/g, ""))} className="w-full border rounded px-1 py-1 text-sm" />
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" inputMode="decimal" value={row.netWeight} onChange={(e) => updateRow(row.id, "netWeight", e.target.value.replace(/[^0-9.]/g, ""))} className="w-full border rounded px-1 py-1 text-sm" />
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" inputMode="decimal" value={row.observedGrossWeight} readOnly className="w-full border rounded px-1 py-1 text-sm bg-gray-50" />
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <label className="flex items-center justify-center gap-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={row.deviationsNoted === "Ok"}
-                      onChange={(e) => updateRow(row.id, "deviationsNoted", e.target.checked ? "Ok" : "Not Ok")}
-                      className="h-4 w-4"
-                    />
-                    <span className="text-xs">{row.deviationsNoted}</span>
-                  </label>
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <label className="flex items-center justify-center gap-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={row.sealingCheck === "Ok"}
-                      onChange={(e) => updateRow(row.id, "sealingCheck", e.target.checked ? "Ok" : "Not Ok")}
-                      className="h-4 w-4"
-                    />
-                    <span className="text-xs">{row.sealingCheck}</span>
-                  </label>
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" value={row.n2Percent} onChange={(e) => updateRow(row.id, "n2Percent", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" value={row.checkedBy} onChange={(e) => updateRow(row.id, "checkedBy", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" value={row.verifiedBy} onChange={(e) => updateRow(row.id, "verifiedBy", e.target.value)} className="w-full border rounded px-1 py-1 text-sm" />
-                </td>
-                <td className="border border-gray-300 px-1 py-1 text-center">
-                  <button onClick={() => removeRow(row.id)} className="text-red-500 hover:text-red-700 text-xs">{'\u2715'}</button>
-                </td>
+      <DocSection
+        title="Weight & Sealing Samples"
+        description={`${rows.length} sample${rows.length !== 1 ? "s" : ""}`}
+        bleed
+        actions={
+          <button onClick={addRow} className="btn-primary !py-1.5 !px-3 text-xs">
+            <Plus className="w-3.5 h-3.5 mr-1" /> Add Row
+          </button>
+        }
+      >
+        <p className="text-[11px] text-ink-400 italic px-4 pt-3 sm:hidden">← Swipe to view all columns</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">#</th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Time</th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">
+                  <div className="flex flex-col items-center gap-1">
+                    <span>Pkg Mat. (g)</span>
+                    {fillAllBtn("packingMaterialWeight")}
+                  </div>
+                </th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">
+                  <div className="flex flex-col items-center gap-1">
+                    <span>Net Wt (g)</span>
+                    {fillAllBtn("netWeight")}
+                  </div>
+                </th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">
+                  <div className="flex flex-col items-center gap-1">
+                    <span>Gross Wt (g)</span>
+                    {fillAllBtn("observedGrossWeight")}
+                  </div>
+                </th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Deviation</th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Sealing</th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">N₂ %</th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">
+                  <div className="flex flex-col items-center gap-1">
+                    <span>Checked By</span>
+                    {fillAllBtn("checkedBy")}
+                  </div>
+                </th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">
+                  <div className="flex flex-col items-center gap-1">
+                    <span>Verified By</span>
+                    {fillAllBtn("verifiedBy")}
+                  </div>
+                </th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((row, idx) => (
+                <tr key={row.id} className="hover:bg-cream-100/60 transition-colors">
+                  <td className="px-2 py-1.5 text-center text-xs font-semibold text-ink-400">{idx + 1}</td>
+                  <td className="px-1 py-1.5">
+                    <Time12Picker value={row.time} onChange={(v) => updateRow(row.id, "time", v)} />
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <input type="text" inputMode="decimal" value={row.packingMaterialWeight} onChange={(e) => updateRow(row.id, "packingMaterialWeight", e.target.value.replace(/[^0-9.]/g, ""))} className="input-base !py-1.5 !px-2 text-center" />
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <input type="text" inputMode="decimal" value={row.netWeight} onChange={(e) => updateRow(row.id, "netWeight", e.target.value.replace(/[^0-9.]/g, ""))} className="input-base !py-1.5 !px-2 text-center" />
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <input type="text" inputMode="decimal" value={row.observedGrossWeight} readOnly className="input-base !py-1.5 !px-2 text-center bg-cream-200/60" />
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <label className="flex items-center justify-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={row.deviationsNoted === "Ok"}
+                        onChange={(e) => updateRow(row.id, "deviationsNoted", e.target.checked ? "Ok" : "Not Ok")}
+                        className="h-4 w-4 accent-brand-500"
+                      />
+                      <span className={`text-[11px] font-semibold ${row.deviationsNoted === "Ok" ? "text-success-600" : "text-danger-600"}`}>{row.deviationsNoted}</span>
+                    </label>
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <label className="flex items-center justify-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={row.sealingCheck === "Ok"}
+                        onChange={(e) => updateRow(row.id, "sealingCheck", e.target.checked ? "Ok" : "Not Ok")}
+                        className="h-4 w-4 accent-brand-500"
+                      />
+                      <span className={`text-[11px] font-semibold ${row.sealingCheck === "Ok" ? "text-success-600" : "text-danger-600"}`}>{row.sealingCheck}</span>
+                    </label>
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <input type="text" value={row.n2Percent} onChange={(e) => updateRow(row.id, "n2Percent", e.target.value)} className="input-base !py-1.5 !px-2 text-center" />
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <input type="text" value={row.checkedBy} onChange={(e) => updateRow(row.id, "checkedBy", e.target.value)} className="input-base !py-1.5 !px-2" />
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <input type="text" value={row.verifiedBy} onChange={(e) => updateRow(row.id, "verifiedBy", e.target.value)} className="input-base !py-1.5 !px-2" />
+                  </td>
+                  <td className="px-1 py-1.5 text-center">
+                    <button
+                      onClick={() => removeRow(row.id)}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50"
+                      title="Remove"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </DocSection>
+
+      <DocSection title="Remarks">
+        <textarea
+          value={remarks}
+          onChange={(e) => setRemarks(e.target.value)}
+          rows={3}
+          className="input-base"
+          placeholder="Optional remarks for this batch..."
+        />
+      </DocSection>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">Production</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <button
+          onClick={() => { try { localStorage.removeItem(DRAFT_KEY); } catch {} }}
+          className="btn-primary"
+        >
+          Submit Record
+        </button>
       </div>
-
-      <button onClick={addRow} className="mt-2 bg-green-600 text-white px-4 py-2.5 rounded text-sm hover:bg-green-700 w-full sm:w-auto">+ Add Row</button>
-
-      <div className="mt-4">
-        <label className="block text-sm font-medium mb-1">Remarks</label>
-        <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={3} className="border rounded px-3 py-2 w-full" />
-      </div>
-
-      <div className="mt-2 text-xs text-gray-500">Prepared By: Production | Approved By: FSTL</div>
-      <button onClick={() => { try { localStorage.removeItem(DRAFT_KEY); } catch {} }} className="mt-4 bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 w-full sm:w-auto text-base">Submit</button>
-    </div>
+    </DocFormShell>
   );
 }

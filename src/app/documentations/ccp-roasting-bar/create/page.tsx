@@ -1,13 +1,18 @@
 "use client";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import DocBackButton from "@/components/documentations/DocBackButton";
+import { Flame } from "lucide-react";
+import DocFormShell from "@/components/documentations/DocFormShell";
 import { CCPRoastingBarLine } from "@/components/forms/CFPLA_QCOperationsForms";
 
 export default function Page() {
   return (
-    <DashboardLayout>
-      <DocBackButton />
+    <DocFormShell
+      title="CCP Roasting (Bar Line)"
+      docNo="CFPLA.C2.F.43"
+      subtitle="Monitoring & Verification of CCP — Roasting Temp & Time"
+      icon={Flame}
+      width="full"
+    >
       <CCPRoastingBarLine />
-    </DashboardLayout>
+    </DocFormShell>
   );
 }

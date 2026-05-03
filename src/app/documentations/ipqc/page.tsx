@@ -228,6 +228,9 @@ export default function IPQCListPage() {
                       <button onClick={() => handlePrint(record.ipqc_no)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-ink-500 hover:bg-cream-100 hover:text-brand-500 transition-colors">
                         <Printer className="w-3.5 h-3.5" /> Print
                       </button>
+                      <button onClick={() => router.push(`/lab-reports/create?ipqc=${record.ipqc_no}`)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-brand-600 hover:bg-brand-50 transition-colors">
+                        COA
+                      </button>
                       {isAdmin && (
                         <button onClick={() => router.push(`/documentations/ipqc/view?id=${record.ipqc_no}`)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-ink-500 hover:bg-cream-100 hover:text-brand-500 transition-colors">
                           <Pencil className="w-3.5 h-3.5" /> Edit
@@ -253,6 +256,7 @@ export default function IPQCListPage() {
                       <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider">Articles</th>
                       <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Warehouse</th>
                       <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Approved By</th>
+                      <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Lab Report</th>
                       <th className="px-5 py-3 text-right text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
@@ -302,6 +306,14 @@ export default function IPQCListPage() {
                                 <Clock className="w-3 h-3" /> Pending
                               </span>
                             )}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <button
+                              onClick={() => router.push(`/lab-reports/create?ipqc=${record.ipqc_no}`)}
+                              className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-brand-50 text-brand-600 hover:bg-brand-100 hover:text-brand-700 text-xs font-semibold transition-colors border border-brand-200"
+                            >
+                              COA
+                            </button>
                           </td>
                           <td className="px-5 py-3.5 whitespace-nowrap">
                             <div className="flex items-center gap-0.5 justify-end">

@@ -58,17 +58,69 @@ function VehicleInspectionForm({ type, docNo, infoFields, initialData, onSubmit,
   };
 
   return (
-    <div className="p-4 max-w-3xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded"><div className="bg-gray-50 p-3"><h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1><p className="text-sm font-semibold">{type} Vehicle Inspection Record</p><p className="text-xs text-gray-600">Doc No: {docNo}</p></div></div>
-      <h3 className="font-semibold text-sm mb-2">Vehicle Information</h3>
-      <div className="border border-gray-300 rounded mb-4">{infoFields.map((f) => <div key={f.label} className="flex border-b border-gray-200 last:border-b-0"><label className="w-1/2 px-3 py-2 text-sm font-medium bg-gray-50 border-r border-gray-200">{f.label}</label><div className="w-1/2 px-2 py-1"><input type={f.type || "text"} value={info[f.label] || ""} onChange={(e) => setInfo((p) => ({ ...p, [f.label]: e.target.value }))} className="w-full border rounded px-2 py-1 text-sm" /></div></div>)}</div>
-      <h3 className="font-semibold text-sm mb-2">Parameters Evaluated</h3>
-      <div className="border border-gray-300 rounded mb-4">{VEHICLE_EVAL_PARAMS.map((p) => <div key={p} className="flex border-b border-gray-200 last:border-b-0"><label className="w-1/2 px-3 py-2 text-sm font-medium bg-gray-50 border-r border-gray-200">{p}</label><div className="w-1/2 px-2 py-1"><input type="text" value={params[p] || ""} onChange={(e) => setParams((pr) => ({ ...pr, [p]: e.target.value }))} className="w-full border rounded px-2 py-1 text-sm" placeholder="Observation" /></div></div>)}</div>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: FST | Approved by: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Vehicle Information</h2>
+          <span className="text-[11px] font-semibold text-ink-400">{infoFields.length} fields</span>
+        </header>
+        <div className="divide-y divide-cream-300">
+          {infoFields.map((f) => (
+            <div key={f.label} className="grid grid-cols-1 sm:grid-cols-[40%_60%] gap-1 sm:gap-0">
+              <label className="px-4 sm:px-5 pt-3 sm:py-3 text-xs sm:text-sm font-semibold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center">
+                {f.label}
+              </label>
+              <div className="px-3 sm:px-4 pb-3 sm:py-2.5">
+                <input
+                  type={f.type || "text"}
+                  value={info[f.label] || ""}
+                  onChange={(e) => setInfo((p) => ({ ...p, [f.label]: e.target.value }))}
+                  className="input-base !py-2 !px-3"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Parameters Evaluated</h2>
+          <span className="text-[11px] font-semibold text-ink-400">{VEHICLE_EVAL_PARAMS.length} checks</span>
+        </header>
+        <div className="divide-y divide-cream-300">
+          {VEHICLE_EVAL_PARAMS.map((p) => (
+            <div key={p} className="grid grid-cols-1 sm:grid-cols-[55%_45%] gap-1 sm:gap-0">
+              <label className="px-4 sm:px-5 pt-3 sm:py-3 text-xs sm:text-sm font-semibold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center">
+                {p}
+              </label>
+              <div className="px-3 sm:px-4 pb-3 sm:py-2.5">
+                <input
+                  type="text"
+                  value={params[p] || ""}
+                  onChange={(e) => setParams((pr) => ({ ...pr, [p]: e.target.value }))}
+                  className="input-base !py-2 !px-3"
+                  placeholder="Observation"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared by: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved by: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

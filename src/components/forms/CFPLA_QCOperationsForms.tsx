@@ -63,41 +63,57 @@ export function FirstAidBoxRecord({ initialData, onSubmit, isEdit }: FirstAidBox
   };
 
   return (
-    <div className="p-4 max-w-5xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">First Aid Box Record</p>
-          <p className="text-xs text-gray-600">Doc No: CFPLA.C7.F.29 | Issue No: 02 | Rev Date: 01/10/2025</p>
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">First Aid Items</h2>
+          <button onClick={add} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Row</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                {["#", "Box No", "Item", "Issue Date", "Expiry", "Qty", "Responsible", ""].map((h) => (
+                  <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((r, i) => {
+                const expired = r.expiryDate && new Date(r.expiryDate) < new Date();
+                return (
+                  <tr key={r.id} className="hover:bg-cream-100/60">
+                    <td className="px-2 py-1.5 text-center text-ink-400 font-medium">{i + 1}</td>
+                    <td className="px-1 py-1.5"><input type="text" value={r.boxNo} onChange={(e) => up(r.id, "boxNo", e.target.value)} className="input-base !py-1 !px-2 text-sm" /></td>
+                    <td className="px-1 py-1.5"><input type="text" value={r.itemName} onChange={(e) => up(r.id, "itemName", e.target.value)} className="input-base !py-1 !px-2 text-sm min-w-[150px]" /></td>
+                    <td className="px-1 py-1.5"><input type="date" value={r.issueDate} onChange={(e) => up(r.id, "issueDate", e.target.value)} className="input-base !py-1 !px-2 text-sm" /></td>
+                    <td className="px-1 py-1.5">
+                      <input type="date" value={r.expiryDate} onChange={(e) => up(r.id, "expiryDate", e.target.value)} className={`input-base !py-1 !px-2 text-sm ${expired ? "!bg-danger-50 !text-danger-600 !border-danger-200" : ""}`} />
+                    </td>
+                    <td className="px-1 py-1.5"><input type="number" value={r.qtyIssued} onChange={(e) => up(r.id, "qtyIssued", e.target.value)} className="input-base !py-1 !px-2 text-sm w-20" /></td>
+                    <td className="px-1 py-1.5"><input type="text" value={r.responsiblePerson} onChange={(e) => up(r.id, "responsiblePerson", e.target.value)} className="input-base !py-1 !px-2 text-sm" /></td>
+                    <td className="px-1 py-1.5 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared by: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
         </div>
       </div>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr>{["SR.NO", "Box No", "Item Name", "Issue Date", "Expiry Date", "Quantity Issued", "Responsible Person", ""].map((h) => <th key={h} className="border border-gray-300 px-2 py-2">{h}</th>)}</tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-2 py-1 text-center">{i + 1}</td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.boxNo} onChange={(e) => up(r.id, "boxNo", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.itemName} onChange={(e) => up(r.id, "itemName", e.target.value)} className="w-full border rounded px-1 py-0.5 min-w-[150px]" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="date" value={r.issueDate} onChange={(e) => up(r.id, "issueDate", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="date" value={r.expiryDate} onChange={(e) => up(r.id, "expiryDate", e.target.value)} className={`w-full border rounded px-1 py-0.5 ${r.expiryDate && new Date(r.expiryDate) < new Date() ? "bg-red-100" : ""}`} /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="number" value={r.qtyIssued} onChange={(e) => up(r.id, "qtyIssued", e.target.value)} className="w-20 border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.responsiblePerson} onChange={(e) => up(r.id, "responsiblePerson", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="text-red-500 text-xs">✕</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={add} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: FST | Approved By: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -161,90 +177,127 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit }: Traceabili
   };
 
   return (
-    <div className="p-4 max-w-5xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">Traceability Report</p>
-          <p className="text-xs text-gray-600">Doc No: CFPLA.C3.F.30</p>
-        </div>
-      </div>
-      <div className="border border-gray-300 rounded mb-4">
-        {[{ l: "Date", v: date, s: setDate, t: "date" }, { l: "Start Time", v: startTime, s: setStartTime, t: "time" }, { l: "Product Name", v: productName, s: setProductName }, { l: "Batch Number (Coding Format)", v: batchNumber, s: setBatchNumber }, { l: "Work Order Number", v: workOrderNo, s: setWorkOrderNo }, { l: "Date of Packing", v: packingDate, s: setPackingDate, t: "date" }, { l: "Expiry Date", v: expiryDate, s: setExpiryDate, t: "date" }, { l: "Size/Packing", v: sizePacking, s: setSizePacking }, { l: "Quantity Produced (kg)", v: qtyProduced, s: setQtyProduced, t: "number" }].map((f) => (
-          <div key={f.l} className="flex border-b border-gray-200 last:border-b-0">
-            <label className="w-1/3 px-3 py-2 text-sm font-medium bg-gray-50 border-r border-gray-200">{f.l}</label>
-            <div className="w-2/3 px-2 py-1"><input type={f.t || "text"} value={f.v} onChange={(e) => f.s(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" /></div>
-          </div>
-        ))}
-      </div>
-
-      <h3 className="font-semibold text-sm mb-2">Ingredients</h3>
-      <div className="overflow-x-auto border border-gray-300 rounded mb-2">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100"><tr>{["Ingredients", "Lot No", "Supplier", "PO No.", "Received Qty", "Issued Qty", "Date of Issuance"].map((h) => <th key={h} className="border border-gray-300 px-2 py-1">{h}</th>)}</tr></thead>
-          <tbody>
-            {ingredients.map((r) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                {(["ingredient", "lotNo", "supplier", "poNo", "receivedQty", "issuedQty", "dateOfIssuance"] as (keyof IngRow)[]).map((f) => (
-                  <td key={f} className="border border-gray-300 px-1 py-1"><input type={f === "dateOfIssuance" ? "date" : "text"} value={r[f] as string} onChange={(e) => setIngredients((p) => p.map((x) => (x.id === r.id ? { ...x, [f]: e.target.value } : x)))} className="w-full border rounded px-1 py-0.5" /></td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={addIng} className="mb-4 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">+ Add Ingredient</button>
-
-      <h3 className="font-semibold text-sm mb-2">Packing Materials</h3>
-      <div className="overflow-x-auto border border-gray-300 rounded mb-2">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100"><tr>{["Material", "Lot No", "Supplier", "PO No.", "Issuance Date", "Quality Approval Date", "Inward Qty", "Used Qty"].map((h) => <th key={h} className="border border-gray-300 px-2 py-1">{h}</th>)}</tr></thead>
-          <tbody>
-            {packMaterials.map((r) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                {(["material", "lotNo", "supplier", "poNo", "issuanceDate", "qualityApprovalDate", "inwardQty", "usedQty"] as (keyof PackRow)[]).map((f) => (
-                  <td key={f} className="border border-gray-300 px-1 py-1"><input type={f.includes("Date") ? "date" : "text"} value={r[f] as string} onChange={(e) => setPackMaterials((p) => p.map((x) => (x.id === r.id ? { ...x, [f]: e.target.value } : x)))} className="w-full border rounded px-1 py-0.5" /></td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={addPack} className="mb-4 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">+ Add Material</button>
-
-      <h3 className="font-semibold text-sm mb-2">Mass Balance</h3>
-      <div className="grid grid-cols-4 gap-2 mb-4">
-        {[{ l: "RM Quantity", v: rmQty, s: setRmQty }, { l: "Total FG Produced", v: fgProduced, s: setFgProduced }, { l: "Rejection Qty", v: rejectionQty, s: setRejectionQty }, { l: "Stock Balance", v: stockBalance, s: setStockBalance }].map((f) => (
-          <div key={f.l}><label className="text-xs font-medium">{f.l}</label><input type="number" value={f.v} onChange={(e) => f.s(e.target.value)} className="border rounded px-2 py-1 w-full text-sm" /></div>
-        ))}
-      </div>
-
-      <h3 className="font-semibold text-sm mb-2">Documents Review Checklist</h3>
-      <div className="border border-gray-300 rounded mb-4">
-        {TRACE_DOCS.map((doc, i) => (
-          <div key={i} className="flex items-center border-b border-gray-200 last:border-b-0 px-3 py-1.5">
-            <span className="w-8 text-xs text-gray-500">{i + 1}.</span>
-            <span className="flex-1 text-sm">{doc}</span>
-            <div className="flex gap-2">
-              {(["Yes", "No"] as const).map((v) => (
-                <label key={v} className={`px-2 py-0.5 rounded border text-xs cursor-pointer ${docChecks[doc] === v ? (v === "Yes" ? "bg-green-100 border-green-400" : "bg-red-100 border-red-400") : "border-gray-300"}`}>
-                  <input type="radio" name={`doc-${i}`} className="sr-only" checked={docChecks[doc] === v} onChange={() => setDocChecks((p) => ({ ...p, [doc]: v }))} />{v}
-                </label>
-              ))}
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Production Information</h2>
+        </header>
+        <div className="divide-y divide-cream-300">
+          {[{ l: "Date", v: date, s: setDate, t: "date" }, { l: "Start Time", v: startTime, s: setStartTime, t: "time" }, { l: "Product Name", v: productName, s: setProductName }, { l: "Batch Number (Coding Format)", v: batchNumber, s: setBatchNumber }, { l: "Work Order Number", v: workOrderNo, s: setWorkOrderNo }, { l: "Date of Packing", v: packingDate, s: setPackingDate, t: "date" }, { l: "Expiry Date", v: expiryDate, s: setExpiryDate, t: "date" }, { l: "Size/Packing", v: sizePacking, s: setSizePacking }, { l: "Quantity Produced (kg)", v: qtyProduced, s: setQtyProduced, t: "number" }].map((f) => (
+            <div key={f.l} className="grid grid-cols-1 sm:grid-cols-[35%_65%] gap-1 sm:gap-0">
+              <label className="px-4 sm:px-5 pt-3 sm:py-3 text-xs sm:text-sm font-semibold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center">{f.l}</label>
+              <div className="px-3 sm:px-4 pb-3 sm:py-2.5">
+                <input type={f.t || "text"} value={f.v} onChange={(e) => f.s(e.target.value)} className="input-base !py-2 !px-3" />
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div><label className="text-sm font-medium">Overall Conclusion</label><textarea value={conclusion} onChange={(e) => setConclusion(e.target.value)} rows={2} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="text-sm font-medium">Prepared By</label><input type="text" value={preparedBy} onChange={(e) => setPreparedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="text-sm font-medium">Reviewed By</label><input type="text" value={reviewedBy} onChange={(e) => setReviewedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Ingredients</h2>
+          <button onClick={addIng} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Ingredient</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>{["Ingredient", "Lot No", "Supplier", "PO No.", "Received", "Issued", "Date of Issuance"].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {ingredients.map((r) => (
+                <tr key={r.id} className="hover:bg-cream-100/60">
+                  {(["ingredient", "lotNo", "supplier", "poNo", "receivedQty", "issuedQty", "dateOfIssuance"] as (keyof IngRow)[]).map((f) => (
+                    <td key={f} className="px-1 py-1"><input type={f === "dateOfIssuance" ? "date" : "text"} value={r[f] as string} onChange={(e) => setIngredients((p) => p.map((x) => (x.id === r.id ? { ...x, [f]: e.target.value } : x)))} className="input-base !py-1 !px-2 text-xs" /></td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Packing Materials</h2>
+          <button onClick={addPack} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Material</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>{["Material", "Lot No", "Supplier", "PO No.", "Issuance Date", "QA Date", "Inward Qty", "Used Qty"].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {packMaterials.map((r) => (
+                <tr key={r.id} className="hover:bg-cream-100/60">
+                  {(["material", "lotNo", "supplier", "poNo", "issuanceDate", "qualityApprovalDate", "inwardQty", "usedQty"] as (keyof PackRow)[]).map((f) => (
+                    <td key={f} className="px-1 py-1"><input type={f.includes("Date") ? "date" : "text"} value={r[f] as string} onChange={(e) => setPackMaterials((p) => p.map((x) => (x.id === r.id ? { ...x, [f]: e.target.value } : x)))} className="input-base !py-1 !px-2 text-xs" /></td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Mass Balance</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[{ l: "RM Quantity", v: rmQty, s: setRmQty }, { l: "Total FG Produced", v: fgProduced, s: setFgProduced }, { l: "Rejection Qty", v: rejectionQty, s: setRejectionQty }, { l: "Stock Balance", v: stockBalance, s: setStockBalance }].map((f) => (
+            <div key={f.l}>
+              <label className="label-base">{f.l}</label>
+              <input type="number" value={f.v} onChange={(e) => f.s(e.target.value)} className="input-base" />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Documents Review Checklist</h2>
+        </header>
+        <div className="divide-y divide-cream-300">
+          {TRACE_DOCS.map((doc, i) => (
+            <div key={i} className="flex items-center px-4 sm:px-5 py-2 gap-3 hover:bg-cream-100/60">
+              <span className="w-6 text-xs text-ink-400 font-medium">{i + 1}.</span>
+              <span className="flex-1 text-sm text-ink-500">{doc}</span>
+              <div className="flex gap-1.5">
+                {(["Yes", "No"] as const).map((v) => (
+                  <label
+                    key={v}
+                    className={`px-2.5 py-1 rounded-md border text-[11px] font-semibold cursor-pointer transition-colors ${
+                      docChecks[doc] === v
+                        ? v === "Yes"
+                          ? "bg-success-50 border-success-200 text-success-700"
+                          : "bg-danger-50 border-danger-200 text-danger-600"
+                        : "border-cream-300 text-ink-400 hover:bg-cream-100"
+                    }`}
+                  >
+                    <input type="radio" name={`doc-${i}`} className="sr-only" checked={docChecks[doc] === v} onChange={() => setDocChecks((p) => ({ ...p, [doc]: v }))} />
+                    {v}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Conclusion & Approvals</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div><label className="label-base">Overall Conclusion</label><textarea value={conclusion} onChange={(e) => setConclusion(e.target.value)} rows={2} className="input-base" /></div>
+          <div><label className="label-base">Prepared By</label><input type="text" value={preparedBy} onChange={(e) => setPreparedBy(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Reviewed By</label><input type="text" value={reviewedBy} onChange={(e) => setReviewedBy(e.target.value)} className="input-base" /></div>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
+        {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+        <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+          {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+        </button>
       </div>
-      <button onClick={handleSubmit} disabled={submitting} className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -290,40 +343,53 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonito
   };
 
   return (
-    <div className="p-4 max-w-5xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">Lux Monitoring Record</p>
-          <p className="text-xs text-gray-600">Doc No: CFPLA.C4.F.32</p>
+    <div className="space-y-5">
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Date</h2>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-base sm:max-w-xs" />
+      </section>
+
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Lux Readings</h2>
+          <button onClick={add} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Row</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>{["Location", "Table No.", "R1", "R2", "R3", "R4", "R5", "Corrective Action", ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-cream-100/60">
+                  {(["location", "tableNo", "r1", "r2", "r3", "r4", "r5", "correctiveAction"] as (keyof LuxRow)[]).map((f) => (
+                    <td key={f} className="px-1 py-1"><input type={["r1", "r2", "r3", "r4", "r5"].includes(f) ? "number" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  ))}
+                  <td className="px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Approvals</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><label className="label-base">Checked By</label><input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Verified By</label><input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" /></div>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">Prepared by: <span className="font-semibold text-ink-500">FST</span><span className="mx-2 text-cream-300">|</span>Approved by: <span className="font-semibold text-ink-500">FSTL</span></p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
         </div>
       </div>
-      <div className="mb-4"><label className="block text-sm font-medium mb-1">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border rounded px-3 py-2 w-64" /></div>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100"><tr>{["Location", "Table No.", "R1", "R2", "R3", "R4", "R5", "Corrective Action", ""].map((h) => <th key={h} className="border border-gray-300 px-2 py-2">{h}</th>)}</tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                {(["location", "tableNo", "r1", "r2", "r3", "r4", "r5", "correctiveAction"] as (keyof LuxRow)[]).map((f) => (
-                  <td key={f} className="border border-gray-300 px-1 py-1"><input type={["r1", "r2", "r3", "r4", "r5"].includes(f) ? "number" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                ))}
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="text-red-500 text-xs">✕</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={add} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        <div><label className="text-sm font-medium">Checked By</label><input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="text-sm font-medium">Verified By</label><input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-      </div>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: FST | Approved by: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -371,46 +437,57 @@ export function PreWeighingCheckRecord({ initialData, onSubmit, isEdit }: PreWei
   };
 
   return (
-    <div className="p-4 max-w-5xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3">
-          <h1 className="font-bold text-lg">Candor Foods Private Limited</h1>
-          <p className="text-sm font-semibold">Pre Weighing Check Record</p>
-          <p className="text-xs text-gray-600">Doc No: CFPLA.C6.F.34 | Issue Date: 13/05/2025</p>
+    <div className="space-y-5">
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Batch Information</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div><label className="label-base">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Customer</label><input type="text" value={customer} onChange={(e) => setCustomer(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Product</label><input type="text" value={product} onChange={(e) => setProduct(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">RM Analysis Date</label><input type="date" value={rmAnalysisDate} onChange={(e) => setRmAnalysisDate(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">RM Analysis Done By</label><input type="text" value={rmAnalysisDoneBy} onChange={(e) => setRmAnalysisDoneBy(e.target.value)} className="input-base" /></div>
         </div>
+      </section>
+
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Raw Materials</h2>
+          <button onClick={add} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Row</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>{["#", "Raw Material", "Qty", "No. of Bags", "Batch / Lot / Challan", "Remark", ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((r, i) => (
+                <tr key={r.id} className="hover:bg-cream-100/60">
+                  <td className="px-2 py-1.5 text-center text-ink-400 font-medium">{i + 1}</td>
+                  {(["rawMaterial", "qty", "noOfBags", "batchLotNo", "remark"] as (keyof PreWeighRow)[]).map((f) => (
+                    <td key={f} className="px-1 py-1.5"><input type={f === "qty" || f === "noOfBags" ? "number" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  ))}
+                  <td className="px-1 py-1.5 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Approvals</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><label className="label-base">Checked By (Team Leader)</label><input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Verified By (Floor Manager)</label><input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" /></div>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
+        {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+        <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+          {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+        </button>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-        <div><label className="block text-sm font-medium mb-1">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Customer</label><input type="text" value={customer} onChange={(e) => setCustomer(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Product</label><input type="text" value={product} onChange={(e) => setProduct(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">RM Analysis Date</label><input type="date" value={rmAnalysisDate} onChange={(e) => setRmAnalysisDate(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">RM Analysis Done By</label><input type="text" value={rmAnalysisDoneBy} onChange={(e) => setRmAnalysisDoneBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-      </div>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100"><tr>{["Sr. No.", "Raw Material", "Qty", "No. of Bags", "Batch Number/Lot No./Challan No./Invoice No.", "Remark", ""].map((h) => <th key={h} className="border border-gray-300 px-2 py-2">{h}</th>)}</tr></thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-2 py-1 text-center">{i + 1}</td>
-                {(["rawMaterial", "qty", "noOfBags", "batchLotNo", "remark"] as (keyof PreWeighRow)[]).map((f) => (
-                  <td key={f} className="border border-gray-300 px-1 py-1"><input type={f === "qty" || f === "noOfBags" ? "number" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                ))}
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="text-red-500 text-xs">✕</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={add} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        <div><label className="text-sm font-medium">Checked By (Team Leader)</label><input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="text-sm font-medium">Verified By (Floor Manager)</label><input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-      </div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -453,46 +530,61 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
   };
 
   return (
-    <div className="p-4 max-w-full mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">Daily Checks for Fly Catcher (EFC) - Inhouse</p>
-          <p className="text-xs text-gray-600">Doc No: CFPLA.C7.F.37</p>
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Fly Catcher Checks</h2>
+          <button onClick={add} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Row</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>{["Location", "Catcher No.", "Date", "Glue Pad", "Flies Qty (g)", "Tubelight", "Done By", "Observation", "Corrective", "Verified By", ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-cream-100/60">
+                  <td className="px-1 py-1"><input type="text" value={r.location} onChange={(e) => up(r.id, "location", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><input type="text" value={r.flyCatcherNo} onChange={(e) => up(r.id, "flyCatcherNo", e.target.value)} className="input-base !py-1 !px-2 text-xs w-16" /></td>
+                  <td className="px-1 py-1"><input type="date" value={r.date} onChange={(e) => up(r.id, "date", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1">
+                    <select
+                      value={r.gluePadStatus}
+                      onChange={(e) => up(r.id, "gluePadStatus", e.target.value)}
+                      className={`w-full border rounded-md px-1.5 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${
+                        r.gluePadStatus === "Cleaned"
+                          ? "bg-success-50 text-success-700 border-success-200"
+                          : r.gluePadStatus === "Uncleaned"
+                          ? "bg-danger-50 text-danger-600 border-danger-200"
+                          : "bg-cream-50 border-cream-300 text-ink-500"
+                      }`}
+                    >
+                      <option value="">—</option><option value="Cleaned">Cleaned</option><option value="Uncleaned">Uncleaned</option>
+                    </select>
+                  </td>
+                  <td className="px-1 py-1"><input type="number" value={r.fliesWeight} onChange={(e) => up(r.id, "fliesWeight", e.target.value)} className="input-base !py-1 !px-2 text-xs w-16" step="0.1" /></td>
+                  <td className="px-1 py-1"><input type="text" value={r.integrityTubelights} onChange={(e) => up(r.id, "integrityTubelights", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><input type="text" value={r.doneBy} onChange={(e) => up(r.id, "doneBy", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><input type="text" value={r.observation} onChange={(e) => up(r.id, "observation", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><input type="text" value={r.correctiveAction} onChange={(e) => up(r.id, "correctiveAction", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><input type="text" value={r.verifiedBy} onChange={(e) => up(r.id, "verifiedBy", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">Prepared by: <span className="font-semibold text-ink-500">FST</span><span className="mx-2 text-cream-300">|</span>Approved by: <span className="font-semibold text-ink-500">FSTL</span></p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
         </div>
       </div>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100"><tr>{["Location", "Fly Catcher No.", "Date", "Glue Pad Status", "Flies Qty (gms)", "Integrity of Tubelights", "Done By", "Observation", "Corrective Action", "Verified By", ""].map((h) => <th key={h} className="border border-gray-300 px-2 py-2">{h}</th>)}</tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.location} onChange={(e) => up(r.id, "location", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.flyCatcherNo} onChange={(e) => up(r.id, "flyCatcherNo", e.target.value)} className="w-16 border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="date" value={r.date} onChange={(e) => up(r.id, "date", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={r.gluePadStatus} onChange={(e) => up(r.id, "gluePadStatus", e.target.value)} className={`w-full border rounded px-1 py-0.5 ${r.gluePadStatus === "Cleaned" ? "bg-green-100" : r.gluePadStatus === "Uncleaned" ? "bg-red-100" : ""}`}>
-                    <option value="">-</option><option value="Cleaned">Cleaned</option><option value="Uncleaned">Uncleaned</option>
-                  </select>
-                </td>
-                <td className="border border-gray-300 px-1 py-1"><input type="number" value={r.fliesWeight} onChange={(e) => up(r.id, "fliesWeight", e.target.value)} className="w-16 border rounded px-1 py-0.5" step="0.1" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.integrityTubelights} onChange={(e) => up(r.id, "integrityTubelights", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.doneBy} onChange={(e) => up(r.id, "doneBy", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.observation} onChange={(e) => up(r.id, "observation", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.correctiveAction} onChange={(e) => up(r.id, "correctiveAction", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.verifiedBy} onChange={(e) => up(r.id, "verifiedBy", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="text-red-500 text-xs">✕</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={add} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: FST | Approved by: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -535,36 +627,41 @@ export function CCPRoastingBarLine({ initialData, onSubmit, isEdit }: CCPRoastin
   };
 
   return (
-    <div className="p-4 max-w-full mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">Monitoring and Verification of CCP - Roasting Temperature & Time (Bar Line)</p>
-          <p className="text-xs text-gray-600">Doc No: CFPLA.C2.F.43</p>
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Bar Line Roasting Log</h2>
+          <button onClick={add} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Row</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>{["Sr.", "Date", "SKU", "Qty", "Set Temp", "In Time", "QC Time", "QC Temp", "Out Time", "Operator", "QC Sign", ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {rows.map((r, i) => (
+                <tr key={r.id} className="hover:bg-cream-100/60">
+                  <td className="px-2 py-1.5 text-center text-ink-400 font-medium">{i + 1}</td>
+                  {(["date", "skuName", "qtyUnitsKg", "setTemp", "inTime", "qcTime", "qcTemp", "outTime", "operatorSign", "qcSign"] as (keyof BarRoastRow)[]).map((f) => (
+                    <td key={f} className="px-1 py-1"><input type={f === "date" ? "date" : (f as string).includes("Time") ? "time" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  ))}
+                  <td className="px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">Prepared by: <span className="font-semibold text-ink-500">FST</span><span className="mx-2 text-cream-300">|</span>Approved by: <span className="font-semibold text-ink-500">FSTL</span></p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
         </div>
       </div>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100"><tr>{["Sr.", "Date", "SKU Name", "Qty (Units/Kg)", "Set Temp", "In Time", "QC Time", "QC Temp", "Out Time", "Operator Sign", "QC Sign", ""].map((h) => <th key={h} className="border border-gray-300 px-2 py-2">{h}</th>)}</tr></thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-1 py-1 text-center">{i + 1}</td>
-                {(["date", "skuName", "qtyUnitsKg", "setTemp", "inTime", "qcTime", "qcTemp", "outTime", "operatorSign", "qcSign"] as (keyof BarRoastRow)[]).map((f) => (
-                  <td key={f} className="border border-gray-300 px-1 py-1"><input type={f === "date" ? "date" : (f as string).includes("Time") ? "time" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
-                ))}
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="text-red-500 text-xs">✕</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={add} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: FST | Approved by: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -606,40 +703,50 @@ export function IncomingVehicleInspection({ initialData, onSubmit, isEdit }: Inc
   const INFO_FIELDS = [{ l: "Date of Vehicle Inward", t: "date" }, { l: "Vendor Name" }, { l: "Commodity Name" }, { l: "Transporter's Name" }, { l: "Transporter FSSAI License Number" }, { l: "Vehicle Number" }, { l: "Location (received from)" }, { l: "Driver's Name and Number" }, { l: "Unloading Time", t: "time" }];
 
   return (
-    <div className="p-4 max-w-3xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">Incoming Vehicle Inspection Record</p>
-          <p className="text-xs text-gray-600">Doc No: CFPLA.C3.F.45 | Issue No: 04 | Rev Date: 05/10/2023 | Rev No: 03</p>
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Vehicle Information</h2>
+          <span className="text-[11px] font-semibold text-ink-400">{INFO_FIELDS.length} fields</span>
+        </header>
+        <div className="divide-y divide-cream-300">
+          {INFO_FIELDS.map((f) => (
+            <div key={f.l} className="grid grid-cols-1 sm:grid-cols-[40%_60%] gap-1 sm:gap-0">
+              <label className="px-4 sm:px-5 pt-3 sm:py-3 text-xs sm:text-sm font-semibold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center">{f.l}</label>
+              <div className="px-3 sm:px-4 pb-3 sm:py-2.5">
+                <input type={f.t || "text"} value={info[f.l] || ""} onChange={(e) => upI(f.l, e.target.value)} className="input-base !py-2 !px-3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Parameters Evaluated</h2>
+          <span className="text-[11px] font-semibold text-ink-400">{VEHICLE_PARAMS.length} checks</span>
+        </header>
+        <div className="divide-y divide-cream-300">
+          {VEHICLE_PARAMS.map((p) => (
+            <div key={p} className="grid grid-cols-1 sm:grid-cols-[55%_45%] gap-1 sm:gap-0">
+              <label className="px-4 sm:px-5 pt-3 sm:py-3 text-xs sm:text-sm font-semibold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center">{p}</label>
+              <div className="px-3 sm:px-4 pb-3 sm:py-2.5">
+                <input type="text" value={params[p] || ""} onChange={(e) => upP(p, e.target.value)} className="input-base !py-2 !px-3" placeholder="Observation" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">Prepared by: <span className="font-semibold text-ink-500">FST</span><span className="mx-2 text-cream-300">|</span>Approved by: <span className="font-semibold text-ink-500">FSTL</span></p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
         </div>
       </div>
-
-      <h3 className="font-semibold text-sm mb-2">Vehicle Information</h3>
-      <div className="border border-gray-300 rounded mb-4">
-        {INFO_FIELDS.map((f) => (
-          <div key={f.l} className="flex border-b border-gray-200 last:border-b-0">
-            <label className="w-1/2 px-3 py-2 text-sm font-medium bg-gray-50 border-r border-gray-200">{f.l}</label>
-            <div className="w-1/2 px-2 py-1"><input type={f.t || "text"} value={info[f.l] || ""} onChange={(e) => upI(f.l, e.target.value)} className="w-full border rounded px-2 py-1 text-sm" /></div>
-          </div>
-        ))}
-      </div>
-
-      <h3 className="font-semibold text-sm mb-2">Parameters Evaluated</h3>
-      <div className="border border-gray-300 rounded mb-4">
-        {VEHICLE_PARAMS.map((p) => (
-          <div key={p} className="flex border-b border-gray-200 last:border-b-0">
-            <label className="w-1/2 px-3 py-2 text-sm font-medium bg-gray-50 border-r border-gray-200">{p}</label>
-            <div className="w-1/2 px-2 py-1"><input type="text" value={params[p] || ""} onChange={(e) => upP(p, e.target.value)} className="w-full border rounded px-2 py-1 text-sm" placeholder="Observation" /></div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-2 text-xs text-gray-500">Prepared by: FST | Approved by: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }

@@ -35,8 +35,18 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
 
   const addSensoryRow = () => setSensoryRows((p) => [...p, emptySensoryRow(p.length + 1)]);
   const OkSel = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={`w-full border rounded px-1 py-0.5 text-xs ${value === "Ok" ? "bg-green-100" : value === "Not ok" ? "bg-red-100" : ""}`}>
-      <option value="">-</option><option value="Ok">Ok</option><option value="Not ok">Not ok</option>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full border rounded-md px-1.5 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${
+        value === "Ok"
+          ? "bg-success-50 text-success-700 border-success-200"
+          : value === "Not ok"
+          ? "bg-danger-50 text-danger-600 border-danger-200"
+          : "bg-cream-50 border-cream-300 text-ink-500"
+      }`}
+    >
+      <option value="">—</option><option value="Ok">Ok</option><option value="Not ok">Not ok</option>
     </select>
   );
 
@@ -85,86 +95,125 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
   };
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300"><h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1><p className="text-sm font-semibold">New Product Verification</p><p className="text-xs text-gray-600">Doc No: CFPLA.C5.F.13 | Issue No: 01 | Issue Date: 02/01/2025</p></div>
-      </div>
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Trial Information</h2>
+        </header>
+        <div className="divide-y divide-cream-300">
+          {fields.map((f) => (
+            <div key={f.label} className="grid grid-cols-1 sm:grid-cols-[35%_65%] gap-1 sm:gap-0">
+              <label className="px-4 sm:px-5 pt-3 sm:py-3 text-xs sm:text-sm font-semibold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center">{f.label}</label>
+              <div className="px-3 sm:px-4 pb-3 sm:py-2.5">
+                <input type={f.type || "text"} value={f.value} onChange={(e) => f.set(e.target.value)} className="input-base !py-2 !px-3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Main fields */}
-      <div className="border border-gray-300 rounded mb-4">
-        {fields.map((f) => (
-          <div key={f.label} className="flex border-b border-gray-200 last:border-b-0">
-            <label className="w-1/3 px-3 py-2 text-sm font-medium bg-gray-50 border-r border-gray-200">{f.label}</label>
-            <div className="w-2/3 px-2 py-1"><input type={f.type || "text"} value={f.value} onChange={(e) => f.set(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" /></div>
-          </div>
-        ))}
-      </div>
-
-      {/* Sensory Analysis */}
-      <h3 className="font-semibold text-sm mb-2">Sensory Analysis</h3>
-      <div className="overflow-x-auto border border-gray-300 rounded mb-4">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr><th className="border border-gray-300 px-2 py-1">Sensory Panel</th><th className="border border-gray-300 px-2 py-1">Taste</th><th className="border border-gray-300 px-2 py-1">Odor</th><th className="border border-gray-300 px-2 py-1">Appearance</th><th className="border border-gray-300 px-2 py-1">Mouthfeel</th><th className="border border-gray-300 px-2 py-1">Accept/Reject</th><th className="border border-gray-300 px-2 py-1">Signature</th></tr>
-          </thead>
-          <tbody>
-            {sensoryRows.map((r) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.panelName} onChange={(e) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, panelName: e.target.value } : s))} className="w-full border rounded px-1 py-0.5" /></td>
-                <td className="border border-gray-300 px-1 py-1"><OkSel value={r.taste} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, taste: v as any } : s))} /></td>
-                <td className="border border-gray-300 px-1 py-1"><OkSel value={r.odor} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, odor: v as any } : s))} /></td>
-                <td className="border border-gray-300 px-1 py-1"><OkSel value={r.appearance} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, appearance: v as any } : s))} /></td>
-                <td className="border border-gray-300 px-1 py-1"><OkSel value={r.mouthfeel} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, mouthfeel: v as any } : s))} /></td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={r.decision} onChange={(e) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, decision: e.target.value as any } : s))} className={`w-full border rounded px-1 py-0.5 text-xs ${r.decision === "Accept" ? "bg-green-100" : r.decision === "Reject" ? "bg-red-100" : ""}`}>
-                    <option value="">-</option><option value="Accept">Accept</option><option value="Reject">Reject</option>
-                  </select>
-                </td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={r.signature} onChange={(e) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, signature: e.target.value } : s))} className="w-full border rounded px-1 py-0.5" /></td>
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Sensory Analysis</h2>
+          <button onClick={addSensoryRow} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Panelist</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                {["Panel", "Taste", "Odor", "Appearance", "Mouthfeel", "Decision", "Signature"].map((h) => (
+                  <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={addSensoryRow} className="mb-4 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">+ Add Panelist</button>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {sensoryRows.map((r) => (
+                <tr key={r.id} className="hover:bg-cream-100/60">
+                  <td className="px-1 py-1"><input type="text" value={r.panelName} onChange={(e) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, panelName: e.target.value } : s))} className="input-base !py-1 !px-2 text-sm" /></td>
+                  <td className="px-1 py-1"><OkSel value={r.taste} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, taste: v as any } : s))} /></td>
+                  <td className="px-1 py-1"><OkSel value={r.odor} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, odor: v as any } : s))} /></td>
+                  <td className="px-1 py-1"><OkSel value={r.appearance} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, appearance: v as any } : s))} /></td>
+                  <td className="px-1 py-1"><OkSel value={r.mouthfeel} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, mouthfeel: v as any } : s))} /></td>
+                  <td className="px-1 py-1">
+                    <select
+                      value={r.decision}
+                      onChange={(e) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, decision: e.target.value as any } : s))}
+                      className={`w-full border rounded-md px-1.5 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${
+                        r.decision === "Accept"
+                          ? "bg-success-50 text-success-700 border-success-200"
+                          : r.decision === "Reject"
+                          ? "bg-danger-50 text-danger-600 border-danger-200"
+                          : "bg-cream-50 border-cream-300 text-ink-500"
+                      }`}
+                    >
+                      <option value="">—</option><option value="Accept">Accept</option><option value="Reject">Reject</option>
+                    </select>
+                  </td>
+                  <td className="px-1 py-1"><input type="text" value={r.signature} onChange={(e) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, signature: e.target.value } : s))} className="input-base !py-1 !px-2 text-sm" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      {/* Chemical Analysis */}
-      <h3 className="font-semibold text-sm mb-2">Chemical Analysis</h3>
-      <div className="grid grid-cols-6 gap-2 mb-4">
-        {[{ l: "Moisture %", v: moisture, s: setMoisture }, { l: "Fat %", v: fat, s: setFat }, { l: "Acid Value", v: acidValue, s: setAcidValue }, { l: "Peroxide Value", v: peroxideValue, s: setPeroxideValue }, { l: "Salt %", v: salt, s: setSalt }, { l: "PH", v: ph, s: setPh }].map((f) => (
-          <div key={f.l}><label className="block text-xs font-medium mb-1">{f.l}</label><input type="number" value={f.v} onChange={(e) => f.s(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" step="0.01" /></div>
-        ))}
-      </div>
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Chemical Analysis</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[{ l: "Moisture %", v: moisture, s: setMoisture }, { l: "Fat %", v: fat, s: setFat }, { l: "Acid Value", v: acidValue, s: setAcidValue }, { l: "Peroxide Value", v: peroxideValue, s: setPeroxideValue }, { l: "Salt %", v: salt, s: setSalt }, { l: "pH", v: ph, s: setPh }].map((f) => (
+            <div key={f.l}>
+              <label className="label-base">{f.l}</label>
+              <input type="number" value={f.v} onChange={(e) => f.s(e.target.value)} className="input-base" step="0.01" />
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Pilot Run Details */}
-      <h3 className="font-semibold text-sm mb-2">Pilot Run Details</h3>
-      <div className="border border-gray-300 rounded mb-4">
-        {[{ l: "Lab Scale Trial Done By", v: labTrialName, s: setLabTrialName }, { l: "Quantity for Pilot Run (kg)", v: pilotQty, s: setPilotQty }, { l: "Batch Number", v: pilotBatch, s: setPilotBatch },
-          { l: "Pilot Scale Production Done Successfully?", v: pilotSuccess, s: setPilotSuccess }, { l: "Persons Present for Pilot Run", v: pilotPersons, s: setPilotPersons },
-          { l: "Packaging Material Used", v: packagingMaterial, s: setPackagingMaterial }, { l: "Any Claims for the Product", v: claims, s: setClaims },
-          { l: "Any Regulatory Details", v: regulatory, s: setRegulatory }, { l: "Shelf Life of the Product", v: shelfLife, s: setShelfLife },
-          { l: "Storage Condition", v: storageCondition, s: setStorageCondition }, { l: "Chances of Hampering Process/HACCP?", v: haccpImpact, s: setHaccpImpact },
-          { l: "Cross Contamination Risk?", v: crossContamination, s: setCrossContamination },
-        ].map((f) => (
-          <div key={f.l} className="flex border-b border-gray-200 last:border-b-0">
-            <label className="w-1/2 px-3 py-2 text-xs font-medium bg-gray-50 border-r border-gray-200">{f.l}</label>
-            <div className="w-1/2 px-2 py-1"><input type="text" value={f.v} onChange={(e) => f.s(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" /></div>
-          </div>
-        ))}
-      </div>
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Pilot Run Details</h2>
+        </header>
+        <div className="divide-y divide-cream-300">
+          {[{ l: "Lab Scale Trial Done By", v: labTrialName, s: setLabTrialName }, { l: "Quantity for Pilot Run (kg)", v: pilotQty, s: setPilotQty }, { l: "Batch Number", v: pilotBatch, s: setPilotBatch },
+            { l: "Pilot Scale Production Done Successfully?", v: pilotSuccess, s: setPilotSuccess }, { l: "Persons Present for Pilot Run", v: pilotPersons, s: setPilotPersons },
+            { l: "Packaging Material Used", v: packagingMaterial, s: setPackagingMaterial }, { l: "Any Claims for the Product", v: claims, s: setClaims },
+            { l: "Any Regulatory Details", v: regulatory, s: setRegulatory }, { l: "Shelf Life of the Product", v: shelfLife, s: setShelfLife },
+            { l: "Storage Condition", v: storageCondition, s: setStorageCondition }, { l: "Chances of Hampering Process/HACCP?", v: haccpImpact, s: setHaccpImpact },
+            { l: "Cross Contamination Risk?", v: crossContamination, s: setCrossContamination },
+          ].map((f) => (
+            <div key={f.l} className="grid grid-cols-1 sm:grid-cols-[50%_50%] gap-1 sm:gap-0">
+              <label className="px-4 sm:px-5 pt-3 sm:py-3 text-xs sm:text-sm font-semibold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center">{f.l}</label>
+              <div className="px-3 sm:px-4 pb-3 sm:py-2.5">
+                <input type="text" value={f.v} onChange={(e) => f.s(e.target.value)} className="input-base !py-2 !px-3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Approvals */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div><label className="text-xs font-medium">Pilot Run Supervisor Name</label><input type="text" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="border rounded px-2 py-1 w-full text-sm" /></div>
-        <div><label className="text-xs font-medium">Production Manager Name</label><input type="text" value={productionManagerName} onChange={(e) => setProductionManagerName(e.target.value)} className="border rounded px-2 py-1 w-full text-sm" /></div>
-        <div><label className="text-xs font-medium">Approved by (FSTL) Name</label><input type="text" value={approvedByName} onChange={(e) => setApprovedByName(e.target.value)} className="border rounded px-2 py-1 w-full text-sm" /></div>
-        <div><label className="text-xs font-medium">Customer Representative (if applicable)</label><input type="text" value={customerRepName} onChange={(e) => setCustomerRepName(e.target.value)} className="border rounded px-2 py-1 w-full text-sm" /></div>
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Approvals</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><label className="label-base">Pilot Run Supervisor Name</label><input type="text" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Production Manager Name</label><input type="text" value={productionManagerName} onChange={(e) => setProductionManagerName(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Approved by (FSTL) Name</label><input type="text" value={approvedByName} onChange={(e) => setApprovedByName(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Customer Representative</label><input type="text" value={customerRepName} onChange={(e) => setCustomerRepName(e.target.value)} className="input-base" /></div>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
+        </div>
       </div>
-      <div className="mt-2 text-xs text-gray-500">Prepared By: FST | Approved By: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -226,30 +275,41 @@ export function EmergencyMockDrill({ initialData, onSubmit, isEdit }: EmergencyM
   };
 
   return (
-    <div className="p-4 max-w-3xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300"><h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1><p className="text-sm font-semibold">Emergency Fire Evacuation Mock Drill</p><p className="text-xs text-gray-600">Doc No: CFPLA.C4.F.14 | Issue No: 03 | Rev Date: 02/02/2025 | Rev No: 02</p></div>
-      </div>
-      <div className="border border-gray-300 rounded">
-        {ITEMS.map((item) => (
-          <div key={item.sr} className="flex border-b border-gray-200 last:border-b-0">
-            <label className="w-12 px-2 py-3 text-sm font-bold bg-gray-50 border-r border-gray-200 text-center">{item.sr}</label>
-            <label className="w-1/3 px-3 py-3 text-sm font-medium bg-gray-50 border-r border-gray-200">{item.label}</label>
-            <div className="flex-1 px-2 py-2">
-              {item.type === "textarea" ? (
-                <textarea value={fields[item.sr] || ""} onChange={(e) => update(item.sr, e.target.value)} rows={3} className="w-full border rounded px-2 py-1 text-sm" />
-              ) : (
-                <input type={item.type} value={fields[item.sr] || ""} onChange={(e) => update(item.sr, e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
-              )}
+    <div className="space-y-5">
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Drill Record</h2>
+        </header>
+        <div className="divide-y divide-cream-300">
+          {ITEMS.map((item) => (
+            <div key={item.sr} className="grid grid-cols-1 sm:grid-cols-[10%_40%_50%] gap-1 sm:gap-0">
+              <label className="px-3 sm:px-4 pt-3 sm:py-3 text-xs sm:text-sm font-bold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center justify-center">{item.sr}</label>
+              <label className="px-3 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center">{item.label}</label>
+              <div className="px-3 sm:px-4 pb-3 sm:py-2.5">
+                {item.type === "textarea" ? (
+                  <textarea value={fields[item.sr] || ""} onChange={(e) => update(item.sr, e.target.value)} rows={3} className="input-base !py-2 !px-3" />
+                ) : (
+                  <input type={item.type} value={fields[item.sr] || ""} onChange={(e) => update(item.sr, e.target.value)} className="input-base !py-2 !px-3" />
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
+        </div>
       </div>
-      <div className="mt-2 text-xs text-gray-500">Prepared By: FST | Approved By: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -389,7 +449,13 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
   const totalObt = allItems.reduce((sum, i) => sum + (parseFloat(scores[i.sr]?.obtained || "0") || 0), 0);
   const percentage = totalMax > 0 ? ((totalObt / totalMax) * 100).toFixed(1) : "0";
   const rating = parseFloat(percentage) >= 85 ? "A — Excellent" : parseFloat(percentage) >= 70 ? "B — Average (Improvement needed)" : "C — Poor (Urgent attention needed)";
-  const ratingColor = parseFloat(percentage) >= 85 ? "text-green-700 bg-green-50" : parseFloat(percentage) >= 70 ? "text-yellow-700 bg-yellow-50" : "text-red-700 bg-red-50";
+  const ratingTone =
+    parseFloat(percentage) >= 85
+      ? "border-success-500 bg-success-50/60 text-success-700"
+      : parseFloat(percentage) >= 70
+      ? "border-warning-500 bg-warning-50/60 text-warning-700"
+      : "border-danger-500 bg-danger-50/60 text-danger-600";
+  const barColor = parseFloat(percentage) >= 85 ? "#16a34a" : parseFloat(percentage) >= 70 ? "#d97706" : "#dc2626";
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -420,79 +486,125 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
   };
 
   return (
-    <div className="p-4 max-w-5xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300"><h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1><p className="text-sm font-semibold">Monthly Facility (GMP) & GHP Inspection</p><p className="text-xs text-gray-600">Doc No: CFPLA.C3.F.15 | Issue No: 5 | Rev Date: 28/08/2025 | Rev No: 4</p></div>
-      </div>
-
-      {/* Live Score Bar */}
-      <div className={`mb-4 p-3 rounded-lg border ${ratingColor}`}>
-        <div className="flex justify-between items-center">
-          <span className="font-bold text-lg">{totalObt} / {totalMax} ({percentage}%)</span>
-          <span className="font-semibold">{rating}</span>
+    <div className="space-y-5">
+      <div className={`surface-card p-4 border-l-4 ${ratingTone}`}>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+          <div className="flex items-baseline gap-3">
+            <span className="text-2xl font-bold text-ink-600">{totalObt}<span className="text-base text-ink-400">/{totalMax}</span></span>
+            <span className="text-lg font-bold">{percentage}%</span>
+          </div>
+          <span className="text-sm font-semibold">{rating}</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2 mt-2"><div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(parseFloat(percentage), 100)}%`, backgroundColor: parseFloat(percentage) >= 85 ? "#16a34a" : parseFloat(percentage) >= 70 ? "#ca8a04" : "#dc2626" }} /></div>
+        <div className="w-full bg-cream-200 rounded-full h-2 mt-3">
+          <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(parseFloat(percentage), 100)}%`, backgroundColor: barColor }} />
+        </div>
       </div>
 
-      {/* Checklist */}
-      <div className="border border-gray-300 rounded overflow-hidden mb-4">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100">
-            <tr><th className="border border-gray-300 px-1 py-2 w-10">Sr</th><th className="border border-gray-300 px-2 py-2">GMP and GHP Checklist</th><th className="border border-gray-300 px-1 py-2 w-12">Max</th><th className="border border-gray-300 px-1 py-2 w-16">Obt.</th><th className="border border-gray-300 px-2 py-2 w-48">Remarks</th></tr>
-          </thead>
-          <tbody>
-            {GMP_SECTIONS.map((section) => (
-              <Fragment key={section.section}>
-                <tr><td colSpan={5} className="border border-gray-300 px-2 py-2 bg-blue-50 font-bold text-sm">{section.section}</td></tr>
-                {section.items.map((item) => (
-                  <tr key={item.sr} className="hover:bg-blue-50">
-                    <td className="border border-gray-300 px-1 py-1 text-center font-medium">{item.sr}</td>
-                    <td className="border border-gray-300 px-2 py-1">{item.text}</td>
-                    <td className="border border-gray-300 px-1 py-1 text-center font-bold">{item.maxScore}</td>
-                    <td className="border border-gray-300 px-1 py-1">
-                      <input type="number" min="0" max={item.maxScore} value={scores[item.sr]?.obtained || ""} onChange={(e) => updateScore(item.sr, "obtained", e.target.value)}
-                        className={`w-full border rounded px-1 py-0.5 text-center ${scores[item.sr]?.obtained ? (parseFloat(scores[item.sr].obtained) >= item.maxScore ? "bg-green-100" : "bg-yellow-100") : ""}`} />
-                    </td>
-                    <td className="border border-gray-300 px-1 py-1"><input type="text" value={scores[item.sr]?.remarks || ""} onChange={(e) => updateScore(item.sr, "remarks", e.target.value)} className="w-full border rounded px-1 py-0.5" /></td>
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">GMP & GHP Checklist</h2>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                <th className="px-1 py-2 w-10 text-center text-[11px] font-semibold uppercase text-ink-400">Sr</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase text-ink-400">Checklist</th>
+                <th className="px-1 py-2 w-12 text-center text-[11px] font-semibold uppercase text-ink-400">Max</th>
+                <th className="px-1 py-2 w-16 text-center text-[11px] font-semibold uppercase text-ink-400">Obt</th>
+                <th className="px-2 py-2 w-48 text-left text-[11px] font-semibold uppercase text-ink-400">Remarks</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {GMP_SECTIONS.map((section) => (
+                <Fragment key={section.section}>
+                  <tr>
+                    <td colSpan={5} className="px-3 py-2 bg-brand-50/60 font-bold text-xs text-brand-700 uppercase tracking-wider">{section.section}</td>
                   </tr>
-                ))}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  {section.items.map((item) => (
+                    <tr key={item.sr} className="hover:bg-cream-100/60">
+                      <td className="px-1 py-1.5 text-center font-medium text-ink-400">{item.sr}</td>
+                      <td className="px-2 py-1.5 text-ink-500">{item.text}</td>
+                      <td className="px-1 py-1.5 text-center font-bold text-ink-500">{item.maxScore}</td>
+                      <td className="px-1 py-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          max={item.maxScore}
+                          value={scores[item.sr]?.obtained || ""}
+                          onChange={(e) => updateScore(item.sr, "obtained", e.target.value)}
+                          className={`input-base !py-1 !px-2 text-xs text-center ${
+                            scores[item.sr]?.obtained
+                              ? parseFloat(scores[item.sr].obtained) >= item.maxScore
+                                ? "!bg-success-50 !text-success-700"
+                                : "!bg-warning-50 !text-warning-700"
+                              : ""
+                          }`}
+                        />
+                      </td>
+                      <td className="px-1 py-1.5">
+                        <input type="text" value={scores[item.sr]?.remarks || ""} onChange={(e) => updateScore(item.sr, "remarks", e.target.value)} className="input-base !py-1 !px-2 text-xs" />
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      {/* Audit Info */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div><label className="text-xs font-medium">Name of Auditor</label><input type="text" value={auditorName} onChange={(e) => setAuditorName(e.target.value)} className="border rounded px-2 py-1 w-full text-sm" /></div>
-        <div><label className="text-xs font-medium">Name of Auditee</label><input type="text" value={auditeeName} onChange={(e) => setAuditeeName(e.target.value)} className="border rounded px-2 py-1 w-full text-sm" /></div>
-        <div><label className="text-xs font-medium">Date/Time of Audit</label><input type="datetime-local" value={auditDateTime} onChange={(e) => setAuditDateTime(e.target.value)} className="border rounded px-2 py-1 w-full text-sm" /></div>
-      </div>
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Audit Information</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div><label className="label-base">Name of Auditor</label><input type="text" value={auditorName} onChange={(e) => setAuditorName(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Name of Auditee</label><input type="text" value={auditeeName} onChange={(e) => setAuditeeName(e.target.value)} className="input-base" /></div>
+          <div><label className="label-base">Date/Time of Audit</label><input type="datetime-local" value={auditDateTime} onChange={(e) => setAuditDateTime(e.target.value)} className="input-base" /></div>
+        </div>
+      </section>
 
-      {/* CAPA Table */}
-      <h3 className="font-semibold text-sm mb-2">Corrective and Preventive Action</h3>
-      <div className="overflow-x-auto border border-gray-300 rounded mb-4">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100">
-            <tr><th className="border border-gray-300 px-2 py-1">Non Conformities</th><th className="border border-gray-300 px-2 py-1">Correction/Corrective Action</th><th className="border border-gray-300 px-2 py-1">Preventive Action</th><th className="border border-gray-300 px-2 py-1">Done By</th><th className="border border-gray-300 px-2 py-1">Verified By</th></tr>
-          </thead>
-          <tbody>
-            {capaRows.map((r) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                {(["nonConformity", "correctiveAction", "preventiveAction", "doneBy", "verifiedBy"] as (keyof CAPARow)[]).map((f) => (
-                  <td key={f} className="border border-gray-300 px-1 py-1"><input type="text" value={r[f] as string} onChange={(e) => setCapaRows((p) => p.map((row) => row.id === r.id ? { ...row, [f]: e.target.value } : row))} className="w-full border rounded px-1 py-0.5" /></td>
+      <section className="surface-card overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Corrective & Preventive Action</h2>
+          <button onClick={addCapa} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Row</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                {["Non-Conformity", "Corrective Action", "Preventive Action", "Done By", "Verified By"].map((h) => (
+                  <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {capaRows.map((r) => (
+                <tr key={r.id} className="hover:bg-cream-100/60">
+                  {(["nonConformity", "correctiveAction", "preventiveAction", "doneBy", "verifiedBy"] as (keyof CAPARow)[]).map((f) => (
+                    <td key={f} className="px-1 py-1">
+                      <input type="text" value={r[f] as string} onChange={(e) => setCapaRows((p) => p.map((row) => row.id === r.id ? { ...row, [f]: e.target.value } : row))} className="input-base !py-1 !px-2 text-xs" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared By: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
+        </div>
       </div>
-      <button onClick={addCapa} className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">+ Add CAPA Row</button>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: FST | Approved By: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }

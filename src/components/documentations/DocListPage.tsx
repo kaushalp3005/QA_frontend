@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { docsApi, isDocAdmin } from '@/lib/api/documentations'
@@ -63,104 +64,148 @@ export default function DocListPage({ config }: Props) {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-fade-in-up">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => router.push('/documentations')}
-              className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
+              className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-cream-50 border border-cream-300 text-ink-500 hover:text-brand-500 hover:border-brand-500 shadow-soft transition-colors"
               title="Back to Documentations"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
+              <ArrowLeft className="w-4.5 h-4.5" />
             </button>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">{config.label}</h1>
-              <p className="text-sm text-gray-500">{config.docNo} — {total} record{total !== 1 ? 's' : ''}</p>
+            <div className="shrink-0 w-11 h-11 rounded-xl bg-brand-500 text-white flex items-center justify-center shadow-brand">
+              <FileText className="w-5 h-5" strokeWidth={2.25} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-ink-600 tracking-tight leading-tight truncate">
+                {config.label}
+              </h1>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="inline-flex items-center rounded-full bg-brand-50 text-brand-600 text-[11px] font-semibold px-2 py-0.5">
+                  {config.docNo}
+                </span>
+                <span className="text-xs text-ink-400 font-medium">
+                  {total} record{total !== 1 ? 's' : ''}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <WarehouseSelector />
             <button
               onClick={() => router.push(`/documentations/${config.routeSlug}/create`)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
+              className="btn-primary"
             >
-              + Create New
+              <Plus className="w-4 h-4 mr-1.5" />
+              Create New
             </button>
           </div>
         </div>
 
+        {/* Body */}
         {loading ? (
-          <div className="text-center py-10 text-gray-500">Loading...</div>
+          <div className="surface-card p-8 animate-fade-in">
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="skeleton h-10 w-full" />
+              ))}
+            </div>
+          </div>
         ) : records.length === 0 ? (
-          <div className="text-center py-10 text-gray-400">No records found for warehouse {warehouse}.</div>
+          <div className="surface-card p-12 flex flex-col items-center text-center animate-fade-in">
+            <div className="bg-cream-200 w-16 h-16 rounded-full flex items-center justify-center mb-3">
+              <Inbox className="w-7 h-7 text-ink-300" />
+            </div>
+            <p className="text-sm font-semibold text-ink-500">No records yet</p>
+            <p className="text-xs text-ink-400 mt-0.5">
+              Nothing logged for warehouse <span className="font-semibold text-ink-500">{warehouse || '—'}</span>.
+            </p>
+            <button
+              onClick={() => router.push(`/documentations/${config.routeSlug}/create`)}
+              className="btn-primary mt-4"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Create first record
+            </button>
+          </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">#</th>
-                  {config.listColumns.map((col) => (
-                    <th key={col} className="px-4 py-3 text-left font-medium text-gray-600">
-                      {col.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </th>
-                  ))}
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {records.map((rec, i) => (
-                  <tr key={rec.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-500">{(page - 1) * 50 + i + 1}</td>
+          <div className="surface-card overflow-hidden animate-fade-in">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-cream-300 bg-cream-100/70">
+                    <th className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">#</th>
                     {config.listColumns.map((col) => (
-                      <td key={col} className="px-4 py-3">{formatValue(rec[col])}</td>
+                      <th key={col} className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">
+                        {col.replace(/_/g, ' ')}
+                      </th>
                     ))}
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}`)}
-                          className="text-blue-600 hover:underline text-xs"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}/edit`)}
-                          className="text-green-600 hover:underline text-xs"
-                        >
-                          Edit
-                        </button>
-                        {admin && (
-                          <button
-                            onClick={() => handleDelete(rec.id)}
-                            className="text-red-600 hover:underline text-xs"
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                    <th className="px-4 py-3 text-right font-semibold text-[11px] tracking-wider uppercase text-ink-400">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-cream-300">
+                  {records.map((rec, i) => (
+                    <tr key={rec.id} className="hover:bg-cream-100/60 transition-colors">
+                      <td className="px-4 py-3 text-ink-400 font-medium">{(page - 1) * 50 + i + 1}</td>
+                      {config.listColumns.map((col) => (
+                        <td key={col} className="px-4 py-3 text-ink-600">{formatValue(rec[col])}</td>
+                      ))}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}`)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-ink-500 hover:text-brand-500 hover:bg-brand-50"
+                            title="View"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">View</span>
+                          </button>
+                          <button
+                            onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}/edit`)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-ink-500 hover:text-success-700 hover:bg-success-50"
+                            title="Edit"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Edit</span>
+                          </button>
+                          {admin && (
+                            <button
+                              onClick={() => handleDelete(rec.id)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-ink-500 hover:text-danger-600 hover:bg-danger-50"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Delete</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {totalPages > 1 && (
-          <div className="flex justify-between items-center">
+          <div className="mt-4 flex items-center justify-between gap-3">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1.5 text-sm border rounded disabled:opacity-50"
+              className="btn-outline"
             >
               Previous
             </button>
-            <span className="text-sm text-gray-600">Page {page} of {totalPages}</span>
+            <span className="text-xs sm:text-sm text-ink-400 font-medium">
+              Page <span className="text-ink-600 font-bold">{page}</span> of {totalPages}
+            </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-3 py-1.5 text-sm border rounded disabled:opacity-50"
+              className="btn-outline"
             >
               Next
             </button>

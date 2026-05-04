@@ -98,7 +98,11 @@ export const ipqc = {
 
   list: (params: Record<string, any> = {}): Promise<{ records: IPQCRecord[]; total: number; total_pages: number }> => {
     const qs = new URLSearchParams(
-      Object.fromEntries(Object.entries(params).filter(([, v]) => v))
+      Object.fromEntries(
+        Object.entries(params)
+          .filter(([, v]) => v !== undefined && v !== null && v !== "")
+          .map(([k, v]) => [k, String(v)])
+      )
     ).toString();
     return request(`/qc/ipqc${qs ? `?${qs}` : ""}`);
   },

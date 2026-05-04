@@ -27,6 +27,7 @@ export default function IPQCListPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [warehouse, setWarehouse] = useState(() => getStoredWarehouse());
+  const [showOldData, setShowOldData] = useState(false);
   const [loading, setLoading] = useState(true);
   const [session, setSessionState] = useState<Session | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -53,6 +54,7 @@ export default function IPQCListPage() {
         from_date: fromDate || undefined,
         to_date: toDate || undefined,
         warehouse,
+        include_imported: showOldData ? "true" : "false",
       });
       setRecords(res.records);
       setTotal(res.total);
@@ -62,7 +64,7 @@ export default function IPQCListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, fromDate, toDate, warehouse]);
+  }, [page, search, fromDate, toDate, warehouse, showOldData]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
@@ -152,6 +154,15 @@ export default function IPQCListPage() {
             <span className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-brand-50 border border-brand-100 rounded-lg text-sm font-semibold text-brand-700">
               <Building2 className="w-4 h-4" /> {warehouse}
             </span>
+            <label className="inline-flex items-center gap-2 px-3 py-2.5 bg-cream-100 border border-cream-300 rounded-lg text-sm font-semibold text-ink-500 cursor-pointer select-none hover:bg-cream-200 transition-colors">
+              <input
+                type="checkbox"
+                checked={showOldData}
+                onChange={(e) => { setShowOldData(e.target.checked); setPage(1); }}
+                className="w-4 h-4 accent-brand-500 cursor-pointer"
+              />
+              Show old data
+            </label>
           </div>
         </div>
 

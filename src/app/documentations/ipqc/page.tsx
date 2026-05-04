@@ -20,9 +20,11 @@ export default function IPQCListPage() {
 
   const router = useRouter();
   const [records, setRecords] = useState<IPQCRecord[]>([]);
+  const [allRecords, setAllRecords] = useState<IPQCRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+  const PER_PAGE = 20;
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -45,28 +47,66 @@ export default function IPQCListPage() {
     return () => window.removeEventListener('warehouseChanged', handler);
   }, [router]);
 
+  const isImported = (no: string) => /^\d+$/.test(no);
+
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await ipqc.list({
-        page, per_page: 20,
-        search: search || undefined,
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
-        warehouse,
-        include_imported: showOldData ? "true" : "false",
-      });
-      setRecords(res.records);
-      setTotal(res.total);
-      setTotalPages(res.total_pages);
+      if (showOldData) {
+        // Show all → server-side pagination
+        const res = await ipqc.list({
+          page, per_page: PER_PAGE,
+          search: search || undefined,
+          from_date: fromDate || undefined,
+          to_date: toDate || undefined,
+          warehouse,
+        });
+        setAllRecords([]);
+        setRecords(res.records);
+        setTotal(res.total);
+        setTotalPages(res.total_pages);
+      } else {
+        // Hide imported → fetch in 500-row chunks (backend cap), filter & paginate client-side
+        const collected: IPQCRecord[] = [];
+        let p = 1;
+        const CHUNK = 500;
+        // Stop after enough pages — bumping limit if you have >10k records later.
+        while (p <= 30) {
+          const res = await ipqc.list({
+            page: p, per_page: CHUNK,
+            search: search || undefined,
+            from_date: fromDate || undefined,
+            to_date: toDate || undefined,
+            warehouse,
+          });
+          collected.push(...res.records);
+          if (!res.records.length || res.records.length < CHUNK) break;
+          p++;
+        }
+        const filtered = collected.filter(r => !isImported(r.ipqc_no));
+        setAllRecords(filtered);
+        setTotal(filtered.length);
+        setTotalPages(Math.max(1, Math.ceil(filtered.length / PER_PAGE)));
+        const start = (page - 1) * PER_PAGE;
+        setRecords(filtered.slice(start, start + PER_PAGE));
+      }
     } catch {
       setRecords([]);
+      setAllRecords([]);
     } finally {
       setLoading(false);
     }
   }, [page, search, fromDate, toDate, warehouse, showOldData]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  // Re-slice locally when paginating in client-side mode (no refetch needed)
+  useEffect(() => {
+    if (!showOldData && allRecords.length > 0) {
+      const start = (page - 1) * PER_PAGE;
+      setRecords(allRecords.slice(start, start + PER_PAGE));
+    }
+  }, [page, showOldData, allRecords]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;

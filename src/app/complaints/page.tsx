@@ -335,7 +335,7 @@ export default function ComplaintsPage() {
                             </button>
                           )}
 
-                          {complaint.measuresToResolve === 'rca_capa' && canCreate('rca') && (
+                          {complaint.measuresToResolve === 'rca_capa' && canCreate('rca_capa') && (
                             <button
                               onClick={() => handleRcaCapa(complaint.complaintId)}
                               className="inline-flex items-center px-2 py-1 text-[11px] font-semibold rounded-md bg-success-50 text-success-700 hover:bg-success-100 transition-colors"

@@ -110,7 +110,7 @@ export default function RCACAPAPage() {
           subtitle="Root Cause Analysis & Corrective Action Preventive Action"
           icon={Search}
           actions={
-            canCreate('rca') ? (
+            canCreate('rca_capa') ? (
               <Link
                 href="/rca-capa/create"
                 className="btn-primary inline-flex items-center"
@@ -310,7 +310,7 @@ export default function RCACAPAPage() {
                         <FileText className="h-3 w-3 mr-1" />
                         View
                       </Link>
-                      {canEdit('rca') && (
+                      {canEdit('rca_capa') && (
                         <Link
                           href={`/rca-capa/${item.id}/edit`}
                           className="btn-outline inline-flex items-center justify-center px-3 py-1.5 text-xs whitespace-nowrap"

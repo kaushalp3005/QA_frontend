@@ -28,7 +28,7 @@ export default function RCAEditPage() {
   const params = useParams()
   const router = useRouter()
   const { currentCompany } = useCompany()
-  const { canEdit, permissions } = usePermissions()
+  const { canEdit, permissions, isSuperAdmin } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<any>({})
@@ -43,30 +43,30 @@ export default function RCAEditPage() {
 
   // Check permissions
   useEffect(() => {
-    if (Object.keys(permissions).length === 0 || redirected) {
-      return;
-    }
+    if (redirected) return;
+    // Wait for permissions to load (super admins bypass this gate)
+    if (!isSuperAdmin && Object.keys(permissions).length === 0) return;
 
-    if (!canEdit('rca')) {
+    if (!canEdit('rca_capa')) {
       toast.error('You do not have permission to edit RCA/CAPA records');
       setRedirected(true);
       router.push(`/rca-capa/${rcaId}`);
     }
-  }, [permissions, canEdit, router, rcaId, redirected]);
+  }, [permissions, isSuperAdmin, canEdit, router, rcaId, redirected]);
 
   useEffect(() => {
     // Only fetch if we have permissions loaded
     if (!rcaId) return;
-    
-    // Wait for permissions to load
-    if (Object.keys(permissions).length === 0) return;
-    
+
+    // Wait for permissions to load (super admins bypass this gate)
+    if (!isSuperAdmin && Object.keys(permissions).length === 0) return;
+
     // Check permission and fetch
-    if (canEdit('rca')) {
+    if (canEdit('rca_capa')) {
       fetchRCAData()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rcaId, currentCompany, permissions])
+  }, [rcaId, currentCompany, permissions, isSuperAdmin])
 
   const fetchRCAData = async () => {
     try {
@@ -380,8 +380,8 @@ export default function RCAEditPage() {
     }))
   }
 
-  // Show loading while permissions are being fetched
-  if (Object.keys(permissions).length === 0) {
+  // Show loading while permissions are being fetched (super admins bypass this gate)
+  if (!isSuperAdmin && Object.keys(permissions).length === 0) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-screen">
@@ -392,7 +392,7 @@ export default function RCAEditPage() {
   }
 
   // Don't render if no permission
-  if (!canEdit('rca')) {
+  if (!canEdit('rca_capa')) {
     return null
   }
 

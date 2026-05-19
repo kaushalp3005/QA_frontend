@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Gauge, Plus, X, AlertTriangle } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
+import SignaturePicker from "@/components/ui/SignaturePicker";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 
 interface CalibrationRow {
   id: number;
@@ -18,7 +20,18 @@ interface CalibrationRow {
   reading5: string;
   deviation: string;
   correctiveAction: string;
+  fixed?: boolean;
+  excluded?: boolean;
 }
+
+const FIXED_SCALE_IDS = [
+  "879", "181", "889", "630", "682", "647", "891", "645", "674", "230108",
+  "644", "641", "689", "1017", "323", "683", "183", "1015", "884", "876",
+  "881", "1011", "190935", "882", "804", "200121", "694", "877", "906", "819",
+  "681", "2307189", "597", "212", "880", "890", "886", "875", "642", "645",
+  "899", "878", "231002", "907", "1013", "883", "240907", "1009", "241113", "896",
+  "904", "111", "648", "914", "240803",
+];
 
 const emptyRow = (): CalibrationRow => ({
   id: Date.now() + Math.random(),
@@ -33,7 +46,14 @@ const emptyRow = (): CalibrationRow => ({
   reading4: "",
   reading5: "",
   deviation: "",
-  correctiveAction: "",
+  correctiveAction: "No",
+});
+
+const fixedRow = (identificationNo: string, idx: number): CalibrationRow => ({
+  ...emptyRow(),
+  id: -(idx + 1),
+  identificationNo,
+  fixed: true,
 });
 
 const READINGS: (keyof CalibrationRow)[] = ["reading1", "reading2", "reading3", "reading4", "reading5"];
@@ -50,18 +70,34 @@ export default function WeighingScaleCalibration() {
   const [dateOfInspection, setDateOfInspection] = useState("");
   const [calibratedBy, setCalibratedBy] = useState("");
   const [verifiedBy, setVerifiedBy] = useState("");
-  const [rows, setRows] = useState<CalibrationRow[]>(Array.from({ length: 8 }, emptyRow));
+  const [rows, setRows] = useState<CalibrationRow[]>(
+    FIXED_SCALE_IDS.map((sid, i) => fixedRow(sid, i))
+  );
 
   const addRow = () => setRows((r) => [...r, emptyRow()]);
   const removeRow = (id: number) => setRows((r) => r.filter((row) => row.id !== id));
 
-  const updateRow = (id: number, field: keyof CalibrationRow, value: string) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+  const toggleExclude = (id: number) => {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, excluded: !r.excluded } : r)));
   };
 
-  const okCount = rows.filter((r) => getDeviationStatus(r) === "ok").length;
-  const deviations = rows.filter((r) => getDeviationStatus(r) === "deviation").length;
-  const empty = rows.filter((r) => getDeviationStatus(r) === "empty").length;
+  const updateRow = (id: number, field: keyof CalibrationRow, value: string) => {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        if (field === "reading1") {
+          return { ...r, reading1: value, reading2: value, reading3: value, reading4: value, reading5: value };
+        }
+        return { ...r, [field]: value };
+      })
+    );
+  };
+
+  const activeRows = rows.filter((r) => !r.excluded);
+  const okCount = activeRows.filter((r) => getDeviationStatus(r) === "ok").length;
+  const deviations = activeRows.filter((r) => getDeviationStatus(r) === "deviation").length;
+  const empty = activeRows.filter((r) => getDeviationStatus(r) === "empty").length;
+  const excludedCount = rows.length - activeRows.length;
 
   return (
     <DocFormShell
@@ -92,7 +128,7 @@ export default function WeighingScaleCalibration() {
 
       <DocSection
         title="Calibration Log"
-        description={`${rows.length} scales`}
+        description={`${activeRows.length} active${excludedCount ? ` · ${excludedCount} excluded` : ""}`}
         bleed
         actions={
           <button onClick={addRow} className="btn-primary !py-1.5 !px-3 text-xs">
@@ -105,6 +141,7 @@ export default function WeighingScaleCalibration() {
           <table className="w-full text-xs">
             <thead className="bg-cream-100/70 border-b border-cream-300">
               <tr>
+                <th className="px-2 py-2 text-center w-8 text-[11px] font-semibold uppercase text-ink-400" title="Tick to exclude this row from the record">Skip</th>
                 <th className="px-2 py-2 text-center w-8 text-[11px] font-semibold uppercase text-ink-400">Sr.</th>
                 <th className="px-2 py-2 text-center w-24 text-[11px] font-semibold uppercase text-ink-400">ID No.</th>
                 <th className="px-2 py-2 text-center w-20 text-[11px] font-semibold uppercase text-ink-400">Capacity (Kg)</th>
@@ -121,42 +158,61 @@ export default function WeighingScaleCalibration() {
             <tbody className="divide-y divide-cream-300">
               {rows.map((row, idx) => {
                 const status = getDeviationStatus(row);
+                const excluded = !!row.excluded;
                 return (
                   <tr
                     key={row.id}
                     className={`${
-                      status === "deviation"
+                      excluded
+                        ? "bg-cream-200/50 opacity-60 line-through"
+                        : status === "deviation"
                         ? "bg-danger-50/40"
                         : status === "ok"
                         ? "bg-success-50/30"
                         : "hover:bg-cream-100/60"
                     }`}
                   >
+                    <td className="px-1 py-1 text-center">
+                      <input
+                        type="checkbox"
+                        checked={excluded}
+                        onChange={() => toggleExclude(row.id)}
+                        className="w-4 h-4 accent-danger-500 cursor-pointer no-underline"
+                        title={excluded ? "Include this row" : "Exclude (skip) this row"}
+                      />
+                    </td>
                     <td className="px-2 py-1 text-center text-ink-400 font-medium">{idx + 1}</td>
                     <td className="px-1 py-1">
-                      <input type="text" value={row.identificationNo} onChange={(e) => updateRow(row.id, "identificationNo", e.target.value)} placeholder="Scale ID" className="input-base !py-1 !px-2 text-xs" />
+                      {row.fixed ? (
+                        <div className="px-2 py-1 text-xs text-center font-semibold text-ink-600 bg-cream-200/60 rounded border border-cream-300 select-none" title="Fixed Scale ID">
+                          {row.identificationNo}
+                        </div>
+                      ) : (
+                        <input type="text" disabled={excluded} value={row.identificationNo} onChange={(e) => updateRow(row.id, "identificationNo", e.target.value)} placeholder="Scale ID" className="input-base !py-1 !px-2 text-xs disabled:bg-cream-200/60" />
+                      )}
                     </td>
                     <td className="px-1 py-1">
-                      <input type="number" value={row.capacityKg} onChange={(e) => updateRow(row.id, "capacityKg", e.target.value)} placeholder="kg" className="input-base !py-1 !px-2 text-xs text-center" />
+                      <input type="text" inputMode="decimal" disabled={excluded} value={row.capacityKg} onChange={(e) => updateRow(row.id, "capacityKg", e.target.value)} placeholder="kg" className="input-base !py-1 !px-2 text-xs text-center disabled:bg-cream-200/60" />
                     </td>
                     <td className="px-1 py-1">
-                      <input type="text" value={row.location} onChange={(e) => updateRow(row.id, "location", e.target.value)} placeholder="Floor/Area" className="input-base !py-1 !px-2 text-xs" />
+                      <input type="text" disabled={excluded} value={row.location} onChange={(e) => updateRow(row.id, "location", e.target.value)} placeholder="Floor/Area" className="input-base !py-1 !px-2 text-xs disabled:bg-cream-200/60" />
                     </td>
                     <td className="px-1 py-1">
-                      <input type="number" step="0.001" value={row.standardWeightUsed} onChange={(e) => updateRow(row.id, "standardWeightUsed", e.target.value)} placeholder="kg" className="input-base !py-1 !px-2 text-xs text-center" />
+                      <input type="text" inputMode="decimal" disabled={excluded} value={row.standardWeightUsed} onChange={(e) => updateRow(row.id, "standardWeightUsed", e.target.value)} placeholder="kg" className="input-base !py-1 !px-2 text-xs text-center disabled:bg-cream-200/60" />
                     </td>
                     {READINGS.map((field) => (
                       <td key={field} className="px-1 py-1 bg-blue-50/15">
-                        <input type="number" step="0.001" value={row[field] as string} onChange={(e) => updateRow(row.id, field, e.target.value)} placeholder="—" className="input-base !py-1 !px-2 text-xs text-center" />
+                        <input type="text" inputMode="decimal" disabled={excluded} value={row[field] as string} onChange={(e) => updateRow(row.id, field, e.target.value)} placeholder="—" className="input-base !py-1 !px-2 text-xs text-center disabled:bg-cream-200/60" />
                       </td>
                     ))}
                     <td className="px-1 py-1 bg-warning-50/15">
                       <input
                         type="text"
+                        disabled={excluded}
                         value={row.deviation}
                         onChange={(e) => updateRow(row.id, "deviation", e.target.value)}
                         placeholder={status === "deviation" ? "Enter deviation" : status === "ok" ? "Within tolerance" : "—"}
-                        className="input-base !py-1 !px-2 text-xs"
+                        className="input-base !py-1 !px-2 text-xs disabled:bg-cream-200/60"
                       />
                     </td>
                     <td className="px-1 py-1 bg-danger-50/15">
@@ -164,19 +220,21 @@ export default function WeighingScaleCalibration() {
                         type="text"
                         value={row.correctiveAction}
                         onChange={(e) => updateRow(row.id, "correctiveAction", e.target.value)}
-                        disabled={status !== "deviation"}
+                        disabled={excluded || status !== "deviation"}
                         placeholder={status === "deviation" ? "Action taken…" : "—"}
                         className="input-base !py-1 !px-2 text-xs disabled:bg-cream-200/60 disabled:text-ink-300"
                       />
                     </td>
                     <td className="px-1 py-1 text-center">
-                      <button
-                        onClick={() => removeRow(row.id)}
-                        className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50"
-                        title="Remove row"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                      {!row.fixed && (
+                        <button
+                          onClick={() => removeRow(row.id)}
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50"
+                          title="Remove row"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -188,19 +246,32 @@ export default function WeighingScaleCalibration() {
           <span className="px-2 py-0.5 rounded-full bg-success-50 text-success-700">✓ OK {okCount}</span>
           <span className="px-2 py-0.5 rounded-full bg-danger-50 text-danger-600">✕ Deviation {deviations}</span>
           <span className="px-2 py-0.5 rounded-full bg-cream-200 text-ink-400">Empty {empty}</span>
+          {excludedCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-ink-200/60 text-ink-500">⊘ Excluded {excludedCount}</span>
+          )}
         </div>
       </DocSection>
 
-      <DocSection title="Approvals">
+      <DocSection title="Approvals" description="Final sign-off for this calibration">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="label-base">Calibrated By</label>
-            <input type="text" value={calibratedBy} onChange={(e) => setCalibratedBy(e.target.value)} className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">Verified By</label>
-            <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" />
-          </div>
+          <SignaturePicker
+            label="Checked By (Calibrated By)"
+            value={calibratedBy}
+            onChange={setCalibratedBy}
+            options={CHECKED_BY_OPTIONS}
+            roleHint="Quality Control Executive"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
+          <SignaturePicker
+            label="Verified By"
+            value={verifiedBy}
+            onChange={setVerifiedBy}
+            options={QC_VERIFIED_BY_OPTIONS}
+            roleHint="Quality Manager"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
         </div>
       </DocSection>
 

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Navbar from "@/components/Navbar";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ipqc } from "@/lib/api";
 import { getSession } from "@/lib/auth";
 import { printRecord } from "@/lib/printRecord";
@@ -132,9 +132,7 @@ export default function IPQCListPage() {
   const isAdmin = session?.username === 'pooja.parkar@candorfoods.in';
 
   return (
-    <div className="min-h-[100dvh]">
-      <Navbar />
-
+    <DashboardLayout>
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
 
         <PageHeader
@@ -224,8 +222,8 @@ export default function IPQCListPage() {
           </div>
         ) : (
           <>
-            {/* Mobile: card list */}
-            <div className="sm:hidden space-y-3">
+            {/* Mobile + tablet + small desktop: card list */}
+            <div className="xl:hidden space-y-3">
               {records.map((record, idx) => {
                 const articles = record.articles?.length ? record.articles : [{
                   item_description: record.item_description,
@@ -296,19 +294,19 @@ export default function IPQCListPage() {
               })}
             </div>
 
-            {/* Desktop: table */}
-            <div className="hidden sm:block surface-card overflow-hidden animate-fade-in-up">
+            {/* Large desktop: table */}
+            <div className="hidden xl:block surface-card overflow-hidden animate-fade-in-up">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px]">
+                <table className="w-full">
                   <thead className="bg-cream-100 border-b border-cream-300">
                     <tr>
-                      <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">IPQC No.</th>
-                      <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Date</th>
-                      <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider">Articles</th>
-                      <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Warehouse</th>
-                      <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Approved By</th>
-                      <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Lab Report</th>
-                      <th className="px-5 py-3 text-right text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                      <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">IPQC No.</th>
+                      <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Date</th>
+                      <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider">Articles</th>
+                      <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Warehouse</th>
+                      <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Approved By</th>
+                      <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Lab Report</th>
+                      <th className="px-3 2xl:px-5 py-2.5 text-right text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-cream-300">
@@ -321,7 +319,7 @@ export default function IPQCListPage() {
                       }];
                       return (
                         <tr key={record.ipqc_no} className="hover:bg-cream-100/50 transition-colors">
-                          <td className="px-5 py-3.5 whitespace-nowrap">
+                          <td className="px-3 2xl:px-5 py-2.5 whitespace-nowrap">
                             <button
                               onClick={() => router.push(`/documentations/ipqc/view?id=${record.ipqc_no}`)}
                               className="text-sm font-bold text-brand-500 hover:text-brand-600 hover:underline tabular-nums"
@@ -329,16 +327,16 @@ export default function IPQCListPage() {
                               {record.ipqc_no}
                             </button>
                           </td>
-                          <td className="px-5 py-3.5 text-sm text-ink-500 whitespace-nowrap tabular-nums">{record.check_date}</td>
-                          <td className="px-5 py-3.5">
-                            <div className="space-y-1">
+                          <td className="px-3 2xl:px-5 py-2.5 text-sm text-ink-500 whitespace-nowrap tabular-nums">{record.check_date}</td>
+                          <td className="px-3 2xl:px-5 py-2.5 min-w-[260px]">
+                            <div className="space-y-0.5">
                               {articles.map((a: any, i: number) => (
-                                <div key={i} className="flex items-center gap-1.5 text-sm text-ink-600 flex-wrap">
+                                <div key={i} className="flex items-center gap-1.5 text-[13px] text-ink-600 flex-wrap leading-snug">
                                   <span className="font-semibold">{a.item_description || "—"}</span>
                                   {a.customer && <><span className="text-ink-300">|</span><span className="text-ink-400">{a.customer}</span></>}
                                   {a.batch_number && <><span className="text-ink-300">|</span><span className="text-ink-400 font-mono">{a.batch_number}</span></>}
                                   {a.verdict && (
-                                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${a.verdict === "accept" ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700"}`}>
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${a.verdict === "accept" ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700"}`}>
                                       {a.verdict}
                                     </span>
                                   )}
@@ -346,8 +344,8 @@ export default function IPQCListPage() {
                               ))}
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 text-sm text-ink-500 whitespace-nowrap font-medium">{warehouse}</td>
-                          <td className="px-5 py-3.5 text-sm text-ink-400 whitespace-nowrap">
+                          <td className="px-3 2xl:px-5 py-2.5 text-sm text-ink-500 whitespace-nowrap font-medium">{warehouse}</td>
+                          <td className="px-3 2xl:px-5 py-2.5 text-sm text-ink-400 whitespace-nowrap">
                             {record.approved_by ? (
                               <span className="inline-flex items-center gap-1 bg-success-50 text-success-700 px-2 py-0.5 rounded-full text-[11px] font-semibold">
                                 <CheckCircle2 className="w-3 h-3" /> {record.approved_by}
@@ -358,7 +356,7 @@ export default function IPQCListPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap">
+                          <td className="px-3 2xl:px-5 py-2.5 whitespace-nowrap">
                             <button
                               onClick={() => router.push(`/lab-reports/create?ipqc=${record.ipqc_no}`)}
                               className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-brand-50 text-brand-600 hover:bg-brand-100 hover:text-brand-700 text-xs font-semibold transition-colors border border-brand-200"
@@ -366,7 +364,7 @@ export default function IPQCListPage() {
                               COA
                             </button>
                           </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap">
+                          <td className="px-3 2xl:px-5 py-2.5 whitespace-nowrap">
                             <div className="flex items-center gap-0.5 justify-end">
                               <button
                                 onClick={() => router.push(`/documentations/ipqc/view?id=${record.ipqc_no}`)}
@@ -478,6 +476,6 @@ export default function IPQCListPage() {
         </div>
       )}
 
-    </div>
+    </DashboardLayout>
   );
 }

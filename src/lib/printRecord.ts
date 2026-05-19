@@ -3,6 +3,7 @@ import {
   LABEL_CHECK_PARAMS,
   getPhysicalParams,
 } from "@/lib/constant";
+import { getSignaturePath } from "@/lib/signatures";
 
 interface Article {
   floor?: string;
@@ -36,6 +37,15 @@ interface PrintRecord {
   overall_remark: string;
   checked_by: string;
   approved_by?:string;
+  verified_by?: string;
+}
+
+function renderSignatureHtml(name?: string | null): string {
+  if (!name) return "";
+  const sig = getSignaturePath(name);
+  if (!sig) return esc(name);
+  const url = typeof window !== "undefined" ? window.location.origin + sig : sig;
+  return `<img src="${url}" alt="${esc(name)}" style="max-height:26pt;max-width:80pt;object-fit:contain;display:block;margin:0 auto 1pt;" /><span style="font-size:7pt;color:#444">${esc(name)}</span>`;
 }
 
 function getLabel(params: any[], key: string): string {
@@ -125,8 +135,8 @@ function buildArticleRows(article: any, record: PrintRecord): string {
       rows += `<td class="mc" rowspan="${maxRows}" style="text-align:center;font-weight:bold">${sealText}</td>`;
       rows += `<td class="mc" rowspan="${maxRows}" style="text-align:center;font-weight:bold">${verdictText}</td>`;
       rows += `<td class="mc" rowspan="${maxRows}">${esc(article.overall_remark)}</td>`;
-      rows += `<td class="mc" rowspan="${maxRows}">${esc(record.checked_by)}</td>`;
-      rows += `<td class="mc" rowspan="${maxRows}">${esc(record.approved_by)}</td>`;
+      rows += `<td class="mc" rowspan="${maxRows}">${renderSignatureHtml(record.checked_by)}</td>`;
+      rows += `<td class="mc" rowspan="${maxRows}">${renderSignatureHtml(record.verified_by || record.approved_by)}</td>`;
     }
     rows += "</tr>";
   }

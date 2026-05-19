@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ArrowLeft, Check, Loader2, X } from 'lucide-react'
 import WarehouseSelector, { getStoredWarehouse, WarehouseCode } from '@/components/ui/WarehouseSelector'
+import SignaturePicker from '@/components/ui/SignaturePicker'
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from '@/lib/signatures'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
@@ -834,41 +836,28 @@ export default function MetalDetectorEntryPage() {
               </div>
             </div>
 
-            {/* Calibrated & Verified */}
+            {/* Checked & Verified — signature pickers (same UX as COA print) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  Calibrated By <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="calibratedBy"
-                  value={formData.calibratedBy}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Name"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  Verified By <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="verifiedBy"
-                  value={formData.verifiedBy}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none"
-                  required
-                >
-                  <option value="">Select verifier</option>
-                  <option value="Pooja Parkar">Pooja Parkar</option>
-                  <option value="Shraddha Jadhav">Shraddha Jadhav</option>
-                  <option value="Pooja Mhalim">Pooja Mhalim</option>
-                  <option value="Nikita Jarag">Nikita Jarag</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
+              <SignaturePicker
+                label="Checked By (Calibrated By)"
+                value={formData.calibratedBy}
+                onChange={(v) => setFormData((p) => ({ ...p, calibratedBy: v }))}
+                options={CHECKED_BY_OPTIONS}
+                roleHint="Quality Control Executive"
+                required
+                inputCls="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                labelCls="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5"
+              />
+              <SignaturePicker
+                label="Verified By"
+                value={formData.verifiedBy}
+                onChange={(v) => setFormData((p) => ({ ...p, verifiedBy: v }))}
+                options={QC_VERIFIED_BY_OPTIONS}
+                roleHint="Quality Manager"
+                required
+                inputCls="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                labelCls="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5"
+              />
             </div>
 
             {/* Remarks */}

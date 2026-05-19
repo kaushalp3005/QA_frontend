@@ -6,6 +6,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ArrowLeft, Loader2, Calendar, Clock, Package, User, FileText, Printer } from "lucide-react";
 import { getXRayRecord } from "@/lib/api/xray";
 import type { XRayRecord } from "@/lib/api/xray";
+import SignatureCell from "@/components/ui/SignatureCell";
 
 export default function XRayViewPage() {
   const router = useRouter();
@@ -191,13 +192,17 @@ export default function XRayViewPage() {
                   <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
                     <User className="h-3.5 w-3.5" /> Calibrated / Monitored By
                   </div>
-                  <p className="text-sm font-semibold text-gray-900">{record.calibrated_monitored_by || "—"}</p>
+                  <div className="text-sm font-semibold text-gray-900">
+                    <SignatureCell name={record.calibrated_monitored_by} empty="—" maxHeight={48} maxWidth={140} />
+                  </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
                     <User className="h-3.5 w-3.5" /> Verified By
                   </div>
-                  <p className="text-sm font-semibold text-gray-900">{record.verified_by || "—"}</p>
+                  <div className="text-sm font-semibold text-gray-900">
+                    <SignatureCell name={record.verified_by} empty="—" maxHeight={48} maxWidth={140} />
+                  </div>
                 </div>
               </div>
             </div>

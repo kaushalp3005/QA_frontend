@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import SignaturePicker from "@/components/ui/SignaturePicker";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 
 // ===================== F.29 — First Aid Box Record =====================
 interface FirstAidRow { id: number; boxNo: string; itemName: string; issueDate: string; expiryDate: string; qtyIssued: string; responsiblePerson: string; }
@@ -606,6 +608,8 @@ export function CCPRoastingBarLine({ initialData, onSubmit, isEdit }: CCPRoastin
     }
     return Array.from({ length: 5 }, (_, i) => eBR(i + 1));
   });
+  const [checkedBy, setCheckedBy] = useState<string>(initialData?.checked_by || "");
+  const [verifiedBy, setVerifiedBy] = useState<string>(initialData?.verified_by || "");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const add = () => setRows((p) => [...p, eBR(p.length + 1)]);
@@ -618,6 +622,8 @@ export function CCPRoastingBarLine({ initialData, onSubmit, isEdit }: CCPRoastin
     const payload: Record<string, any> = {
       warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
       rows: rows.filter((r) => r.skuName || r.date).map((r) => ({ date: r.date, sku_name: r.skuName, qty_units_kg: r.qtyUnitsKg, set_temp: r.setTemp, in_time: r.inTime, qc_time: r.qcTime, qc_temp: r.qcTemp, out_time: r.outTime, operator_sign: r.operatorSign, qc_sign: r.qcSign })),
+      checked_by: checkedBy || undefined,
+      verified_by: verifiedBy || undefined,
     };
     try {
       if (onSubmit) { await onSubmit(payload); }
@@ -650,6 +656,33 @@ export function CCPRoastingBarLine({ initialData, onSubmit, isEdit }: CCPRoastin
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="surface-card p-4 sm:p-5">
+        <h3 className="text-sm font-bold text-ink-600 mb-3 flex items-center gap-2">
+          <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />
+          Signatories
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <SignaturePicker
+            label="Checked By"
+            value={checkedBy}
+            onChange={setCheckedBy}
+            options={CHECKED_BY_OPTIONS}
+            roleHint="Quality Control Executive"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
+          <SignaturePicker
+            label="Verified By"
+            value={verifiedBy}
+            onChange={setVerifiedBy}
+            options={QC_VERIFIED_BY_OPTIONS}
+            roleHint="Quality Manager"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
         </div>
       </section>
 

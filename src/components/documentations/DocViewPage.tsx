@@ -5,6 +5,24 @@ import { useRouter, useParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { docsApi, isDocAdmin } from '@/lib/api/documentations'
 import type { DocFormConfig } from '@/config/doc-forms'
+import SignatureCell from '@/components/ui/SignatureCell'
+
+const SIGNATURE_FIELD_KEYS = new Set([
+  'checked_by',
+  'verified_by',
+  'approved_by',
+  'calibrated_by',
+  'calibrated_monitored_by',
+  'analysed_by',
+  'operator_sign',
+  'qc_sign',
+  'checkedby',
+  'verifiedby',
+  'calibratedby',
+])
+
+const isSignatureKey = (k: string) =>
+  SIGNATURE_FIELD_KEYS.has(k.toLowerCase()) || /(_by|sign)$/i.test(k)
 
 interface Props {
   config: DocFormConfig
@@ -65,8 +83,10 @@ export default function DocViewPage({ config }: Props) {
                 {value.map((row: any, i: number) => (
                   <tr key={i} className="hover:bg-gray-50">
                     {keys.map((k) => (
-                      <td key={k} className="border px-2 py-1">
-                        {typeof row[k] === 'object' ? JSON.stringify(row[k]) : String(row[k] ?? '')}
+                      <td key={k} className="border px-2 py-1 text-center">
+                        {isSignatureKey(k) && typeof row[k] === 'string'
+                          ? <SignatureCell name={row[k]} maxHeight={28} maxWidth={90} />
+                          : (typeof row[k] === 'object' ? JSON.stringify(row[k]) : String(row[k] ?? ''))}
                       </td>
                     ))}
                   </tr>
@@ -80,6 +100,9 @@ export default function DocViewPage({ config }: Props) {
     }
     if (typeof value === 'object') {
       return <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto">{JSON.stringify(value, null, 2)}</pre>
+    }
+    if (isSignatureKey(key) && typeof value === 'string') {
+      return <SignatureCell name={value} empty="—" maxHeight={48} maxWidth={140} />
     }
     return <span>{String(value)}</span>
   }

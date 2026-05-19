@@ -11,6 +11,8 @@ import {
   Plus, Trash2, ChevronDown, ChevronUp, Search, Save, Loader2
 } from "lucide-react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import SignaturePicker from "@/components/ui/SignaturePicker";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 
 const CHEMICAL_PARAMS = [
   { key: "moisture", label: "Moisture" },
@@ -124,6 +126,10 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
 
   const [checkDate, setCheckDate] = useState(
     initialData?.check_date || new Date().toISOString().slice(0, 10)
+  );
+  const [checkedBy, setCheckedBy] = useState<string>((initialData as any)?.checked_by || "");
+  const [verifiedBy, setVerifiedBy] = useState<string>(
+    (initialData as any)?.verified_by || (initialData as any)?.approved_by || ""
   );
   const [dropdowns, setDropdowns] = useState<DropdownData>({ factories: [] });
   const [articles, setArticles] = useState<ArticleForm[]>(
@@ -288,7 +294,15 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
     }));
     // Use the first article's floor as the record-level floor for backward compatibility
     const recordFloor = articles[0]?.floor || "";
-    onSubmit({ check_date: checkDate, warehouse, floor: recordFloor, articles: payload });
+    onSubmit({
+      check_date: checkDate,
+      warehouse,
+      floor: recordFloor,
+      articles: payload,
+      checked_by: checkedBy || undefined,
+      verified_by: verifiedBy || undefined,
+      approved_by: verifiedBy || undefined,
+    });
   }
 
   return (
@@ -778,6 +792,34 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
         <Plus className="w-4 h-4" />
         Add Another Article
       </button>
+
+      {/* ── Signatories ───────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5 mb-4">
+        <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
+          <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />
+          Signatories
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <SignaturePicker
+            label="Checked By"
+            value={checkedBy}
+            onChange={setCheckedBy}
+            options={CHECKED_BY_OPTIONS}
+            roleHint="Quality Control Executive"
+            inputCls={inputCls}
+            labelCls={labelCls}
+          />
+          <SignaturePicker
+            label="Verified By"
+            value={verifiedBy}
+            onChange={setVerifiedBy}
+            options={QC_VERIFIED_BY_OPTIONS}
+            roleHint="Quality Manager"
+            inputCls={inputCls}
+            labelCls={labelCls}
+          />
+        </div>
+      </div>
 
       {/* ── Sticky Save Bar ───────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 sm:static sm:bg-transparent sm:backdrop-blur-none sm:border-0 sm:p-0">

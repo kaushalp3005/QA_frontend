@@ -21,7 +21,10 @@ export default function NewIPQCPage() {
     setLoading(true);
     try {
       const user = getSession() as Session;
-      const res = await ipqc.create({ ...data, checked_by: user?.displayName });
+      const res = await ipqc.create({
+        ...data,
+        checked_by: data.checked_by || user?.displayName,
+      });
       setCreated(res.ipqc_no);
     } catch (err: any) {
       alert(err.message);

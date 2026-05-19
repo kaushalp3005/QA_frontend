@@ -5,6 +5,8 @@ import { Scale, Plus, X } from "lucide-react";
 import Time12Picker from "@/components/Time12Picker";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
+import SignaturePicker from "@/components/ui/SignaturePicker";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 
 interface WeightRow {
   id: number;
@@ -49,6 +51,8 @@ export default function ProductWeightSealCheckRecord() {
   const [permissibleError, setPermissibleError] = useState("");
   const [totalPktsProduced, setTotalPktsProduced] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [recordCheckedBy, setRecordCheckedBy] = useState("");
+  const [recordVerifiedBy, setRecordVerifiedBy] = useState("");
   const [rows, setRows] = useState<WeightRow[]>(Array.from({ length: 10 }, (_, i) => emptyRow(i + 1)));
   const hydrated = useRef(false);
 
@@ -312,6 +316,29 @@ export default function ProductWeightSealCheckRecord() {
           className="input-base"
           placeholder="Optional remarks for this batch..."
         />
+      </DocSection>
+
+      <DocSection title="Signatories" description="Final sign-off for this record">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <SignaturePicker
+            label="Checked By"
+            value={recordCheckedBy}
+            onChange={setRecordCheckedBy}
+            options={CHECKED_BY_OPTIONS}
+            roleHint="Quality Control Executive"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
+          <SignaturePicker
+            label="Verified By"
+            value={recordVerifiedBy}
+            onChange={setRecordVerifiedBy}
+            options={QC_VERIFIED_BY_OPTIONS}
+            roleHint="Quality Manager"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
+        </div>
       </DocSection>
 
       <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

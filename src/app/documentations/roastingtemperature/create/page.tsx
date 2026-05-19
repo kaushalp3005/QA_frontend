@@ -43,7 +43,7 @@ const emptyEntry = (): RoastingEntry => ({
   inTime: "",
   outTime: "",
   operatorSign: "",
-  correctiveAction: "",
+  correctiveAction: "No",
   qcVerification: "",
   monitoringPoints: {
     startObsTime: "",

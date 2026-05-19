@@ -239,6 +239,7 @@ export interface IPQCRecord {
   factory_code: string;
   floor: string;
   checked_by?: string;
+  verified_by?: string;
   approved_by?: string;
   approved_at?: string;
   created_at?: string;

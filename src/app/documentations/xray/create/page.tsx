@@ -6,6 +6,8 @@ import { Check, ArrowLeft, AlertCircle } from "lucide-react";
 import { cn, buttonStyles, layoutStyles } from "@/lib/styles";
 import { createXRayRecord } from "@/lib/api/xray";
 import Time12Picker from "@/components/Time12Picker";
+import SignaturePicker from "@/components/ui/SignaturePicker";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 
 interface XRayFormData {
   date: string;
@@ -30,8 +32,8 @@ const EMPTY = (): XRayFormData => ({
   ss316: true,
   ceramic: true,
   soda_lime_glass: true,
-  action_on_xray: "",
-  action_on_product_passed: "",
+  action_on_xray: "NO",
+  action_on_product_passed: "NO",
   calibrated_monitored_by: "",
   verified_by: "",
   remarks: "",
@@ -304,37 +306,33 @@ export default function XRayFillForm() {
                 </div>
               </div>
 
-              {/* Sign-offs */}
+              {/* Sign-offs — signature pickers (same UX as COA print) */}
               <div>
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <span className="w-1 h-4 bg-blue-600 rounded-full inline-block" />
                   Sign-offs
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Calibrated / Monitored By (Name)
-                    </label>
-                    <input
-                      type="text"
-                      className={inputCls}
-                      placeholder="Full name"
-                      value={form.calibrated_monitored_by}
-                      onChange={(e) => set("calibrated_monitored_by", e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Verified By</label>
-                    <input
-                      type="text"
-                      className={inputCls}
-                      placeholder="Verifier name"
-                      value={form.verified_by}
-                      onChange={(e) => set("verified_by", e.target.value)}
-                      required
-                    />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <SignaturePicker
+                    label="Checked By (Calibrated / Monitored By)"
+                    value={form.calibrated_monitored_by}
+                    onChange={(v) => set("calibrated_monitored_by", v)}
+                    options={CHECKED_BY_OPTIONS}
+                    roleHint="Quality Control Executive"
+                    required
+                    inputCls={inputCls}
+                    labelCls="block text-sm font-medium text-gray-700 mb-1.5"
+                  />
+                  <SignaturePicker
+                    label="Verified By"
+                    value={form.verified_by}
+                    onChange={(v) => set("verified_by", v)}
+                    options={QC_VERIFIED_BY_OPTIONS}
+                    roleHint="Quality Manager"
+                    required
+                    inputCls={inputCls}
+                    labelCls="block text-sm font-medium text-gray-700 mb-1.5"
+                  />
                 </div>
               </div>
 

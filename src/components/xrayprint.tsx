@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { XRayRecord } from "@/lib/api/xray";
 import { getXRayRecords } from "@/lib/api/xray";
+import SignatureCell from "@/components/ui/SignatureCell";
 
 // blank rows to pad out the table to look like the physical form
 const BLANK_ROW_COUNT = 8;
@@ -377,8 +378,12 @@ export default function XRayPrintPage() {
                   </td>
                   <td><div className="td-content">{r.action_on_xray}</div></td>
                   <td><div className="td-content">{r.action_on_product_passed}</div></td>
-                  <td><div className="td-content">{r.calibrated_monitored_by}</div></td>
-                  <td><div className="td-content">{r.verified_by}</div></td>
+                  <td style={{ textAlign: "center" }}>
+                    <SignatureCell name={r.calibrated_monitored_by} maxHeight={28} maxWidth={90} />
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    <SignatureCell name={r.verified_by} maxHeight={28} maxWidth={90} />
+                  </td>
                   <td><div className="td-content">{r.remarks}</div></td>
                 </tr>
               ))}

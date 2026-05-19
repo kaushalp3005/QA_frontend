@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { getXRayRecords, getXRayRecord } from "@/lib/api/xray";
 import type { XRayRecord } from "@/lib/api/xray";
+import SignatureCell from "@/components/ui/SignatureCell";
 
 function fmt(date: string) {
   if (!date) return "";
@@ -228,8 +229,12 @@ export default function XRayPrintPage() {
                   <td style={td}>{r.soda_lime_glass ? "✓" : ""}</td>
                   <td style={{ ...td, textAlign: "left", paddingLeft: "6px" }}>{r.action_on_xray}</td>
                   <td style={{ ...td, textAlign: "left", paddingLeft: "6px" }}>{r.action_on_product_passed}</td>
-                  <td style={{ ...td, textAlign: "left", paddingLeft: "6px" }}>{r.calibrated_monitored_by}</td>
-                  <td style={{ ...td, textAlign: "left", paddingLeft: "6px" }}>{r.verified_by}</td>
+                  <td style={{ ...td, textAlign: "center", padding: "2px 4px" }}>
+                    <SignatureCell name={r.calibrated_monitored_by} maxHeight={28} maxWidth={80} />
+                  </td>
+                  <td style={{ ...td, textAlign: "center", padding: "2px 4px" }}>
+                    <SignatureCell name={r.verified_by} maxHeight={28} maxWidth={80} />
+                  </td>
                   <td style={{ ...td, textAlign: "left", paddingLeft: "6px" }}>{r.remarks}</td>
                 </tr>
               ))}

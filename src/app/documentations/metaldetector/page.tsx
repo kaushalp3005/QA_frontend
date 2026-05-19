@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, X, Printer, Edit2, Save, Loader2 } from 'lucide-react'
 import WarehouseSelector, { getStoredWarehouse, WarehouseCode } from '@/components/ui/WarehouseSelector'
 import Time12Picker from '@/components/Time12Picker'
+import SignatureCell from '@/components/ui/SignatureCell'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 const AUTHORIZED_EMAIL = 'pooja.parkar@candorfoods.in'
@@ -25,6 +26,24 @@ const to24Hour = (hour: number, minute: number, period: string): string => {
   if (period === 'AM' && h === 12) h = 0
   else if (period === 'PM' && h !== 12) h += 12
   return `${h.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+}
+
+// Sort entries chronologically by entry_date then entry_time (24h, lexicographic-safe).
+// Falls back to id if either field is missing, so re-saved rows keep a stable order.
+const sortEntriesByTime = <T extends { entry_date?: string; entry_time?: string; id?: number }>(entries: T[] | undefined): T[] => {
+  if (!Array.isArray(entries)) return []
+  return [...entries].sort((a, b) => {
+    const ad = (a.entry_date || '') + ' ' + (a.entry_time || '')
+    const bd = (b.entry_date || '') + ' ' + (b.entry_time || '')
+    if (ad !== bd) return ad.localeCompare(bd)
+    return (a.id ?? 0) - (b.id ?? 0)
+  })
+}
+
+// Apply the sort to the entries array of a fetched record, returning a new record.
+const withSortedEntries = <R extends { entries?: any[] }>(record: R): R => {
+  if (!record || !Array.isArray(record.entries)) return record
+  return { ...record, entries: sortEntriesByTime(record.entries) }
 }
 
 // Parse 24hr time string into 12hr components
@@ -116,6 +135,7 @@ export default function MetalDetectorPage() {
   // Inline entry editing state
   const [inlineEditEntryId, setInlineEditEntryId] = useState<number | null>(null)
   const [inlineEditData, setInlineEditData] = useState<{
+    entry_date: string
     entry_time: string
     identification_no: string
     customer_name: string
@@ -204,7 +224,7 @@ export default function MetalDetectorPage() {
       const response = await fetch(`${API_BASE}/metaldetector/${recordId}?warehouse=${warehouse}`)
       if (response.ok) {
         const data = await response.json()
-        setViewRecord(data)
+        setViewRecord(withSortedEntries(data))
       } else {
         alert('Failed to fetch record details.')
       }
@@ -223,7 +243,7 @@ export default function MetalDetectorPage() {
       const response = await fetch(`${API_BASE}/metaldetector/${recordId}?warehouse=${warehouse}`)
       if (response.ok) {
         const data = await response.json()
-        setPrintRecord(data)
+        setPrintRecord(withSortedEntries(data))
       } else {
         alert('Failed to fetch record details for print.')
       }
@@ -235,9 +255,16 @@ export default function MetalDetectorPage() {
     }
   }
 
-  const triggerPrint = () => {
-    window.print()
-  }
+  // Auto-fire the browser print dialog as soon as the print content has mounted,
+  // then dismiss the overlay once the dialog closes.
+  useEffect(() => {
+    if (!printRecord) return
+    const t = setTimeout(() => {
+      window.print()
+      setPrintRecord(null)
+    }, 100)
+    return () => clearTimeout(t)
+  }, [printRecord])
 
   const getPrintRows = (entries: MDEntry[], minRows = 10) => {
     const rows: (MDEntry | null)[] = [...entries]
@@ -296,7 +323,8 @@ export default function MetalDetectorPage() {
     try {
       const response = await fetch(`${API_BASE}/metaldetector/${recordId}?warehouse=${warehouse}`)
       if (response.ok) {
-        const data: MDRecordWithEntries = await response.json()
+        const raw: MDRecordWithEntries = await response.json()
+        const data = withSortedEntries(raw)
         setEditRecord(data)
         setEditFormData({
           entry_date: data.entry_date || '',
@@ -327,6 +355,33 @@ export default function MetalDetectorPage() {
     } finally {
       setEditLoading(false)
     }
+  }
+
+  const handleAddEditRow = () => {
+    setEditFormData(prev => prev ? {
+      ...prev,
+      entries: [
+        ...prev.entries,
+        {
+          entry_time: prev.entry_time || '',
+          product_name: '',
+          batch_lot_no: prev.batch_lot_no || '',
+          corrective_action_on_detector: '',
+          corrective_action_on_product: '',
+          calibrated_by: prev.calibrated_by || '',
+          verified_by: prev.verified_by || '',
+          remarks: '',
+        },
+      ],
+    } : prev)
+  }
+
+  const handleRemoveEditRow = (index: number) => {
+    setEditFormData(prev => {
+      if (!prev) return prev
+      if (prev.entries.length <= 1) return prev
+      return { ...prev, entries: prev.entries.filter((_, i) => i !== index) }
+    })
   }
 
   const handleSaveEdit = async () => {
@@ -365,6 +420,7 @@ export default function MetalDetectorPage() {
     }
     setInlineEditEntryId(entry.id)
     setInlineEditData({
+      entry_date: entry.entry_date || '',
       entry_time: entry.entry_time || '',
       identification_no: entry.identification_no || '',
       customer_name: entry.customer_name || '',
@@ -398,7 +454,7 @@ export default function MetalDetectorPage() {
         const refreshResponse = await fetch(`${API_BASE}/metaldetector/${viewRecord.id}?warehouse=${warehouse}`)
         if (refreshResponse.ok) {
           const data = await refreshResponse.json()
-          setViewRecord(data)
+          setViewRecord(withSortedEntries(data))
         }
         setInlineEditEntryId(null)
         setInlineEditData(null)
@@ -770,7 +826,14 @@ export default function MetalDetectorPage() {
                                 <td className="px-3 py-2">
                                   <input type="text" value={inlineEditData.identification_no} onChange={(e) => setInlineEditData(prev => prev ? { ...prev, identification_no: e.target.value } : prev)} className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500" />
                                 </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{entry.entry_date}</td>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="date"
+                                    value={inlineEditData.entry_date}
+                                    onChange={(e) => setInlineEditData(prev => prev ? { ...prev, entry_date: e.target.value } : prev)}
+                                    className="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                  />
+                                </td>
                                 <td className="px-3 py-2">
                                   <Time12Picker value={inlineEditData.entry_time} onChange={(v) => setInlineEditData(prev => prev ? { ...prev, entry_time: v } : prev)} />
                                 </td>
@@ -1041,9 +1104,19 @@ export default function MetalDetectorPage() {
 
                     {/* Entry-level fields */}
                     <div>
-                      <h4 className="text-md font-semibold text-gray-800 mb-3">
-                        Entries ({editFormData.entries.length})
-                      </h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-md font-semibold text-gray-800">
+                          Entries ({editFormData.entries.length})
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={handleAddEditRow}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Row
+                        </button>
+                      </div>
                       <div className="overflow-x-auto border border-gray-200 rounded-lg">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
@@ -1057,6 +1130,7 @@ export default function MetalDetectorPage() {
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Calibrated By</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Verified By</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Remarks</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase"></th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
@@ -1193,6 +1267,18 @@ export default function MetalDetectorPage() {
                                     className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
                                   />
                                 </td>
+                                <td className="px-3 py-2 text-right">
+                                  {editFormData.entries.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveEditRow(index)}
+                                      className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                      title="Remove row"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -1226,30 +1312,9 @@ export default function MetalDetectorPage() {
         </div>
       )}
 
-      {/* Print Preview Overlay */}
+      {/* Print Overlay — auto-triggers window.print() once mounted */}
       {(printRecord || printLoading) && (
         <div className="print-overlay fixed inset-0 z-[60] bg-white overflow-y-auto">
-          {/* Print Controls - hidden during print */}
-          <div className="no-print sticky top-0 z-10 bg-gray-100 border-b border-gray-300 px-6 py-3 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-800">Print Preview</h3>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={triggerPrint}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </button>
-              <button
-                onClick={() => setPrintRecord(null)}
-                className="flex items-center px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Close
-              </button>
-            </div>
-          </div>
-
           {printLoading ? (
             <div className="px-6 py-12 text-center">
               <p className="text-sm text-gray-500">Loading record for print...</p>
@@ -1398,10 +1463,10 @@ export default function MetalDetectorPage() {
                             {entry?.corrective_action_on_product || ''}
                           </td>
                           <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                            {entry?.calibrated_by || ''}
+                            <SignatureCell name={entry?.calibrated_by} maxHeight={26} maxWidth={70} />
                           </td>
                           <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
-                            {entry?.verified_by || ''}
+                            <SignatureCell name={entry?.verified_by} maxHeight={26} maxWidth={70} />
                           </td>
                           <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
                             {entry?.remarks || ''}

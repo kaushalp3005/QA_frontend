@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Wrench, Plus, X } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
+import SignaturePicker from "@/components/ui/SignaturePicker";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 
 const TOOLS = ["SIEVES", "SCOOPS", "Scissors/Knife", "SS BOWLS", "SS GLASS", "HAND MAGNET", "Gloves"];
 const PARAMETERS = ["Quantity Issued", "Condition at issuance", "Quantity Received", "Condition when Received", "Cleaning up Starting of production + after each product Change"];
@@ -127,14 +129,24 @@ export default function ProductionToolsIssuanceRecord() {
               <label className="label-base">Remark</label>
               <input type="text" value={block.remark} onChange={(e) => updateField(block.id, "remark", e.target.value)} className="input-base" />
             </div>
-            <div>
-              <label className="label-base">Checked By (Production)</label>
-              <input type="text" value={block.checkedBy} onChange={(e) => updateField(block.id, "checkedBy", e.target.value)} className="input-base" />
-            </div>
-            <div>
-              <label className="label-base">Verified By (QC)</label>
-              <input type="text" value={block.verifiedBy} onChange={(e) => updateField(block.id, "verifiedBy", e.target.value)} className="input-base" />
-            </div>
+            <SignaturePicker
+              label="Checked By (Production)"
+              value={block.checkedBy}
+              onChange={(v) => updateField(block.id, "checkedBy", v)}
+              options={CHECKED_BY_OPTIONS}
+              roleHint="Production Floor Leader"
+              inputCls="input-base"
+              labelCls="label-base"
+            />
+            <SignaturePicker
+              label="Verified By (QC)"
+              value={block.verifiedBy}
+              onChange={(v) => updateField(block.id, "verifiedBy", v)}
+              options={QC_VERIFIED_BY_OPTIONS}
+              roleHint="Quality Manager"
+              inputCls="input-base"
+              labelCls="label-base"
+            />
           </div>
         </DocSection>
       ))}

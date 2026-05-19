@@ -20,10 +20,43 @@ export const VERIFIED_BY_OPTIONS: SignatureOption[] = [
   { name: 'Other',        signature: null },
 ]
 
+/** QC documentation forms — "Checked By" preset list (operators / QC executives). */
+export const CHECKED_BY_OPTIONS: SignatureOption[] = [
+  { name: 'Pooja Mhalim',    signature: '/signatures/pooja-mhalim.png',    role: 'Quality Control Executive' },
+  { name: 'Shraddha Jadhav', signature: '/signatures/shraddha-jadhav.png', role: 'Quality Control Executive' },
+  { name: 'Nikita Jarag',    signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Other',           signature: null },
+]
+
+/** QC documentation forms — "Verified By" preset list (Quality Manager / Sr. Executives). */
+export const QC_VERIFIED_BY_OPTIONS: SignatureOption[] = [
+  { name: 'Pooja Parkar',    signature: '/signatures/pooja-parkar.png',    role: 'Quality Manager' },
+  { name: 'Shraddha Jadhav', signature: '/signatures/shraddha-jadhav.png', role: 'Quality Control Executive' },
+  { name: 'Pooja Mhalim',    signature: '/signatures/pooja-mhalim.png',    role: 'Quality Control Executive' },
+  { name: 'Nikita Jarag',    signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Other',           signature: null },
+]
+
 export const COMPANY_STAMP = '/signatures/company-stamp.png'
 
 /** Look up signature path for a name (used on the print page) */
 export function getSignaturePath(name: string): string | null {
-  const all = [...ANALYSED_BY_OPTIONS, ...VERIFIED_BY_OPTIONS]
+  const all = [
+    ...ANALYSED_BY_OPTIONS,
+    ...VERIFIED_BY_OPTIONS,
+    ...CHECKED_BY_OPTIONS,
+    ...QC_VERIFIED_BY_OPTIONS,
+  ]
   return all.find(o => o.name === name)?.signature ?? null
+}
+
+/** Look up role for a name across any option list */
+export function getSignatureRole(name: string): string | null {
+  const all = [
+    ...ANALYSED_BY_OPTIONS,
+    ...VERIFIED_BY_OPTIONS,
+    ...CHECKED_BY_OPTIONS,
+    ...QC_VERIFIED_BY_OPTIONS,
+  ]
+  return all.find(o => o.name === name)?.role ?? null
 }

@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useState } from "react";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 // ===================== Shared Props Interface =====================
 interface DocFormProps {
@@ -38,7 +39,7 @@ function VehicleInspectionForm({ type, docNo, infoFields, initialData, onSubmit,
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       info: Object.fromEntries(infoFields.map((f) => [labelToKey(f.label), info[f.label] || ""])),
       params: Object.fromEntries(VEHICLE_EVAL_PARAMS.map((p) => [labelToKey(p), params[p] || ""])),
     };
@@ -239,7 +240,7 @@ export function PreventiveMaintenanceChecklist({ initialData, onSubmit, isEdit }
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       month, checked_by: checkedBy, verified_by: verifiedBy, scores,
     };
     try {
@@ -320,7 +321,7 @@ export function NewEquipmentClearance({ initialData, onSubmit, isEdit }: DocForm
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       meta, checks, qa_sign: qaSign, maint_sign: maintSign, remark,
     };
     try {
@@ -398,7 +399,7 @@ export function WasteDisposalRecord({ initialData, onSubmit, isEdit }: DocFormPr
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       month, area, grid, checked_by: checkedBy, verified_by: verifiedBy, remarks,
     };
     try {
@@ -595,7 +596,7 @@ export function NonConformingProductReport({ initialData, onSubmit, isEdit }: Do
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       fields, disposition,
     };
     try {
@@ -647,7 +648,7 @@ export function ReworkRecyclingRepacking({ initialData, onSubmit, isEdit }: DocF
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       rows: rows.filter((r) => r.date || r.productNameBatch).map((r) => ({
         date: r.date, time: r.time, product_name_batch: r.productNameBatch, reason: r.reason,
         qty_to_rework: r.qtyToRework, product_approval: r.productApproval,

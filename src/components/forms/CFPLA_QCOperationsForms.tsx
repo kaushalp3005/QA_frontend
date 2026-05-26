@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
 import SignaturePicker from "@/components/ui/SignaturePicker";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 // ===================== F.29 — First Aid Box Record =====================
 interface FirstAidRow { id: number; boxNo: string; itemName: string; issueDate: string; expiryDate: string; qtyIssued: string; responsiblePerson: string; }
@@ -160,7 +161,7 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit }: Traceabili
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       report_date: date, start_time: startTime, product_name: productName, batch_number: batchNumber,
       work_order_no: workOrderNo, packing_date: packingDate, expiry_date: expiryDate, size_packing: sizePacking,
       qty_produced: qtyProduced ? Number(qtyProduced) : null,
@@ -426,7 +427,7 @@ export function PreWeighingCheckRecord({ initialData, onSubmit, isEdit }: PreWei
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       check_date: date, customer, product, rm_analysis_date: rmAnalysisDate, rm_analysis_done_by: rmAnalysisDoneBy,
       checked_by: checkedBy, verified_by: verifiedBy,
       rows: rows.filter((r) => r.rawMaterial).map((r) => ({ raw_material: r.rawMaterial, qty: r.qty ? Number(r.qty) : null, no_of_bags: r.noOfBags ? Number(r.noOfBags) : null, batch_lot_no: r.batchLotNo, remark: r.remark })),
@@ -592,8 +593,36 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
 }
 
 // ===================== F.43 — CCP Roasting Bar Line =====================
-interface BarRoastRow { id: number; date: string; skuName: string; qtyUnitsKg: string; setTemp: string; inTime: string; qcTime: string; qcTemp: string; outTime: string; operatorSign: string; qcSign: string; }
-const eBR = (id: number): BarRoastRow => ({ id, date: "", skuName: "", qtyUnitsKg: "", setTemp: "", inTime: "", qcTime: "", qcTemp: "", outTime: "", operatorSign: "", qcSign: "" });
+interface MonitoringPoint { obsTime: string; obsTemp: string; }
+interface BarRoastRow {
+  id: number;
+  date: string;
+  productName: string;
+  customer: string;
+  setTemp: string;
+  quantity: string;
+  roastingStage: string;
+  duration: string;
+  inTime: string;
+  monitoring: [MonitoringPoint, MonitoringPoint, MonitoringPoint];
+  outTime: string;
+  operatorSign: string;
+  correctiveAction: string;
+  qcVerification: string;
+}
+const emptyMonitoring = (): [MonitoringPoint, MonitoringPoint, MonitoringPoint] => [
+  { obsTime: "", obsTemp: "" },
+  { obsTime: "", obsTemp: "" },
+  { obsTime: "", obsTemp: "" },
+];
+const eBR = (id: number): BarRoastRow => ({
+  id, date: "", productName: "", customer: "", setTemp: "", quantity: "",
+  roastingStage: "", duration: "", inTime: "",
+  monitoring: emptyMonitoring(),
+  outTime: "", operatorSign: "", correctiveAction: "", qcVerification: "",
+});
+
+const MONITORING_STAGES = ["Start of Stage", "At the middle Stage", "End of Stage"] as const;
 
 interface CCPRoastingBarLineProps {
   initialData?: Record<string, any>;
@@ -604,26 +633,62 @@ interface CCPRoastingBarLineProps {
 export function CCPRoastingBarLine({ initialData, onSubmit, isEdit }: CCPRoastingBarLineProps = {}) {
   const [rows, setRows] = useState<BarRoastRow[]>(() => {
     if (initialData?.rows && Array.isArray(initialData.rows)) {
-      return initialData.rows.map((r: any, i: number) => ({ id: i + 1, date: r.date || "", skuName: r.sku_name || "", qtyUnitsKg: r.qty_units_kg || "", setTemp: r.set_temp || "", inTime: r.in_time || "", qcTime: r.qc_time || "", qcTemp: r.qc_temp || "", outTime: r.out_time || "", operatorSign: r.operator_sign || "", qcSign: r.qc_sign || "" }));
+      return initialData.rows.map((r: any, i: number): BarRoastRow => ({
+        id: i + 1,
+        date: r.date || "",
+        productName: r.product_name || r.sku_name || "",
+        customer: r.customer || "",
+        setTemp: r.set_temp || "",
+        quantity: r.quantity || r.qty_units_kg || "",
+        roastingStage: r.roasting_stage || "",
+        duration: r.duration || "",
+        inTime: r.in_time || "",
+        monitoring: Array.isArray(r.monitoring) && r.monitoring.length === 3
+          ? r.monitoring.map((m: any) => ({ obsTime: m.obs_time || "", obsTemp: m.obs_temp || "" })) as [MonitoringPoint, MonitoringPoint, MonitoringPoint]
+          : emptyMonitoring(),
+        outTime: r.out_time || "",
+        operatorSign: r.operator_sign || "",
+        correctiveAction: r.corrective_action || "",
+        qcVerification: r.qc_verification || r.qc_sign || "",
+      }));
     }
-    return Array.from({ length: 5 }, (_, i) => eBR(i + 1));
+    return Array.from({ length: 3 }, (_, i) => eBR(i + 1));
   });
-  const [checkedBy, setCheckedBy] = useState<string>(initialData?.checked_by || "");
-  const [verifiedBy, setVerifiedBy] = useState<string>(initialData?.verified_by || "");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
   const add = () => setRows((p) => [...p, eBR(p.length + 1)]);
   const rm = (id: number) => { if (rows.length > 1) setRows((p) => p.filter((r) => r.id !== id)); };
-  const up = (id: number, f: keyof BarRoastRow, v: string) => setRows((p) => p.map((r) => (r.id === id ? { ...r, [f]: v } : r)));
+  const up = (id: number, f: keyof Omit<BarRoastRow, "id" | "monitoring">, v: string) =>
+    setRows((p) => p.map((r) => (r.id === id ? { ...r, [f]: v } : r)));
+  const upM = (id: number, idx: number, f: keyof MonitoringPoint, v: string) =>
+    setRows((p) => p.map((r) => {
+      if (r.id !== id) return r;
+      const m = [...r.monitoring] as [MonitoringPoint, MonitoringPoint, MonitoringPoint];
+      m[idx] = { ...m[idx], [f]: v };
+      return { ...r, monitoring: m };
+    }));
 
   const handleSubmit = async () => {
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
       warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
-      rows: rows.filter((r) => r.skuName || r.date).map((r) => ({ date: r.date, sku_name: r.skuName, qty_units_kg: r.qtyUnitsKg, set_temp: r.setTemp, in_time: r.inTime, qc_time: r.qcTime, qc_temp: r.qcTemp, out_time: r.outTime, operator_sign: r.operatorSign, qc_sign: r.qcSign })),
-      checked_by: checkedBy || undefined,
-      verified_by: verifiedBy || undefined,
+      rows: rows.filter((r) => r.productName || r.date).map((r) => ({
+        date: r.date,
+        product_name: r.productName,
+        customer: r.customer,
+        set_temp: r.setTemp,
+        quantity: r.quantity,
+        roasting_stage: r.roastingStage,
+        duration: r.duration,
+        in_time: r.inTime,
+        monitoring: r.monitoring.map((m, i) => ({ stage: MONITORING_STAGES[i], obs_time: m.obsTime, obs_temp: m.obsTemp })),
+        out_time: r.outTime,
+        operator_sign: r.operatorSign,
+        corrective_action: r.correctiveAction,
+        qc_verification: r.qcVerification,
+      })),
     };
     try {
       if (onSubmit) { await onSubmit(payload); }
@@ -632,57 +697,92 @@ export function CCPRoastingBarLine({ initialData, onSubmit, isEdit }: CCPRoastin
     finally { setSubmitting(false); }
   };
 
+  const inp = (val: string, onChange: (v: string) => void, type = "text") => (
+    <input type={type} value={val} onChange={(e) => onChange(e.target.value)} className="input-base !py-0.5 !px-1.5 text-xs w-full" />
+  );
+
+  const thCls = "border border-gray-400 px-1.5 py-1.5 text-center text-[11px] font-bold text-ink-700 bg-gray-50 leading-tight";
+  const tdCls = "border border-gray-300 px-1 py-0.5 align-middle";
+  const stageCls = "border border-gray-300 px-1.5 py-1 text-[11px] text-ink-500 italic text-center whitespace-nowrap bg-cream-50/60";
+
   return (
     <div className="space-y-5">
       <section className="surface-card overflow-hidden">
         <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
-          <h2 className="text-sm font-bold text-ink-600">Bar Line Roasting Log</h2>
+          <h2 className="text-sm font-bold text-ink-600">Monitoring & Verification Log</h2>
           <button onClick={add} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Row</button>
         </header>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-cream-100/70 border-b border-cream-300">
-              <tr>{["Sr.", "Date", "SKU", "Qty", "Set Temp", "In Time", "QC Time", "QC Temp", "Out Time", "Operator", "QC Sign", ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr>
+                <th rowSpan={2} className={`${thCls} w-8`}>Sr.<br />No</th>
+                <th rowSpan={2} className={`${thCls} w-20`}>Date</th>
+                <th rowSpan={2} className={`${thCls} w-36`}>Product Name,<br />Customer,<br />Set Temperature,<br />Quantity</th>
+                <th rowSpan={2} className={`${thCls} w-24`}>Roasting<br />Stage /<br />duration</th>
+                <th rowSpan={2} className={`${thCls} w-16`}>In Time</th>
+                <th colSpan={3} className={thCls}>Time of Monitoring</th>
+                <th rowSpan={2} className={`${thCls} w-16`}>Out Time</th>
+                <th rowSpan={2} className={`${thCls} w-16`}>Operator<br />Sign</th>
+                <th rowSpan={2} className={`${thCls} w-28`}>Corrective action in<br />case of any deviation</th>
+                <th rowSpan={2} className={`${thCls} w-16`}>QC<br />Verification</th>
+                <th rowSpan={2} className={`${thCls} w-8`}></th>
+              </tr>
+              <tr>
+                <th className={`${thCls} w-28`}>Stage</th>
+                <th className={`${thCls} w-16`}>Obs.<br />Time</th>
+                <th className={`${thCls} w-16`}>Obs.<br />Temp.</th>
+              </tr>
             </thead>
-            <tbody className="divide-y divide-cream-300">
-              {rows.map((r, i) => (
-                <tr key={r.id} className="hover:bg-cream-100/60">
-                  <td className="px-2 py-1.5 text-center text-ink-400 font-medium">{i + 1}</td>
-                  {(["date", "skuName", "qtyUnitsKg", "setTemp", "inTime", "qcTime", "qcTemp", "outTime", "operatorSign", "qcSign"] as (keyof BarRoastRow)[]).map((f) => (
-                    <td key={f} className="px-1 py-1"><input type={f === "date" ? "date" : (f as string).includes("Time") ? "time" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+            <tbody>
+              {rows.map((r, idx) => (
+                <React.Fragment key={r.id}>
+                  {MONITORING_STAGES.map((stage, si) => (
+                    <tr key={`${r.id}-${si}`} className="hover:bg-cream-50/40">
+                      {si === 0 && (
+                        <>
+                          <td rowSpan={3} className={`${tdCls} text-center font-semibold text-ink-500`}>{idx + 1}</td>
+                          <td rowSpan={3} className={tdCls}>{inp(r.date, (v) => up(r.id, "date", v), "date")}</td>
+                          <td rowSpan={3} className={tdCls}>
+                            <div className="flex flex-col gap-0.5">
+                              {inp(r.productName, (v) => up(r.id, "productName", v))}
+                              {inp(r.customer, (v) => up(r.id, "customer", v))}
+                              <div className="flex gap-0.5">
+                                <input type="text" value={r.setTemp} onChange={(e) => up(r.id, "setTemp", e.target.value)} placeholder="Set Temp" className="input-base !py-0.5 !px-1.5 text-xs w-1/2" />
+                                <input type="text" value={r.quantity} onChange={(e) => up(r.id, "quantity", e.target.value)} placeholder="Qty" className="input-base !py-0.5 !px-1.5 text-xs w-1/2" />
+                              </div>
+                            </div>
+                          </td>
+                          <td rowSpan={3} className={tdCls}>
+                            <div className="flex flex-col gap-0.5">
+                              {inp(r.roastingStage, (v) => up(r.id, "roastingStage", v))}
+                              {inp(r.duration, (v) => up(r.id, "duration", v))}
+                            </div>
+                          </td>
+                          <td rowSpan={3} className={tdCls}>{inp(r.inTime, (v) => up(r.id, "inTime", v), "time")}</td>
+                        </>
+                      )}
+                      <td className={stageCls}>{stage}</td>
+                      <td className={tdCls}>{inp(r.monitoring[si].obsTime, (v) => upM(r.id, si, "obsTime", v), "time")}</td>
+                      <td className={tdCls}>{inp(r.monitoring[si].obsTemp, (v) => upM(r.id, si, "obsTemp", v))}</td>
+                      {si === 0 && (
+                        <>
+                          <td rowSpan={3} className={tdCls}>{inp(r.outTime, (v) => up(r.id, "outTime", v), "time")}</td>
+                          <td rowSpan={3} className={tdCls}>{inp(r.operatorSign, (v) => up(r.id, "operatorSign", v))}</td>
+                          <td rowSpan={3} className={tdCls}>{inp(r.correctiveAction, (v) => up(r.id, "correctiveAction", v))}</td>
+                          <td rowSpan={3} className={tdCls}>{inp(r.qcVerification, (v) => up(r.id, "qcVerification", v))}</td>
+                          <td rowSpan={3} className={`${tdCls} text-center`}>
+                            <button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
                   ))}
-                  <td className="px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
-                </tr>
+                  <tr key={`${r.id}-sep`}><td colSpan={13} className="h-1 bg-cream-200/60" /></tr>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
-        </div>
-      </section>
-
-      <section className="surface-card p-4 sm:p-5">
-        <h3 className="text-sm font-bold text-ink-600 mb-3 flex items-center gap-2">
-          <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />
-          Signatories
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <SignaturePicker
-            label="Checked By"
-            value={checkedBy}
-            onChange={setCheckedBy}
-            options={CHECKED_BY_OPTIONS}
-            roleHint="Quality Control Executive"
-            inputCls="input-base"
-            labelCls="label-base"
-          />
-          <SignaturePicker
-            label="Verified By"
-            value={verifiedBy}
-            onChange={setVerifiedBy}
-            options={QC_VERIFIED_BY_OPTIONS}
-            roleHint="Quality Manager"
-            inputCls="input-base"
-            labelCls="label-base"
-          />
         </div>
       </section>
 
@@ -720,7 +820,7 @@ export function IncomingVehicleInspection({ initialData, onSubmit, isEdit }: Inc
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       info, params,
       inspection_date: info["Date of Vehicle Inward"] || null,
       vendor_name: info["Vendor Name"] || null,

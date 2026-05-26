@@ -7,6 +7,8 @@ import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 import SignaturePicker from "@/components/ui/SignaturePicker";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
+import { docsApi } from "@/lib/api/documentations";
+import { Loader2, CheckCircle2 } from "lucide-react";
 
 interface WeightRow {
   id: number;
@@ -32,7 +34,7 @@ const currentDate = () => {
 };
 
 const emptyRow = (id: number): WeightRow => ({
-  id, time: currentTime(), packingMaterialWeight: "", netWeight: "", observedGrossWeight: "",
+  id, time: "", packingMaterialWeight: "", netWeight: "", observedGrossWeight: "",
   deviationsNoted: "Ok", sealingCheck: "Ok", n2Percent: "-", checkedBy: "", verifiedBy: "",
 });
 
@@ -54,6 +56,9 @@ export default function ProductWeightSealCheckRecord() {
   const [recordCheckedBy, setRecordCheckedBy] = useState("");
   const [recordVerifiedBy, setRecordVerifiedBy] = useState("");
   const [rows, setRows] = useState<WeightRow[]>(Array.from({ length: 10 }, (_, i) => emptyRow(i + 1)));
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitOk, setSubmitOk] = useState(false);
   const hydrated = useRef(false);
 
   useEffect(() => {
@@ -347,12 +352,68 @@ export default function ProductWeightSealCheckRecord() {
           <span className="mx-2 text-cream-300">|</span>
           Approved By: <span className="font-semibold text-ink-500">FSTL</span>
         </p>
-        <button
-          onClick={() => { try { localStorage.removeItem(DRAFT_KEY); } catch {} }}
-          className="btn-primary"
-        >
-          Submit Record
-        </button>
+        <div className="flex items-center gap-3">
+          {submitError && (
+            <span className="text-xs text-danger-600 font-semibold">{submitError}</span>
+          )}
+          {submitOk && (
+            <span className="text-xs text-success-600 font-semibold inline-flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Saved
+            </span>
+          )}
+          <button
+            onClick={async () => {
+              if (submitting) return;
+              setSubmitError(null);
+              setSubmitOk(false);
+              if (!date || !productName || !batchNo) {
+                setSubmitError("Date, Product Name and Batch No. are required.");
+                return;
+              }
+              const payload = {
+                check_date: date,
+                location,
+                product_name: productName,
+                batch_no: batchNo,
+                customer,
+                pkd,
+                declared_net_weight: declaredNetWeight !== "" ? Number(declaredNetWeight) : null,
+                permissible_error: permissibleError !== "" ? Number(permissibleError) : null,
+                total_pkts_produced: totalPktsProduced !== "" ? Number(totalPktsProduced) : null,
+                remarks,
+                checked_by: recordCheckedBy || undefined,
+                verified_by: recordVerifiedBy || undefined,
+                rows: rows.map((r) => ({
+                  time: r.time,
+                  packing_material_weight: r.packingMaterialWeight,
+                  net_weight: r.netWeight,
+                  observed_gross_weight: r.observedGrossWeight,
+                  deviations_noted: r.deviationsNoted,
+                  sealing_check: r.sealingCheck,
+                  n2_percent: r.n2Percent,
+                  checked_by: r.checkedBy,
+                  verified_by: r.verifiedBy,
+                })),
+              };
+              setSubmitting(true);
+              try {
+                const res = await docsApi.create("productweightcheck", payload);
+                setSubmitOk(true);
+                try { localStorage.removeItem(DRAFT_KEY); } catch {}
+                router.push(`/documentations/productweightcheck`);
+              } catch (e: any) {
+                setSubmitError(e?.message || "Failed to save record");
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+            disabled={submitting}
+            className="btn-primary inline-flex items-center gap-2"
+          >
+            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {submitting ? "Saving…" : "Submit Record"}
+          </button>
+        </div>
       </div>
     </DocFormShell>
   );

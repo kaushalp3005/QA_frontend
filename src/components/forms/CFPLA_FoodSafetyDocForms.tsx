@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 // ===================== F.04 — Water Analysis Record =====================
 interface WaterRow { id: number; date: string; samplingLocation: string; waterType: "Drinking" | "Processing" | ""; appearance: "Ok" | "Not ok" | ""; turbidity: "Ok" | "Not ok" | ""; sensory: "Ok" | "Not ok" | ""; tds: string; ph: string; remark: string; checkedBy: string; verifiedBy: string; }
@@ -59,7 +60,7 @@ export function WaterAnalysisRecord({ initialData, onSubmit, isEdit }: WaterAnal
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       rows: rows.filter((r) => r.date || r.samplingLocation).map((r) => ({
         date: r.date,
         sampling_location: r.samplingLocation,
@@ -332,7 +333,7 @@ export function FoodSafetyMeeting({ initialData, onSubmit, isEdit }: FoodSafetyM
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       meeting_date: date,
       time_from: timeFrom,
       time_to: timeTo,

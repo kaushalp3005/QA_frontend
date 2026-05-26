@@ -11,7 +11,7 @@ export interface DocFormConfig {
 
 export const DOC_FORMS: Record<string, DocFormConfig> = {
   // ── Batch 1 (22) ──
-  productweightcheck:        { formType: "productweightcheck",        routeSlug: "productweightcheck",        label: "Product Weight & Sealing Check",   docNo: "CFPLA.C6.F.16",  dateField: "check_date",      listColumns: ["check_date", "product_name", "batch_no", "customer", "warehouse"] },
+  productweightcheck:        { formType: "productweightcheck",        routeSlug: "productweightcheck",        label: "Product Weight & Sealing Check",   docNo: "CFPLA.C6.F.16",  dateField: "check_date",      listColumns: ["check_date", "product_name", "batch_no", "customer", "location"] },
   productiontoolissuance:    { formType: "productiontoolissuance",    routeSlug: "productiontoolissuance",    label: "Production Tool Issuance",         docNo: "CFPLA.C4.F.22",  dateField: "check_date",      listColumns: ["check_date", "checked_by", "verified_by", "warehouse"] },
   dailycleaningchecklist:    { formType: "dailycleaningchecklist",    routeSlug: "dailycleaningchecklist",    label: "Daily Cleaning Checklist",         docNo: "CFPLA.C4.F.54",  dateField: "month",           listColumns: ["month", "area", "tab_code", "warehouse"] },
   equipmentcleaningsanitation: { formType: "equipmentcleaningsanitation", routeSlug: "equipmentcleaningsanitation", label: "Equipment Cleaning & Sanitation", docNo: "CFPLA.C4.F.19", dateField: "month",          listColumns: ["month", "area", "warehouse"] },

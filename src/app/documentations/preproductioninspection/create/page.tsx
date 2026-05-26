@@ -1,9 +1,14 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ListChecks } from "lucide-react";
 import Time12Picker from "@/components/Time12Picker";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
+import SignaturePicker from "@/components/ui/SignaturePicker";
+import { docsApi } from "@/lib/api/documentations";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 
 type Status = "OK" | "NOT OK" | "";
 
@@ -119,11 +124,41 @@ const INITIAL_SECTIONS: AreaSection[] = [
   },
 ];
 
+const withDefaults: AreaSection[] = INITIAL_SECTIONS.map((s) => ({
+  ...s,
+  items: s.items.map((i) => ({ ...i, status: "OK" as Status })),
+}));
+
 export default function PreProductionInspection() {
+  const router = useRouter();
   const [date, setDate] = useState("");
   const [timeOfInspection, setTimeOfInspection] = useState("");
-  const [sections, setSections] = useState<AreaSection[]>(INITIAL_SECTIONS);
+  const [sections, setSections] = useState<AreaSection[]>(withDefaults);
   const [activeSection, setActiveSection] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    setSubmitError(null);
+    if (!date) {
+      setSubmitError("Date is required.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const payload: Record<string, unknown> = {
+        inspection_date: date,
+        warehouse: getStoredWarehouse() || null,
+        sections,
+      };
+      if (timeOfInspection) payload.inspection_time = timeOfInspection;
+      await docsApi.create("preproductioninspection", payload);
+      router.push("/documentations/preproductioninspection");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to submit");
+      setSubmitting(false);
+    }
+  };
 
   const updateItem = (sectionIdx: number, itemIdx: number, field: keyof CheckItem, value: string) => {
     setSections((prev) => {
@@ -283,24 +318,22 @@ export default function PreProductionInspection() {
               <label className="label-base">Time of Verification</label>
               <Time12Picker value={section.timeOfVerification} onChange={(v) => updateSection(activeSection, "timeOfVerification", v)} />
             </div>
-            <div>
-              <label className="label-base">Checked By (Production Incharge)</label>
-              <input
-                type="text"
-                value={section.checkedBy}
-                onChange={(e) => updateSection(activeSection, "checkedBy", e.target.value)}
-                className="input-base"
-              />
-            </div>
-            <div>
-              <label className="label-base">Verified By (Quality)</label>
-              <input
-                type="text"
-                value={section.verifiedBy}
-                onChange={(e) => updateSection(activeSection, "verifiedBy", e.target.value)}
-                className="input-base"
-              />
-            </div>
+            <SignaturePicker
+              label="Checked By (Production Incharge)"
+              value={section.checkedBy}
+              onChange={(v) => updateSection(activeSection, "checkedBy", v)}
+              options={CHECKED_BY_OPTIONS}
+              inputCls="input-base"
+              labelCls="label-base"
+            />
+            <SignaturePicker
+              label="Verified By (Quality)"
+              value={section.verifiedBy}
+              onChange={(v) => updateSection(activeSection, "verifiedBy", v)}
+              options={QC_VERIFIED_BY_OPTIONS}
+              inputCls="input-base"
+              labelCls="label-base"
+            />
           </div>
         </div>
       </DocSection>
@@ -311,7 +344,17 @@ export default function PreProductionInspection() {
           <span className="mx-2 text-cream-300">|</span>
           Approved By: <span className="font-semibold text-ink-500">FSTL / Production</span>
         </p>
-        <button className="btn-primary">Submit Record</button>
+        <div className="flex items-center gap-3">
+          {submitError && <span className="text-xs text-danger-600">{submitError}</span>}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Submitting…" : "Submit Record"}
+          </button>
+        </div>
       </div>
     </DocFormShell>
   );

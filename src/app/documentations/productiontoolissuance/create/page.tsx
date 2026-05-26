@@ -1,10 +1,13 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Wrench, Plus, X } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 import SignaturePicker from "@/components/ui/SignaturePicker";
-import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
+import { QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
+import { docsApi } from "@/lib/api/documentations";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 const TOOLS = ["SIEVES", "SCOOPS", "Scissors/Knife", "SS BOWLS", "SS GLASS", "HAND MAGNET", "Gloves"];
 const PARAMETERS = ["Quantity Issued", "Condition at issuance", "Quantity Received", "Condition when Received", "Cleaning up Starting of production + after each product Change"];
@@ -35,9 +38,41 @@ const createBlock = (id: number): EntryBlock => ({
 });
 
 export default function ProductionToolsIssuanceRecord() {
+  const router = useRouter();
   const [blocks, setBlocks] = useState<EntryBlock[]>([createBlock(1)]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const addBlock = () => setBlocks((prev) => [...prev, createBlock(prev.length + 1)]);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const tool_matrix = blocks.map((b) => ({
+        date: b.date,
+        data: b.data,
+        remark: b.remark,
+        checked_by: b.checkedBy,
+        verified_by: b.verifiedBy,
+      }));
+      const payload = {
+        check_date: blocks[0]?.date || currentDate(),
+        warehouse: getStoredWarehouse() || null,
+        remark: blocks[0]?.remark,
+        checked_by: blocks[0]?.checkedBy,
+        verified_by: blocks[0]?.verifiedBy,
+        tool_matrix,
+      };
+      await docsApi.create("productiontoolissuance", payload);
+      router.push("/documentations/productiontoolissuance");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to submit record";
+      setSubmitError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const updateField = (blockId: number, field: keyof EntryBlock, value: string) => {
     setBlocks((prev) => prev.map((b) => (b.id === blockId ? { ...b, [field]: value } : b)));
@@ -46,11 +81,7 @@ export default function ProductionToolsIssuanceRecord() {
   const updateData = (blockId: number, param: string, tool: string, value: string) => {
     setBlocks((prev) => prev.map((b) => {
       if (b.id !== blockId) return b;
-      const nextData = { ...b.data, [param]: { ...b.data[param], [tool]: value } };
-      if (param === "Quantity Issued") {
-        nextData["Quantity Received"] = { ...nextData["Quantity Received"], [tool]: value };
-      }
-      return { ...b, data: nextData };
+      return { ...b, data: { ...b.data, [param]: { ...b.data[param], [tool]: value } } };
     }));
   };
 
@@ -129,15 +160,16 @@ export default function ProductionToolsIssuanceRecord() {
               <label className="label-base">Remark</label>
               <input type="text" value={block.remark} onChange={(e) => updateField(block.id, "remark", e.target.value)} className="input-base" />
             </div>
-            <SignaturePicker
-              label="Checked By (Production)"
-              value={block.checkedBy}
-              onChange={(v) => updateField(block.id, "checkedBy", v)}
-              options={CHECKED_BY_OPTIONS}
-              roleHint="Production Floor Leader"
-              inputCls="input-base"
-              labelCls="label-base"
-            />
+            <div>
+              <label className="label-base">Checked By (Production Supervisor)</label>
+              <input
+                type="text"
+                value={block.checkedBy}
+                onChange={(e) => updateField(block.id, "checkedBy", e.target.value)}
+                className="input-base"
+                placeholder="Production Supervisor name"
+              />
+            </div>
             <SignaturePicker
               label="Verified By (QC)"
               value={block.verifiedBy}
@@ -161,7 +193,19 @@ export default function ProductionToolsIssuanceRecord() {
           <span className="mx-2 text-cream-300">|</span>
           Verified By: <span className="font-semibold text-ink-500">FSTL</span>
         </p>
-        <button className="btn-primary">Submit Record</button>
+        <div className="flex flex-col items-stretch sm:items-end gap-2">
+          {submitError ? (
+            <p className="text-xs text-danger-600">{submitError}</p>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Submitting…" : "Submit Record"}
+          </button>
+        </div>
       </div>
     </DocFormShell>
   );

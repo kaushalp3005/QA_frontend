@@ -4,7 +4,12 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 function getUserEmail(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('user_email')
+  const direct = localStorage.getItem('user_email')
+  if (direct) return direct
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || 'null')
+    return user?.email ?? user?.user?.email ?? null
+  } catch { return null }
 }
 
 async function request<T = any>(url: string, options: RequestInit = {}): Promise<T> {

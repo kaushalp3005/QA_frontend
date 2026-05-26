@@ -1,8 +1,11 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { GitBranch, Plus, X } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
+import { docsApi } from "@/lib/api/documentations";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 interface ChangeoverRow {
   id: number;
@@ -21,32 +24,85 @@ interface ChangeoverRow {
   verifiedBy: string;
 }
 
+const FLOORS = [
+  "Lower Basement",
+  "Upper Basement",
+  "First Floor",
+  "First Floor Mezz",
+  "Second Floor",
+  "Terrace Floor",
+];
+
 const emptyRow = (): ChangeoverRow => ({
   id: Date.now() + Math.random(),
   date: "",
   productBeforeChangeover: "",
   batchNo: "",
-  table: "",
-  weighingUtensils: "",
-  tools: "",
-  weighingScale: "",
-  sieves: "",
-  changeOfGloves: "",
-  noProductLeftOver: "",
-  machineProperlyCleaned: "",
+  table: "✓",
+  weighingUtensils: "✓",
+  tools: "✓",
+  weighingScale: "✓",
+  sieves: "✓",
+  changeOfGloves: "✓",
+  noProductLeftOver: "✓",
+  machineProperlyCleaned: "✓",
   checkedBy: "",
   verifiedBy: "",
 });
 
 export default function ProductChangeoverLineClearance() {
-  const [area, setArea] = useState("");
-  const [rows, setRows] = useState<ChangeoverRow[]>([emptyRow(), emptyRow(), emptyRow()]);
+  const router = useRouter();
+  const [floorRows, setFloorRows] = useState<Record<string, ChangeoverRow[]>>(() =>
+    Object.fromEntries(FLOORS.map((f) => [f, [emptyRow(), emptyRow(), emptyRow()]]))
+  );
+  const [activeFloor, setActiveFloor] = useState(FLOORS[0]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const addRow = () => setRows((r) => [...r, emptyRow()]);
-  const removeRow = (id: number) => setRows((r) => r.filter((row) => row.id !== id));
+  const rows = floorRows[activeFloor];
+
+  const addRow = () =>
+    setFloorRows((prev) => ({ ...prev, [activeFloor]: [...prev[activeFloor], emptyRow()] }));
+
+  const removeRow = (id: number) =>
+    setFloorRows((prev) => ({
+      ...prev,
+      [activeFloor]: prev[activeFloor].filter((row) => row.id !== id),
+    }));
 
   const updateRow = (id: number, field: keyof ChangeoverRow, value: string) => {
-    setRows((r) => r.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
+    setFloorRows((prev) => ({
+      ...prev,
+      [activeFloor]: prev[activeFloor].map((row) =>
+        row.id === id ? { ...row, [field]: value } : row
+      ),
+    }));
+  };
+
+  const handleSubmit = async () => {
+    setSubmitError(null);
+    const floorsWithData = FLOORS.filter((floor) =>
+      floorRows[floor].some(
+        (r) => r.date.trim() || r.productBeforeChangeover.trim() || r.batchNo.trim()
+      )
+    );
+    if (floorsWithData.length === 0) {
+      setSubmitError("Fill at least one row (date, product, or batch) before submitting.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        floorsWithData.map((floor) =>
+          docsApi.create("lineclearancerecord", { warehouse: getStoredWarehouse() || null, area: floor, rows: floorRows[floor] })
+        )
+      );
+      router.push("/documentations/lineclearancerecord");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to submit record");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const TickCell = ({ id, field, value }: { id: number; field: keyof ChangeoverRow; value: string }) => {
@@ -76,22 +132,28 @@ export default function ProductChangeoverLineClearance() {
       width="full"
       note="Frequency: After every product change."
     >
-      <DocSection title="Area Details">
-        <div>
-          <label className="label-base">Area</label>
-          <input
-            type="text"
-            value={area}
-            onChange={(e) => setArea(e.target.value)}
-            className="input-base"
-            placeholder="Enter area"
-          />
+      <div className="surface-card p-2 overflow-x-auto">
+        <div className="flex flex-wrap gap-1">
+          {FLOORS.map((floor) => (
+            <button
+              key={floor}
+              type="button"
+              onClick={() => setActiveFloor(floor)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg ${
+                activeFloor === floor
+                  ? "bg-brand-500 text-white shadow-soft"
+                  : "text-ink-500 hover:bg-cream-200"
+              }`}
+            >
+              {floor}
+            </button>
+          ))}
         </div>
-      </DocSection>
+      </div>
 
       <DocSection
         title="Changeover Log"
-        description={`${rows.length} entries`}
+        description={`${activeFloor} · ${rows.length} entries`}
         bleed
         actions={
           <button onClick={addRow} className="btn-primary !py-1.5 !px-3 text-xs">
@@ -168,12 +230,21 @@ export default function ProductChangeoverLineClearance() {
       </DocSection>
 
       <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <p className="text-xs text-ink-400">
-          Prepared By: <span className="font-semibold text-ink-500">Production Supervisor</span>
-          <span className="mx-2 text-cream-300">|</span>
-          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
-        </p>
-        <button className="btn-primary">Submit Record</button>
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-ink-400">
+            Prepared By: <span className="font-semibold text-ink-500">Production Supervisor</span>
+            <span className="mx-2 text-cream-300">|</span>
+            Approved By: <span className="font-semibold text-ink-500">FSTL</span>
+          </p>
+          {submitError && <p className="text-xs text-danger-600">{submitError}</p>}
+        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {submitting ? "Submitting…" : "Submit Record"}
+        </button>
       </div>
     </DocFormShell>
   );

@@ -6,6 +6,7 @@ import { Menu, LogOut } from 'lucide-react'
 import Sidebar from './Sidebar'
 import CompanySelector from '@/components/ui/CompanySelector'
 import ThemeToggle from '@/components/ui/ThemeToggle'
+import FeedbackButton from '@/components/ui/FeedbackButton'
 import { logout, getStoredUser } from '@/lib/api/auth'
 
 interface DashboardLayoutProps {
@@ -99,6 +100,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Page content — tighter padding on mobile */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-6 lg:px-8 py-4 sm:py-6 animate-fade-in-up">
           {children}
+
+          {/* Footer — feedback / updates link */}
+          <footer className="mt-8 pt-4 border-t border-cream-300 flex items-center justify-between gap-3 text-[11px] text-ink-300">
+            <span>© Candor Foods QA System</span>
+            <FeedbackButton />
+          </footer>
         </main>
       </div>
     </div>

@@ -20,7 +20,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/styles'
-import { getStoredUser } from '@/lib/api/auth'
+import { getStoredUser, getAuthToken } from '@/lib/api/auth'
 import { isSuperAdmin as checkIsSuperAdmin } from '@/lib/constants/modules'
 import { getMyPermissions } from '@/lib/api/settings'
 
@@ -54,7 +54,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   useEffect(() => {
     const user = getStoredUser()
-    setIsSuperAdmin(checkIsSuperAdmin(user?.email))
+    const isSA = checkIsSuperAdmin(user?.email)
+    setIsSuperAdmin(isSA)
+
+    // Super admins see everything — no need for the API call
+    if (isSA) { setViewable(new Set()); return }
+
+    // No token means the call will 401 — skip it
+    if (!getAuthToken()) { setViewable(new Set()); return }
 
     getMyPermissions()
       .then((res) => {

@@ -5,6 +5,8 @@ import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 import SignaturePicker from "@/components/ui/SignaturePicker";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
+import { docsApi } from "@/lib/api/documentations";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 interface CalibrationRow {
   id: number;
@@ -23,6 +25,15 @@ interface CalibrationRow {
   fixed?: boolean;
   excluded?: boolean;
 }
+
+const FLOOR_RANGES: Record<string, [number, number]> = {
+  "Lower Basement":   [1,  10],
+  "Upper Basement":   [11, 23],
+  "First Floor":      [24, 34],
+  "First Floor Mezz": [35, 43],
+  "Second Floor":     [44, 49],
+  "Terrace":          [50, 55],
+};
 
 const FIXED_SCALE_IDS = [
   "879", "181", "889", "630", "682", "647", "891", "645", "674", "230108",
@@ -53,17 +64,37 @@ const fixedRow = (identificationNo: string, idx: number): CalibrationRow => ({
   ...emptyRow(),
   id: -(idx + 1),
   identificationNo,
+  capacityKg: CAPACITY_MAP[identificationNo] ?? DEFAULT_CAPACITY,
   fixed: true,
 });
 
+const CAPACITY_MAP: Record<string, string> = {
+  "879": "20.000", "183": "20.000",
+  "230108": "300.000", "241113": "300.000", "240803": "300.000",
+  "630": "5.000", "682": "5.000", "683": "5.000",
+  "190935": "100.000", "200121": "100.000", "2307189": "100.000", "231002": "100.000",
+  "240907": "200.000",
+  "111": "2.000",
+};
+const DEFAULT_CAPACITY = "10.000";
+
 const READINGS: (keyof CalibrationRow)[] = ["reading1", "reading2", "reading3", "reading4", "reading5"];
+
+function getToleranceKg(capacityKg: number): number {
+  if (capacityKg <= 0.2)  return 0.00001; // 200 g  → ±0.01 g
+  if (capacityKg <= 10)   return 0.001;   // 10 kg  → ±1 g
+  if (capacityKg <= 20)   return 0.002;   // 20 kg  → ±2 g
+  if (capacityKg <= 50)   return 0.005;   // 50 kg  → ±5 g
+  if (capacityKg <= 100)  return 0.010;   // 100 kg → ±10 g
+  return 0.050;                           // 300 kg → ±50 g
+}
 
 function getDeviationStatus(row: CalibrationRow): "ok" | "deviation" | "empty" {
   const std = parseFloat(row.standardWeightUsed);
-  const readings = READINGS.map((r) => parseFloat(row[r] as string)).filter((v) => !isNaN(v));
-  if (isNaN(std) || readings.length === 0) return "empty";
-  const maxDev = Math.max(...readings.map((v) => Math.abs(v - std)));
-  return maxDev <= std * 0.001 ? "ok" : "deviation";
+  const avg = parseFloat(row.deviation); // deviation = average of R1–R5
+  const cap = parseFloat(row.capacityKg);
+  if (isNaN(std) || isNaN(avg) || isNaN(cap)) return "empty";
+  return Math.abs(avg - std) <= getToleranceKg(cap) ? "ok" : "deviation";
 }
 
 export default function WeighingScaleCalibration() {
@@ -74,8 +105,44 @@ export default function WeighingScaleCalibration() {
     FIXED_SCALE_IDS.map((sid, i) => fixedRow(sid, i))
   );
 
+  const [floor, setFloor] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
   const addRow = () => setRows((r) => [...r, emptyRow()]);
   const removeRow = (id: number) => setRows((r) => r.filter((row) => row.id !== id));
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setSuccess(false);
+    const payload: Record<string, any> = {
+      warehouse: getStoredWarehouse() || null,
+      inspection_date: dateOfInspection,
+      calibrated_by: calibratedBy,
+      verified_by: verifiedBy,
+      rows: rows.filter((r) => !r.excluded).map((r) => ({
+        identification_no: r.identificationNo,
+        capacity_kg: r.capacityKg ? Number(r.capacityKg) : null,
+        location: r.location,
+        standard_weight_used: r.standardWeightUsed ? Number(r.standardWeightUsed) : null,
+        reading1: r.reading1 ? Number(r.reading1) : null,
+        reading2: r.reading2 ? Number(r.reading2) : null,
+        reading3: r.reading3 ? Number(r.reading3) : null,
+        reading4: r.reading4 ? Number(r.reading4) : null,
+        reading5: r.reading5 ? Number(r.reading5) : null,
+        deviation: r.deviation,
+        corrective_action: r.correctiveAction,
+      })),
+    };
+    try {
+      await docsApi.create("weighingscalecalibration", payload);
+      setSuccess(true);
+    } catch (e: any) {
+      alert(e.message || "Submit failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const toggleExclude = (id: number) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, excluded: !r.excluded } : r)));
@@ -85,13 +152,26 @@ export default function WeighingScaleCalibration() {
     setRows((prev) =>
       prev.map((r) => {
         if (r.id !== id) return r;
-        if (field === "reading1") {
-          return { ...r, reading1: value, reading2: value, reading3: value, reading4: value, reading5: value };
+        let next = field === "reading1"
+          ? { ...r, reading1: value, reading2: value, reading3: value, reading4: value, reading5: value }
+          : { ...r, [field]: value };
+        if ((READINGS as string[]).includes(field)) {
+          const vals = READINGS.map((rf) => parseFloat(next[rf] as string)).filter((v) => !isNaN(v));
+          next = { ...next, deviation: vals.length > 0 ? (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(3) : "" };
         }
-        return { ...r, [field]: value };
+        return next;
       })
     );
   };
+
+  const visibleRows = floor === ""
+    ? rows
+    : rows.filter((r) => {
+        if (!r.fixed) return true; // custom rows always visible
+        const pos = -r.id; // id = -(idx+1), so pos is 1-based position
+        const [min, max] = FLOOR_RANGES[floor];
+        return pos >= min && pos <= max;
+      });
 
   const activeRows = rows.filter((r) => !r.excluded);
   const okCount = activeRows.filter((r) => getDeviationStatus(r) === "ok").length;
@@ -128,12 +208,24 @@ export default function WeighingScaleCalibration() {
 
       <DocSection
         title="Calibration Log"
-        description={`${activeRows.length} active${excludedCount ? ` · ${excludedCount} excluded` : ""}`}
+        description={`${floor ? `${floor} · ` : ""}${visibleRows.filter((r) => !r.excluded).length} active${excludedCount ? ` · ${excludedCount} excluded` : ""}`}
         bleed
         actions={
-          <button onClick={addRow} className="btn-primary !py-1.5 !px-3 text-xs">
-            <Plus className="w-3.5 h-3.5 mr-1" /> Add Row
-          </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={floor}
+              onChange={(e) => setFloor(e.target.value)}
+              className="input-base !py-1.5 !px-2 text-xs min-w-[160px]"
+            >
+              <option value="">All Floors</option>
+              {Object.keys(FLOOR_RANGES).map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+            <button onClick={addRow} className="btn-primary !py-1.5 !px-3 text-xs">
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Row
+            </button>
+          </div>
         }
       >
         <p className="text-[11px] text-ink-400 italic px-4 pt-3 sm:hidden">← Swipe to view all columns</p>
@@ -156,7 +248,7 @@ export default function WeighingScaleCalibration() {
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-300">
-              {rows.map((row, idx) => {
+              {visibleRows.map((row, idx) => {
                 const status = getDeviationStatus(row);
                 const excluded = !!row.excluded;
                 return (
@@ -206,14 +298,9 @@ export default function WeighingScaleCalibration() {
                       </td>
                     ))}
                     <td className="px-1 py-1 bg-warning-50/15">
-                      <input
-                        type="text"
-                        disabled={excluded}
-                        value={row.deviation}
-                        onChange={(e) => updateRow(row.id, "deviation", e.target.value)}
-                        placeholder={status === "deviation" ? "Enter deviation" : status === "ok" ? "Within tolerance" : "—"}
-                        className="input-base !py-1 !px-2 text-xs disabled:bg-cream-200/60"
-                      />
+                      <div className="px-2 py-1 text-xs text-center font-semibold rounded border border-cream-300 select-none bg-cream-100/60 text-ink-600 min-w-[72px]">
+                        {row.deviation || <span className="text-ink-300">—</span>}
+                      </div>
                     </td>
                     <td className="px-1 py-1 bg-danger-50/15">
                       <input
@@ -281,7 +368,8 @@ export default function WeighingScaleCalibration() {
           <span className="mx-2 text-cream-300">|</span>
           Approved By: <span className="font-semibold text-ink-500">FSTL</span>
         </p>
-        <button className="btn-primary">Submit Record</button>
+        {success && <p className="text-green-600 text-sm">Record saved successfully!</p>}
+        <button onClick={handleSubmit} disabled={submitting} className="btn-primary disabled:opacity-60">{submitting ? "Saving…" : "Submit Record"}</button>
       </div>
     </DocFormShell>
   );

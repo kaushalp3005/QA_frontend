@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useState } from "react";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 // ===================== F.13 — New Product Verification =====================
 interface SensoryRow { id: number; panelName: string; taste: "Ok" | "Not ok" | ""; odor: "Ok" | "Not ok" | ""; appearance: "Ok" | "Not ok" | ""; mouthfeel: "Ok" | "Not ok" | ""; decision: "Accept" | "Reject" | ""; signature: string; }
@@ -64,7 +65,7 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       verify_date: date, product_name: productName, customer_name: customerName, trial_no: trialNo,
       persons_present: personsPresent, ingredients_used: ingredientsUsed, preroasting_temp: preroastingTemp,
       batch_number: batchNumber, baking_temp: bakingTemp, ingredient_changes: ingredientChanges,
@@ -254,7 +255,7 @@ export function EmergencyMockDrill({ initialData, onSubmit, isEdit }: EmergencyM
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       drill_datetime: fields["1"] || null,
       location: fields["2"] || null,
       fields,

@@ -27,7 +27,8 @@ export default function DocListPage({ config }: Props) {
     try {
       const wh = getStoredWarehouse()
       setWarehouse(wh)
-      const res = await docsApi.list(config.formType, { page, per_page: 50, warehouse: wh })
+      const hasWarehouseCol = config.listColumns.includes('warehouse')
+      const res = await docsApi.list(config.formType, { page, per_page: 50, ...(hasWarehouseCol ? { warehouse: wh } : {}) })
       setRecords(res.records)
       setTotalPages(res.total_pages)
       setTotal(res.total)
@@ -120,7 +121,9 @@ export default function DocListPage({ config }: Props) {
             </div>
             <p className="text-sm font-semibold text-ink-500">No records yet</p>
             <p className="text-xs text-ink-400 mt-0.5">
-              Nothing logged for warehouse <span className="font-semibold text-ink-500">{warehouse || '—'}</span>.
+              {config.listColumns.includes('warehouse')
+                ? <>Nothing logged for warehouse <span className="font-semibold text-ink-500">{warehouse || '—'}</span>.</>
+                : 'No records have been saved yet.'}
             </p>
             <button
               onClick={() => router.push(`/documentations/${config.routeSlug}/create`)}

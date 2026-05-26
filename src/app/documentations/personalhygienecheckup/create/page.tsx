@@ -1,8 +1,38 @@
 "use client";
-import { useState } from "react";
-import { HeartPulse, Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { HeartPulse, Plus, X, Loader2 } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
+import SignaturePicker from "@/components/ui/SignaturePicker";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, type SignatureOption } from "@/lib/signatures";
+import { docsApi } from "@/lib/api/documentations";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+
+/** Compact per-row signatory dropdown (no free-text names). */
+function CompactSignSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: SignatureOption[];
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="input-base !py-1 !px-2 text-xs"
+      title={value || "Select signatory"}
+    >
+      <option value="">—</option>
+      {options.filter((o) => o.name !== "Other").map((o) => (
+        <option key={o.name} value={o.name}>{o.name}</option>
+      ))}
+    </select>
+  );
+}
 
 type CheckValue = "✓" | "✕" | "";
 
@@ -10,6 +40,7 @@ interface HygieneRow {
   id: number;
   srNo: string;
   name: string;
+  selected: boolean;
   respiratory: CheckValue;
   skinDisease: CheckValue;
   wounds: CheckValue;
@@ -28,6 +59,7 @@ const emptyRow = (): HygieneRow => ({
   id: Date.now() + Math.random(),
   srNo: "",
   name: "",
+  selected: true,
   respiratory: "",
   skinDisease: "",
   wounds: "",
@@ -55,6 +87,39 @@ const CHECK_FIELDS: { field: keyof HygieneRow; label: string; group: string; ton
   { field: "tobacco", label: "Cigarettes, Tobacco, Pan Masala, Chewing Gums", group: "Personal Belongings", tone: "success" },
 ];
 
+const FLOOR_OPTIONS = [
+  "Lower Basement",
+  "Upper Basement",
+  "First Floor",
+  "First Floor Mezz",
+  "Second Floor",
+  "Terrace Floor",
+] as const;
+
+const FLOOR_WORKERS: Record<string, string[]> = {
+  "Lower Basement": ["Manisha", "Sujata", "Vaishnavi", "Nanda", "Vaishali", "Ujwala", "Vandana GH", "Kalpana P", "Vandana Gole", "Dipali", "Ambika", "Momina", "Vandana B", "Vanita", "Shakira", "Soham", "Rutik", "Aniket"],
+  "Upper Basement": ["Sujata K", "Lata", "Maya", "Parmila", "Sujata G", "Kajal", "Sunita", "Nirmala", "Supriya", "Seema", "Suhana", "Shabana", "Pawan", "Mohammad", "Alka", "Pallavi", "Lalita", "Sumita"],
+  "First Floor": ["Asha", "Kalpana", "Vijaya", "Swati", "Ganga", "Vaishali", "Shabana", "Arbaj", "Geeta"],
+  "First Floor Mezz": ["Manisha", "Sujata", "Vaishnavi", "Nanda", "Vaishali", "Ujwala", "Vandana GH", "Kalpana P", "Vandana Gole", "Dipali", "Ambika", "Momina", "Vandana B", "Vanita", "Shakira", "Soham", "Rutik", "Aniket"],
+  "Second Floor": ["Worker F2-1", "Worker F2-2", "Worker F2-3", "Worker F2-4", "Worker F2-5", "Worker F2-6"],
+  "Terrace Floor": ["Maya", "Malun", "Sujata", "Musarrat", "Priyanka", "Nakosha", "Vaishnavi", "Savita", "Sunita", "Mangal", "Gayatri", "Madhuri", "Santosh", "Divan", "Aakash"],
+};
+
+const buildRowForName = (name: string): HygieneRow => ({
+  ...emptyRow(),
+  name,
+  respiratory: "✓",
+  skinDisease: "✓",
+  wounds: "✓",
+  earNoseThroat: "✓",
+  gowning: "✓",
+  handHygiene: "✓",
+  nails: "✓",
+  cleanShaven: "✓",
+  hairPins: "✓",
+  tobacco: "✓",
+});
+
 const GROUPS: { name: string; tone: "danger" | "info" | "success"; span: number }[] = [
   { name: "Injury/Infectious Diseases", tone: "danger", span: 4 },
   { name: "Personal Cleanliness", tone: "info", span: 4 },
@@ -76,15 +141,69 @@ const cellTintClass = (tone: "danger" | "info" | "success") =>
     : "bg-success-50/30";
 
 export default function PersonalHygieneHealthCheckup() {
+  const router = useRouter();
   const [date, setDate] = useState("");
   const [area, setArea] = useState("");
   const [checkedBy, setCheckedBy] = useState("");
   const [verifiedBy, setVerifiedBy] = useState("");
   const [observation, setObservation] = useState("");
   const [rows, setRows] = useState<HygieneRow[]>(Array.from({ length: 10 }, emptyRow));
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!area) return;
+    const workers = FLOOR_WORKERS[area];
+    if (!workers) return;
+    setRows(workers.map((name) => buildRowForName(name)));
+  }, [area]);
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitError(null);
+    if (!date) {
+      setSubmitError("Date is required.");
+      return;
+    }
+    const payload = {
+      check_date: date,
+      area,
+      warehouse: getStoredWarehouse() || null,
+      observation,
+      checked_by: checkedBy || undefined,
+      verified_by: verifiedBy || undefined,
+      rows: rows
+        .filter((r) => r.selected && (r.name || CHECK_FIELDS.some(({ field }) => r[field])))
+        .map((r) => ({
+          name: r.name,
+          respiratory: r.respiratory,
+          skin_disease: r.skinDisease,
+          wounds: r.wounds,
+          ear_nose_throat: r.earNoseThroat,
+          gowning: r.gowning,
+          hand_hygiene: r.handHygiene,
+          nails: r.nails,
+          clean_shaven: r.cleanShaven,
+          hair_pins: r.hairPins,
+          tobacco: r.tobacco,
+          employee_sign: r.employeeSign,
+          corrective_action: r.correctiveAction,
+        })),
+    };
+    setSubmitting(true);
+    try {
+      await docsApi.create("personalhygienecheckup", payload);
+      router.push(`/documentations/personalhygienecheckup`);
+    } catch (e: any) {
+      setSubmitError(e?.message || "Failed to save record");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const addRow = () => setRows((r) => [...r, emptyRow()]);
   const removeRow = (id: number) => setRows((r) => r.filter((row) => row.id !== id));
+  const toggleRowSelected = (id: number) => setRows((prev) => prev.map((r) => r.id === id ? { ...r, selected: !r.selected } : r));
 
   const updateRow = (id: number, field: keyof HygieneRow, value: string) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
@@ -113,7 +232,7 @@ export default function PersonalHygieneHealthCheckup() {
     );
   };
 
-  const failCount = (field: keyof HygieneRow) => rows.filter((r) => r[field] === "✕").length;
+  const failCount = (field: keyof HygieneRow) => rows.filter((r) => r.selected && r[field] === "✕").length;
 
   return (
     <DocFormShell
@@ -131,7 +250,16 @@ export default function PersonalHygieneHealthCheckup() {
           </div>
           <div>
             <label className="label-base">Area</label>
-            <input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="input-base" placeholder="Enter area" />
+            <select
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              className="input-base"
+            >
+              <option value="">Select floor…</option>
+              {FLOOR_OPTIONS.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
           </div>
         </div>
       </DocSection>
@@ -167,8 +295,9 @@ export default function PersonalHygieneHealthCheckup() {
           <table className="w-full text-xs">
             <thead className="bg-cream-100/70">
               <tr className="border-b border-cream-300">
+                <th rowSpan={2} className="px-2 py-2 text-center w-8 text-[11px] font-semibold uppercase text-ink-400">✓</th>
                 <th rowSpan={2} className="px-2 py-2 text-center w-8 text-[11px] font-semibold uppercase text-ink-400">Sr.</th>
-                <th rowSpan={2} className="px-2 py-2 text-center w-32 text-[11px] font-semibold uppercase text-ink-400">Name</th>
+                <th rowSpan={2} className="px-2 py-2 text-left w-32 text-[11px] font-semibold uppercase text-ink-400">Name</th>
                 {GROUPS.map((g) => (
                   <th key={g.name} colSpan={g.span} className={`px-2 py-2 text-center text-[11px] font-bold ${groupHeaderClass(g.tone)}`}>
                     {g.name}
@@ -190,10 +319,27 @@ export default function PersonalHygieneHealthCheckup() {
               {rows.map((row, idx) => {
                 const hasIssue = CHECK_FIELDS.some(({ field }) => row[field] === "✕");
                 return (
-                  <tr key={row.id} className={hasIssue ? "bg-danger-50/30" : "hover:bg-cream-100/60"}>
+                  <tr key={row.id} className={!row.selected ? "opacity-40 bg-cream-200/60" : hasIssue ? "bg-danger-50/30" : "hover:bg-cream-100/60"}>
+                    <td className="px-2 py-1 text-center">
+                      <input
+                        type="checkbox"
+                        checked={row.selected}
+                        onChange={() => toggleRowSelected(row.id)}
+                        className="h-4 w-4 accent-brand-500 cursor-pointer"
+                        title={row.selected ? "Deselect worker" : "Select worker"}
+                      />
+                    </td>
                     <td className="px-2 py-1 text-center text-ink-400 font-medium">{idx + 1}</td>
-                    <td className="px-1 py-1">
-                      <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} placeholder="Employee name" className="input-base !py-1 !px-2 text-xs" />
+                    <td className="px-2 py-1 text-xs font-medium text-ink-600">
+                      {row.name || (
+                        <input
+                          type="text"
+                          value={row.name}
+                          onChange={(e) => updateRow(row.id, "name", e.target.value)}
+                          placeholder="Employee name"
+                          className="input-base !py-1 !px-2 text-xs"
+                        />
+                      )}
                     </td>
                     {CHECK_FIELDS.map(({ field, tone }) => (
                       <td key={field} className="px-0.5 py-0.5">
@@ -201,7 +347,11 @@ export default function PersonalHygieneHealthCheckup() {
                       </td>
                     ))}
                     <td className="px-1 py-1">
-                      <input type="text" value={row.employeeSign} onChange={(e) => updateRow(row.id, "employeeSign", e.target.value)} className="input-base !py-1 !px-2 text-xs" />
+                      <CompactSignSelect
+                        value={row.employeeSign}
+                        onChange={(v) => updateRow(row.id, "employeeSign", v)}
+                        options={CHECKED_BY_OPTIONS}
+                      />
                     </td>
                     <td className="px-1 py-1">
                       <input
@@ -252,16 +402,26 @@ export default function PersonalHygieneHealthCheckup() {
         </div>
       </DocSection>
 
-      <DocSection title="Approvals">
+      <DocSection title="Approvals" description="Signature (no free-text name)">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="label-base">Checked By</label>
-            <input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">Verified By</label>
-            <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" />
-          </div>
+          <SignaturePicker
+            label="Checked By"
+            value={checkedBy}
+            onChange={setCheckedBy}
+            options={CHECKED_BY_OPTIONS}
+            roleHint="Quality Control Executive"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
+          <SignaturePicker
+            label="Verified By"
+            value={verifiedBy}
+            onChange={setVerifiedBy}
+            options={QC_VERIFIED_BY_OPTIONS}
+            roleHint="Quality Manager"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
         </div>
       </DocSection>
 
@@ -271,7 +431,18 @@ export default function PersonalHygieneHealthCheckup() {
           <span className="mx-2 text-cream-300">|</span>
           Approved By: <span className="font-semibold text-ink-500">FSTL</span>
         </p>
-        <button className="btn-primary">Submit Record</button>
+        <div className="flex items-center gap-3">
+          {submitError && <span className="text-xs text-danger-600 font-semibold">{submitError}</span>}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="btn-primary inline-flex items-center gap-2"
+          >
+            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {submitting ? "Saving…" : "Submit Record"}
+          </button>
+        </div>
       </div>
     </DocFormShell>
   );

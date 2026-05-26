@@ -1,8 +1,9 @@
 "use client";
-import { useState, Fragment } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Brush, Plus } from "lucide-react";
+import { Brush, Undo2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 
@@ -17,21 +18,36 @@ const EQUIPMENT_LIST = [
   "Tempering Machine", "Kruger Machine", "Manual Cutter", "Vibro Shifter", "Destoner",
 ];
 
+const FLOOR_EQUIPMENT: Record<string, string[]> = {
+  "Lower Basement": ["Shrink Wrap Machine", "Pet Sealer", "Vacuum Machine", "Strapping Machine", "L-sealer", "Web Sealer", "Foot Sealer", "Hand Sealer"],
+  "Upper Basement": ["Metal Detector", "Magnet", "Weight Machine", "Sealing Machine"],
+  "First Floor": ["Metal Detector", "FFS Machine", "Destoner", "Vibro Shifter", "Strapping Machine", "Magnet"],
+  "First Floor Mezz": ["Metal Detector", "FFS Machine", "Magnet"],
+  "Second Floor": ["Kruger Machine", "Sheet & Cut Machine", "Manual Cutter", "Oven-Roasting", "Tray Roaster", "Roasting Tray", "Selmi Chocolate", "Chocolate Enrober", "Flow Wrap Machines", "X-Ray Machine", "Coating Pan", "Paddle Mixer", "Slicer", "Mixers", "Pulveriser", "Magnet", "Deep Freezer"],
+  "Terrace Floor": ["Coating Pan", "Slicer", "Dicer", "Blancher", "Magnet", "Salinity Tank"],
+  "Other / All": EQUIPMENT_LIST,
+};
+
 type BAStatus = "✓" | "✕" | "";
 type Grid = Record<string, Record<number, { B: BAStatus; A: BAStatus }>>;
+type RowSig = { checkedBy: string; verifiedBy: string };
 
 export default function EquipmentCleaningSanitationRecord() {
   const router = useRouter();
-  const [month, setMonth] = useState("");
+  const [recordDate, setRecordDate] = useState("");
   const [area, setArea] = useState("");
   const [checkedBy, setCheckedBy] = useState("");
   const [verifiedBy, setVerifiedBy] = useState("");
   const [observations, setObservations] = useState("");
   const [correctiveActions, setCorrectiveActions] = useState("");
-  const [selectedDates, setSelectedDates] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [floor, setFloor] = useState<string>("");
+  const [selectedDates, setSelectedDates] = useState<number[]>(Array.from({ length: 31 }, (_, i) => i + 1));
   const [recordId, setRecordId] = useState<number | null>(null);
   const [saving, setSaving] = useState<false | "draft" | "final">(false);
   const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [rowSigs, setRowSigs] = useState<Record<string, RowSig>>({});
+  const historyRef = useRef<Grid[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
 
   const [grid, setGrid] = useState<Grid>(() => {
     const init: Grid = {};
@@ -42,35 +58,75 @@ export default function EquipmentCleaningSanitationRecord() {
     return init;
   });
 
+  // Equipment rows for current floor filter. We union the floor's list with
+  // EQUIPMENT_LIST so floor-specific items (e.g. "Magnet", "L-sealer") still
+  // show up even though they're not in the master EQUIPMENT_LIST, while
+  // preserving original ordering when "All Equipment" is selected.
+  const visibleEquipment: string[] = !floor
+    ? EQUIPMENT_LIST
+    : (FLOOR_EQUIPMENT[floor] || EQUIPMENT_LIST);
+
+  // Ensure grid has entries for any equipment not in the original master list.
+  const ensureGridFor = (eq: string) => {
+    if (!grid[eq]) {
+      setGrid((prev) => {
+        if (prev[eq]) return prev;
+        const row: Record<number, { B: BAStatus; A: BAStatus }> = {};
+        for (let d = 1; d <= 31; d++) row[d] = { B: "", A: "" };
+        return { ...prev, [eq]: row };
+      });
+    }
+  };
+
+  const pushHistory = (snapshot: Grid) => {
+    historyRef.current = [...historyRef.current.slice(-49), JSON.parse(JSON.stringify(snapshot))];
+    setCanUndo(true);
+  };
+
+  const handleUndo = () => {
+    if (historyRef.current.length === 0) return;
+    const prev = historyRef.current.pop()!;
+    setGrid(prev);
+    setCanUndo(historyRef.current.length > 0);
+  };
+
   const toggleStatus = (eq: string, day: number, phase: "B" | "A") => {
+    ensureGridFor(eq);
+    pushHistory(grid);
     setGrid((prev) => {
-      const current = prev[eq][day][phase];
-      const next = current === "" ? "✓" : current === "✓" ? "✕" : "";
-      return { ...prev, [eq]: { ...prev[eq], [day]: { ...prev[eq][day], [phase]: next } } };
+      const row = prev[eq] || {};
+      const cell = row[day] || { B: "" as BAStatus, A: "" as BAStatus };
+      const current = cell[phase];
+      const next: BAStatus = current === "" ? "✓" : current === "✓" ? "✕" : "";
+      return { ...prev, [eq]: { ...row, [day]: { ...cell, [phase]: next } } };
     });
   };
 
   const markRowAllOK = (eq: string) => {
+    pushHistory(grid);
     setGrid((prev) => {
-      const updated: Record<number, { B: BAStatus; A: BAStatus }> = { ...prev[eq] };
+      const updated: Record<number, { B: BAStatus; A: BAStatus }> = { ...(prev[eq] || {}) };
       selectedDates.forEach((d) => { updated[d] = { B: "✓", A: "✓" }; });
       return { ...prev, [eq]: updated };
     });
   };
 
-  const addDate = () => {
-    const next = selectedDates.length > 0 ? Math.max(...selectedDates) + 1 : 1;
-    if (next <= 31) setSelectedDates((prev) => [...prev, next]);
+  const updateRowSig = (eq: string, field: keyof RowSig, value: string) => {
+    setRowSigs((prev) => {
+      const existing: RowSig = prev[eq] || { checkedBy: "", verifiedBy: "" };
+      return { ...prev, [eq]: { ...existing, [field]: value } };
+    });
   };
 
   const buildPayload = (status: "draft" | "submitted") => ({
-    month,
+    warehouse: getStoredWarehouse() || null,
+    month: recordDate ? recordDate.slice(0, 7) : "",
     area,
     checked_by: checkedBy,
     verified_by: verifiedBy,
     observations,
     corrective_action: correctiveActions,
-    grid: { selectedDates, cells: grid },
+    grid: { selectedDates, cells: grid, record_date: recordDate, floor, rowSigs },
     status,
   });
 
@@ -116,29 +172,43 @@ export default function EquipmentCleaningSanitationRecord() {
       )}
 
       <DocSection title="Period & Area">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="label-base">Month</label>
-            <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="input-base" />
+            <label className="label-base">Date</label>
+            <input type="date" value={recordDate} onChange={(e) => setRecordDate(e.target.value)} className="input-base" />
           </div>
           <div>
             <label className="label-base">Area</label>
             <input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="input-base" />
           </div>
+          <div>
+            <label className="label-base">Floor</label>
+            <select value={floor} onChange={(e) => setFloor(e.target.value)} className="input-base">
+              <option value="">All Equipment</option>
+              {Object.keys(FLOOR_EQUIPMENT).map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <p className="text-[11px] text-ink-400 italic mt-3">
-          Cell legend — <strong>B</strong> = Before production, <strong>A</strong> = After. Click any cell to cycle:{" "}
+          Cell legend — <strong>B</strong> = Before production (top), <strong>A</strong> = After (bottom). Click any cell to cycle:{" "}
           <span className="text-success-600 font-bold">✓</span> → <span className="text-danger-600 font-bold">✕</span> → empty.
         </p>
       </DocSection>
 
       <DocSection
         title="Equipment × Date Grid"
-        description={`${EQUIPMENT_LIST.length} equipment × ${selectedDates.length} day${selectedDates.length !== 1 ? "s" : ""}`}
+        description={`${visibleEquipment.length} equipment × ${selectedDates.length} day${selectedDates.length !== 1 ? "s" : ""}`}
         bleed
         actions={
-          <button onClick={addDate} className="btn-primary !py-1.5 !px-3 text-xs">
-            <Plus className="w-3.5 h-3.5 mr-1" /> Add Date
+          <button
+            onClick={handleUndo}
+            disabled={!canUndo}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md border border-cream-300 text-ink-500 hover:text-brand-500 hover:border-brand-500 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Undo last cell change"
+          >
+            <Undo2 className="w-3.5 h-3.5" /> Undo
           </button>
         }
       >
@@ -151,25 +221,16 @@ export default function EquipmentCleaningSanitationRecord() {
                 <th className="px-2 py-2 sticky left-8 bg-cream-100 z-10 min-w-[140px] text-left text-[11px] font-semibold uppercase text-ink-400">Equipment</th>
                 <th className="px-1 py-2 sticky left-[188px] bg-cream-100 z-10 text-[10px] font-semibold text-ink-400">Row</th>
                 {selectedDates.map((d) => (
-                  <th key={d} className="px-1 py-2 text-center text-[11px] font-semibold text-ink-400 border-l border-cream-300" colSpan={2}>
+                  <th key={d} className="px-1 py-2 text-center text-[11px] font-semibold text-ink-400 border-l border-cream-300">
                     {d}
                   </th>
                 ))}
-              </tr>
-              <tr className="border-t border-cream-300">
-                <th className="sticky left-0 bg-cream-100 z-10"></th>
-                <th className="sticky left-8 bg-cream-100 z-10"></th>
-                <th className="sticky left-[188px] bg-cream-100 z-10"></th>
-                {selectedDates.map((d) => (
-                  <Fragment key={`hdr-${d}`}>
-                    <th className="px-1 py-1 text-center text-[10px] text-ink-400 border-l border-cream-300">B</th>
-                    <th className="px-1 py-1 text-center text-[10px] text-ink-400">A</th>
-                  </Fragment>
-                ))}
+                <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase text-ink-400 border-l border-cream-300 min-w-[110px]">Checked By</th>
+                <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase text-ink-400 min-w-[110px]">Verified By</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-300">
-              {EQUIPMENT_LIST.map((eq, idx) => (
+              {visibleEquipment.map((eq, idx) => (
                 <tr key={eq} className="hover:bg-cream-100/60">
                   <td className="px-1 py-1 text-center sticky left-0 bg-cream-50 text-ink-400 font-medium">{idx + 1}</td>
                   <td className="px-2 py-1 sticky left-8 bg-cream-50 font-semibold whitespace-nowrap text-ink-500">{eq}</td>
@@ -182,26 +243,49 @@ export default function EquipmentCleaningSanitationRecord() {
                       All ✓
                     </button>
                   </td>
-                  {selectedDates.map((d) => (
-                    <Fragment key={`${eq}-${d}`}>
-                      <td
-                        className={`px-1 py-1 text-center cursor-pointer select-none border-l border-cream-300 font-bold ${
-                          grid[eq]?.[d]?.B === "✓" ? "bg-success-50 text-success-700" : grid[eq]?.[d]?.B === "✕" ? "bg-danger-50 text-danger-600" : ""
-                        }`}
-                        onClick={() => toggleStatus(eq, d, "B")}
-                      >
-                        {grid[eq]?.[d]?.B}
+                  {selectedDates.map((d) => {
+                    const cell = grid[eq]?.[d] || { B: "" as BAStatus, A: "" as BAStatus };
+                    return (
+                      <td key={`${eq}-${d}`} className="p-0 border-l border-cream-300 align-middle">
+                        <div className="flex flex-col">
+                          <div
+                            className={`px-1 py-1 text-center cursor-pointer select-none font-bold border-b border-cream-200 ${
+                              cell.B === "✓" ? "bg-success-50 text-success-700" : cell.B === "✕" ? "bg-danger-50 text-danger-600" : ""
+                            }`}
+                            onClick={() => toggleStatus(eq, d, "B")}
+                            title={`Before · day ${d}`}
+                          >
+                            {cell.B || <span className="text-ink-300 text-[9px]">B</span>}
+                          </div>
+                          <div
+                            className={`px-1 py-1 text-center cursor-pointer select-none font-bold ${
+                              cell.A === "✓" ? "bg-success-50 text-success-700" : cell.A === "✕" ? "bg-danger-50 text-danger-600" : ""
+                            }`}
+                            onClick={() => toggleStatus(eq, d, "A")}
+                            title={`After · day ${d}`}
+                          >
+                            {cell.A || <span className="text-ink-300 text-[9px]">A</span>}
+                          </div>
+                        </div>
                       </td>
-                      <td
-                        className={`px-1 py-1 text-center cursor-pointer select-none font-bold ${
-                          grid[eq]?.[d]?.A === "✓" ? "bg-success-50 text-success-700" : grid[eq]?.[d]?.A === "✕" ? "bg-danger-50 text-danger-600" : ""
-                        }`}
-                        onClick={() => toggleStatus(eq, d, "A")}
-                      >
-                        {grid[eq]?.[d]?.A}
-                      </td>
-                    </Fragment>
-                  ))}
+                    );
+                  })}
+                  <td className="px-2 py-1 border-l border-cream-300">
+                    <input
+                      type="text"
+                      value={rowSigs[eq]?.checkedBy || ""}
+                      onChange={(e) => updateRowSig(eq, "checkedBy", e.target.value)}
+                      className="input-base !py-1 !px-2 text-xs"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input
+                      type="text"
+                      value={rowSigs[eq]?.verifiedBy || ""}
+                      onChange={(e) => updateRowSig(eq, "verifiedBy", e.target.value)}
+                      className="input-base !py-1 !px-2 text-xs"
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>

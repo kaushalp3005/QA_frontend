@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useState } from "react";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -31,7 +32,7 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse() || null,
       month, area, grid, checked_by: checkedBy, verified_by: verifiedBy,
     };
     try {

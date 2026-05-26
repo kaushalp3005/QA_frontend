@@ -1,8 +1,41 @@
 "use client";
 import { useState } from "react";
-import { Sparkles, Check, X as XIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Sparkles, Check, X as XIcon, Loader2 } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
+import { docsApi } from "@/lib/api/documentations";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, type SignatureOption } from "@/lib/signatures";
+
+/** Compact dropdown used per-day in the grid footer. Stores the picked name as a string. */
+function CompactSignSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: SignatureOption[];
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full text-[10px] px-1 py-0.5 border border-cream-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+      title={value || "Select"}
+    >
+      <option value="">—</option>
+      {options
+        .filter((o) => o.name !== "Other")
+        .map((o) => (
+          <option key={o.name} value={o.name}>
+            {o.name}
+          </option>
+        ))}
+    </select>
+  );
+}
 
 interface MonthlyGridProps {
   title: string;
@@ -13,15 +46,16 @@ interface MonthlyGridProps {
   revNo: string;
   parameters: string[];
   defaultArea?: string;
+  /** Form-type slug for `docsApi.create`. Defaults to "dailycleaningchecklist". */
+  formType?: string;
 }
 
 type CellStatus = "✓" | "✕" | "";
 
-function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, revNo, parameters, defaultArea }: MonthlyGridProps) {
+function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, revNo, parameters, defaultArea, formType }: MonthlyGridProps) {
+  const router = useRouter();
   const [month, setMonth] = useState("");
   const [area, setArea] = useState(defaultArea || "");
-  const [checkedBy, setCheckedBy] = useState("");
-  const [verifiedBy, setVerifiedBy] = useState("");
   const [observations, setObservations] = useState("");
   const [correctiveAction, setCorrectiveAction] = useState("");
 
@@ -35,10 +69,27 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
     return init;
   });
 
+  // Per-day signatures (Checked By / Verified By). Keyed by day number.
+  const [checkedByPerDay, setCheckedByPerDay] = useState<Record<number, string>>({});
+  const [verifiedByPerDay, setVerifiedByPerDay] = useState<Record<number, string>>({});
+
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Click toggles ✓ / empty (so a tick can be undone with another click).
+  // Use right-click (contextmenu) to mark a failure (✕).
   const toggleCell = (param: string, day: number) => {
     setGrid((prev) => {
       const current = prev[param][day];
-      const next = current === "" ? "✓" : current === "✓" ? "✕" : "";
+      const next: CellStatus = current === "✓" ? "" : "✓";
+      return { ...prev, [param]: { ...prev[param], [day]: next } };
+    });
+  };
+
+  const markCellFail = (param: string, day: number) => {
+    setGrid((prev) => {
+      const current = prev[param][day];
+      const next: CellStatus = current === "✕" ? "" : "✕";
       return { ...prev, [param]: { ...prev[param], [day]: next } };
     });
   };
@@ -51,6 +102,46 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
       });
       return next;
     });
+  };
+
+  const clearAllForDay = (day: number) => {
+    setGrid((prev) => {
+      const next: Record<string, Record<number, CellStatus>> = {};
+      parameters.forEach((p) => {
+        next[p] = { ...prev[p], [day]: "" };
+      });
+      return next;
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitError(null);
+    if (!month) {
+      setSubmitError("Month is required.");
+      return;
+    }
+    const payload = {
+      title,
+      document_no: documentNo,
+      month,
+      area,
+      warehouse: getStoredWarehouse() || null,
+      observations,
+      corrective_action: correctiveAction,
+      grid, // {parameter -> {day -> status}}
+      checked_by_per_day: checkedByPerDay,
+      verified_by_per_day: verifiedByPerDay,
+    };
+    setSubmitting(true);
+    try {
+      await docsApi.create(formType || "dailycleaningchecklist", payload);
+      router.push(`/documentations/dailycleaningchecklist`);
+    } catch (e: any) {
+      setSubmitError(e?.message || "Failed to save record");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -67,8 +158,10 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
           </div>
         </div>
         <p className="text-[11px] text-ink-400 italic mt-3">
-          Click cells to toggle: <span className="text-success-600 font-bold">✓</span> → <span className="text-danger-600 font-bold">✕</span> → empty.
-          Use the day header button to mark every parameter ✓ for that day.
+          <strong>Click</strong> a cell to toggle <span className="text-success-600 font-bold">✓</span> on/off.
+          <strong> Right-click</strong> a cell to mark <span className="text-danger-600 font-bold">✕</span> (or clear it).
+          Use the column <span className="bg-success-50 text-success-700 px-1 rounded">✓</span> button to fill all parameters for that day,
+          and the <span className="bg-cream-100 text-ink-400 px-1 rounded">✕</span> button to clear the entire column.
         </p>
       </DocSection>
 
@@ -91,13 +184,22 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
                   const day = i + 1;
                   return (
                     <th key={day} className="px-0.5 py-0.5 text-center">
-                      <button
-                        onClick={() => markAllOKForDay(day)}
-                        className="text-[9px] bg-success-50 text-success-700 px-1 rounded hover:bg-success-100"
-                        title={`Mark all parameters ✓ for day ${day}`}
-                      >
-                        ✓
-                      </button>
+                      <div className="flex flex-col gap-0.5 items-center">
+                        <button
+                          onClick={() => markAllOKForDay(day)}
+                          className="text-[9px] bg-success-50 text-success-700 px-1 rounded hover:bg-success-100"
+                          title={`Mark all parameters ✓ for day ${day}`}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={() => clearAllForDay(day)}
+                          className="text-[9px] bg-cream-100 text-ink-400 px-1 rounded hover:bg-danger-50 hover:text-danger-500"
+                          title={`Clear all for day ${day}`}
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </th>
                   );
                 })}
@@ -121,6 +223,8 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
                             : ""
                         }`}
                         onClick={() => toggleCell(param, day)}
+                        onContextMenu={(e) => { e.preventDefault(); markCellFail(param, day); }}
+                        title="Click to toggle ✓ · Right-click for ✕"
                       >
                         {val}
                       </td>
@@ -128,19 +232,49 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
                   })}
                 </tr>
               ))}
+              {/* Per-day Checked By row — signature dropdown (no free-text names) */}
+              <tr className="bg-brand-50/30">
+                <td className="px-2 py-1 sticky left-0 bg-brand-50 z-10 font-bold whitespace-nowrap text-[11px] text-brand-700 uppercase tracking-wider">
+                  Checked By
+                </td>
+                {Array.from({ length: daysInMonth }, (_, i) => {
+                  const day = i + 1;
+                  return (
+                    <td key={day} className="px-0.5 py-0.5 border-l border-cream-300 align-middle">
+                      <CompactSignSelect
+                        value={checkedByPerDay[day] || ""}
+                        onChange={(v) => setCheckedByPerDay((prev) => ({ ...prev, [day]: v }))}
+                        options={CHECKED_BY_OPTIONS}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+              {/* Per-day Verified By row */}
+              <tr className="bg-brand-50/30">
+                <td className="px-2 py-1 sticky left-0 bg-brand-50 z-10 font-bold whitespace-nowrap text-[11px] text-brand-700 uppercase tracking-wider">
+                  Verified By
+                </td>
+                {Array.from({ length: daysInMonth }, (_, i) => {
+                  const day = i + 1;
+                  return (
+                    <td key={day} className="px-0.5 py-0.5 border-l border-cream-300 align-middle">
+                      <CompactSignSelect
+                        value={verifiedByPerDay[day] || ""}
+                        onChange={(v) => setVerifiedByPerDay((prev) => ({ ...prev, [day]: v }))}
+                        options={QC_VERIFIED_BY_OPTIONS}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
             </tbody>
           </table>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 sm:p-5 border-t border-cream-300">
-          <div>
-            <label className="label-base">Checked By</label>
-            <input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="input-base" placeholder="Name" />
-          </div>
-          <div>
-            <label className="label-base">Verified By</label>
-            <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" placeholder="Name" />
-          </div>
-        </div>
+        <p className="text-[11px] text-ink-400 italic px-4 pt-3 pb-2">
+          Each day records its own <strong>Checked By</strong> and <strong>Verified By</strong> signatory.
+          The picked name resolves to a signature image on the print sheet.
+        </p>
       </DocSection>
 
       <DocSection title="Notes & Corrective Action">
@@ -162,7 +296,18 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
           <span className="mx-2 text-cream-300">|</span>
           Approved By: <span className="font-semibold text-ink-500">FSTL</span>
         </p>
-        <button className="btn-primary">Submit Record</button>
+        <div className="flex items-center gap-3">
+          {submitError && <span className="text-xs text-danger-600 font-semibold">{submitError}</span>}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="btn-primary inline-flex items-center gap-2"
+          >
+            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {submitting ? "Saving…" : "Submit Record"}
+          </button>
+        </div>
       </div>
     </div>
   );

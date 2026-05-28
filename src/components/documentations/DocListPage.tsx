@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox } from 'lucide-react'
+import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { docsApi, isDocAdmin } from '@/lib/api/documentations'
-import type { DocFormConfig } from '@/config/doc-forms'
+import { PRINTABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 
 interface Props {
   config: DocFormConfig
@@ -21,6 +21,7 @@ export default function DocListPage({ config }: Props) {
   const [total, setTotal] = useState(0)
   const [warehouse, setWarehouse] = useState<string>('')
   const admin = isDocAdmin()
+  const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
 
   const fetchRecords = async () => {
     setLoading(true)
@@ -173,6 +174,16 @@ export default function DocListPage({ config }: Props) {
                             <Pencil className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline">Edit</span>
                           </button>
+                          {showPrint && (
+                            <button
+                              onClick={() => router.push(`/documentations/${config.routeSlug}/print?id=${rec.id}`)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-ink-500 hover:text-blue-600 hover:bg-blue-50"
+                              title="Print"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Print</span>
+                            </button>
+                          )}
                           {admin && (
                             <button
                               onClick={() => handleDelete(rec.id)}

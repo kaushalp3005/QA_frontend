@@ -7,7 +7,16 @@ export interface DocFormConfig {
   dateField: string | null
   listColumns: string[]
   routeSlug: string
+  printable?: boolean
 }
+
+export const PRINTABLE_SLUGS = new Set<string>([
+  "productweightcheck",
+  "productiontoolissuance",
+  "dailycleaningchecklist",
+  "equipmentcleaningsanitation",
+  "preproductioninspection",
+])
 
 export const DOC_FORMS: Record<string, DocFormConfig> = {
   // ── Batch 1 (22) ──

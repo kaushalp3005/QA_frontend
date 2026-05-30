@@ -55,7 +55,7 @@ export default function ProductWeightSealCheckRecord() {
   const [remarks, setRemarks] = useState("");
   const [recordCheckedBy, setRecordCheckedBy] = useState("");
   const [recordVerifiedBy, setRecordVerifiedBy] = useState("");
-  const [rows, setRows] = useState<WeightRow[]>(Array.from({ length: 10 }, (_, i) => emptyRow(i + 1)));
+  const [rows, setRows] = useState<WeightRow[]>(Array.from({ length: 35 }, (_, i) => emptyRow(i + 1)));
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitOk, setSubmitOk] = useState(false);

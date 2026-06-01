@@ -157,41 +157,41 @@ export default function DocListPage({ config }: Props) {
                         <td key={col} className="px-4 py-3 text-ink-600">{formatValue(rec[col])}</td>
                       ))}
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}`)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-ink-500 hover:text-brand-500 hover:bg-brand-50"
+                            className="action-btn-3d action-btn-blue"
                             title="View"
+                            aria-label="View"
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">View</span>
+                            <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}/edit`)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-ink-500 hover:text-success-700 hover:bg-success-50"
+                            className="action-btn-3d action-btn-amber"
                             title="Edit"
+                            aria-label="Edit"
                           >
-                            <Pencil className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Edit</span>
+                            <Pencil className="w-4 h-4" />
                           </button>
                           {showPrint && (
                             <button
                               onClick={() => router.push(`/documentations/${config.routeSlug}/print?id=${rec.id}`)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-ink-500 hover:text-blue-600 hover:bg-blue-50"
+                              className="action-btn-3d action-btn-green"
                               title="Print"
+                              aria-label="Print"
                             >
-                              <Printer className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Print</span>
+                              <Printer className="w-4 h-4" />
                             </button>
                           )}
                           {admin && (
                             <button
                               onClick={() => handleDelete(rec.id)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-ink-500 hover:text-danger-600 hover:bg-danger-50"
+                              className="action-btn-3d action-btn-red"
                               title="Delete"
+                              aria-label="Delete"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Delete</span>
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>

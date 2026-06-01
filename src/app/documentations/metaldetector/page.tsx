@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, X, Printer, Edit2, Save, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, X, Printer, Edit2, Save, Loader2, Trash2, PlayCircle, Download } from 'lucide-react'
 import WarehouseSelector, { getStoredWarehouse, WarehouseCode } from '@/components/ui/WarehouseSelector'
 import Time12Picker from '@/components/Time12Picker'
 import SignatureCell from '@/components/ui/SignatureCell'
@@ -108,6 +108,8 @@ export default function MetalDetectorPage() {
   const [viewLoading, setViewLoading] = useState(false)
   const [printRecord, setPrintRecord] = useState<MDRecordWithEntries | null>(null)
   const [printLoading, setPrintLoading] = useState(false)
+  const [downloadRecord, setDownloadRecord] = useState<MDRecordWithEntries | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
   const [editRecord, setEditRecord] = useState<MDRecordWithEntries | null>(null)
   const [editLoading, setEditLoading] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
@@ -265,6 +267,65 @@ export default function MetalDetectorPage() {
     }, 100)
     return () => clearTimeout(t)
   }, [printRecord])
+
+  const handleDownloadPdf = async (recordId: number) => {
+    if (downloadingId) return
+    setDownloadingId(recordId)
+    try {
+      const response = await fetch(`${API_BASE}/metaldetector/${recordId}?warehouse=${warehouse}`)
+      if (!response.ok) {
+        alert('Failed to fetch record for download.')
+        return
+      }
+      const data = await response.json()
+      setDownloadRecord(withSortedEntries(data))
+    } catch (error) {
+      console.error('Error fetching record for download:', error)
+      alert('Error fetching record for download.')
+      setDownloadingId(null)
+    }
+  }
+
+  // Once the download overlay content is in the DOM, capture it with html2pdf
+  // and trigger a file download, then clean up.
+  useEffect(() => {
+    if (!downloadRecord) return
+    let cancelled = false
+    const t = setTimeout(async () => {
+      try {
+        const node = document.querySelector('.download-content') as HTMLElement | null
+        if (!node) {
+          setDownloadRecord(null)
+          setDownloadingId(null)
+          return
+        }
+        const html2pdf = (await import('html2pdf.js')).default
+        const filename = `MetalDetector-${downloadRecord.batch_id || downloadRecord.id}.pdf`
+        await html2pdf()
+          .set({
+            margin: [6, 6, 6, 6],
+            filename,
+            image: { type: 'jpeg', quality: 0.95 },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          } as any)
+          .from(node)
+          .save()
+      } catch (e) {
+        console.error('PDF generation failed:', e)
+        if (!cancelled) alert('Failed to generate PDF.')
+      } finally {
+        if (!cancelled) {
+          setDownloadRecord(null)
+          setDownloadingId(null)
+        }
+      }
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [downloadRecord])
 
   const getPrintRows = (entries: MDEntry[], minRows = 10) => {
     const rows: (MDEntry | null)[] = [...entries]
@@ -585,59 +646,55 @@ export default function MetalDetectorPage() {
               <p className="text-sm text-gray-500">Loading records...</p>
             </div>
           ) : records.length > 0 ? (
-            <div className="px-6 py-4">
+            <div className="px-4 py-4">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="w-full table-fixed divide-y divide-gray-200">
+                  <colgroup>
+                    <col className="w-[14%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[20%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[14%]" />
+                  </colgroup>
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch ID</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Detector ID</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch/Lot</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entries</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified By</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      <th className="px-2 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Date / Time</th>
+                      <th className="px-2 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Detector</th>
+                      <th className="px-2 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Floor</th>
+                      <th className="px-2 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Customer / Lot</th>
+                      <th className="px-2 py-3 text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wider" title="Entries count">#</th>
+                      <th className="px-2 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-2 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Verified By</th>
+                      <th className="px-2 py-3 text-right text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {records.map((record) => (
                       <tr key={record.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{record.entry_date}</div>
-                              <div className="text-sm text-gray-500 flex items-center">
-                                <Clock className="h-3 w-3 mr-1" />
-                                {to12Hour(record.entry_time)}
-                              </div>
-                            </div>
-                          </div>
+                        <td className="px-2 py-3 align-middle">
+                          <div className="text-sm font-medium text-gray-900 truncate">{record.entry_date}</div>
+                          <div className="text-xs text-gray-500 truncate">{to12Hour(record.entry_time)}</div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm font-mono text-gray-900">{record.batch_id}</span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <td className="px-2 py-3 align-middle">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-100 text-blue-800 truncate max-w-full" title={record.identification_no}>
                             {record.identification_no}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 text-gray-400 mr-2" />
-                            <span className="text-sm text-gray-900">{record.customer_name || '-'}</span>
-                          </div>
+                        <td className="px-2 py-3 align-middle">
+                          <span className="text-xs text-gray-700 truncate block" title={record.location || ''}>{record.location || '-'}</span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">{record.batch_lot_no || '-'}</span>
+                        <td className="px-2 py-3 align-middle">
+                          <div className="text-sm text-gray-900 truncate" title={record.customer_name || '-'}>{record.customer_name || '-'}</div>
+                          <div className="text-xs text-gray-500 truncate" title={record.batch_lot_no || ''}>{record.batch_lot_no || '-'}</div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm font-medium text-gray-900">{record.entry_count}</span>
+                        <td className="px-2 py-3 align-middle text-center">
+                          <span className="inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700">{record.entry_count}</span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        <td className="px-2 py-3 align-middle">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
                             record.status === 'passed'
                               ? 'bg-green-100 text-green-800'
                               : record.status === 'pending'
@@ -652,55 +709,69 @@ export default function MetalDetectorPage() {
                             ) : (
                               <>
                                 <Check className={`h-3 w-3 mr-1 ${record.status === 'passed' ? 'text-green-600' : 'text-yellow-600'}`} />
-                                {record.status === 'passed' ? 'All Passed' : 'Needs Review'}
+                                {record.status === 'passed' ? 'Passed' : 'Review'}
                               </>
                             )}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">{record.verified_by}</span>
+                        <td className="px-2 py-3 align-middle">
+                          <span className="text-sm text-gray-900 truncate block" title={record.verified_by}>{record.verified_by}</span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center space-x-2">
+                        <td className="px-2 py-3 align-middle text-right">
+                          <div className="flex items-center justify-end gap-1">
                             {record.status === 'pending' && (
                               <button
                                 onClick={() => router.push(`/documentations/metaldetector/entry?resumeRecordId=${record.id}&warehouse=${warehouse}`)}
-                                className="text-orange-600 hover:text-orange-900 flex items-center font-semibold"
+                                className="action-btn-3d action-btn-orange !w-8 !h-8"
+                                title="Continue this pending record"
+                                aria-label="Continue"
                               >
-                                <Edit2 className="h-4 w-4 mr-1" />
-                                Continue
+                                <PlayCircle className="h-4 w-4" />
                               </button>
                             )}
                             <button
                               onClick={() => handleViewDetails(record.id)}
-                              className="text-blue-600 hover:text-blue-900 flex items-center"
+                              className="action-btn-3d action-btn-blue !w-8 !h-8"
+                              title="View record details"
+                              aria-label="View"
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
+                              <Eye className="h-4 w-4" />
                             </button>
                             {isAuthorized && (
                               <button
-                                onClick={() => handleViewDetails(record.id)}
-                                className="text-amber-600 hover:text-amber-900 flex items-center"
-                                title="Edit entries"
+                                onClick={() => handleEditRecord(record.id)}
+                                className="action-btn-3d action-btn-amber !w-8 !h-8"
+                                title="Edit record (add/remove rows & save)"
+                                aria-label="Edit"
                               >
-                                <Edit2 className="h-4 w-4 mr-1" />
-                                Edit
+                                <Edit2 className="h-4 w-4" />
                               </button>
                             )}
                             <button
                               onClick={() => handlePrintRecord(record.id)}
-                              className="text-green-600 hover:text-green-900 flex items-center"
+                              className="action-btn-3d action-btn-green !w-8 !h-8"
+                              title="Print record"
+                              aria-label="Print"
                             >
-                              <Printer className="h-4 w-4 mr-1" />
-                              Print
+                              <Printer className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDownloadPdf(record.id)}
+                              disabled={downloadingId === record.id}
+                              className="action-btn-3d action-btn-purple !w-8 !h-8"
+                              title="Download as PDF"
+                              aria-label="Download PDF"
+                            >
+                              {downloadingId === record.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                             </button>
                             {isAuthorized && (
                               <button
                                 onClick={() => handleDeleteRecord(record.id)}
-                                className="text-red-600 hover:text-red-900"
+                                className="action-btn-3d action-btn-red !w-8 !h-8"
+                                title="Delete record"
+                                aria-label="Delete"
                               >
-                                Delete
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             )}
                           </div>
@@ -1111,7 +1182,8 @@ export default function MetalDetectorPage() {
                         <button
                           type="button"
                           onClick={handleAddEditRow}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-b from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 rounded-md shadow-md hover:shadow-lg active:shadow-sm active:translate-y-[1px] transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                          title="Add a new entry row"
                         >
                           <Plus className="w-4 h-4" />
                           Add Row
@@ -1301,14 +1373,151 @@ export default function MetalDetectorPage() {
                   <button
                     onClick={handleSaveEdit}
                     disabled={editSaving}
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-5 py-2 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
                   >
-                    {editSaving ? 'Saving...' : 'Save Changes'}
+                    {editSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Submitting…
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" /> Submit
+                      </>
+                    )}
                   </button>
                 </div>
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Download Overlay — hidden offscreen, captured by html2pdf */}
+      {downloadRecord && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            left: '-10000px',
+            top: 0,
+            width: '1123px',
+            background: '#fff',
+            zIndex: -1,
+          }}
+        >
+          <div className="download-content" style={{ padding: '20px', width: '1123px', fontFamily: 'Arial, sans-serif', color: '#000' }}>
+            {groupEntriesByIdentification(downloadRecord.entries).map(([identificationNo, groupEntries], groupIndex, allGroups) => (
+              <div key={`dl-${identificationNo}`} className="html2pdf__page-break" style={{ pageBreakAfter: groupIndex < allGroups.length - 1 ? 'always' : 'auto', marginBottom: groupIndex < allGroups.length - 1 ? '16px' : '0' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000' }}>
+                  <thead>
+                    <tr>
+                      <td rowSpan={4} style={{ border: '1px solid #000', padding: '8px', textAlign: 'center', width: '150px', verticalAlign: 'middle' }}>
+                        <img src="/candor-logo.jpg" alt="Candor Foods" style={{ width: '140px', height: '80px', objectFit: 'contain' }} />
+                      </td>
+                      <td rowSpan={2} style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px' }}>
+                        CANDOR FOODS PRIVATE LIMITED
+                      </td>
+                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px', width: '120px' }}>Issue Date:</td>
+                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px', width: '110px' }}>05/02/2023</td>
+                    </tr>
+                    <tr>
+                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>Issue No:</td>
+                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>02</td>
+                    </tr>
+                    <tr>
+                      <td rowSpan={2} style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontSize: '12px' }}>
+                        <div style={{ fontWeight: 'bold' }}>Format : CCP calibration, Monitoring and Verification Record</div>
+                        <div style={{ fontWeight: 'bold' }}>(Metal Detector)</div>
+                        <div style={{ fontSize: '11px', marginTop: '2px' }}>Document No: {getDocNumber(identificationNo)}</div>
+                      </td>
+                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>Revision Date:</td>
+                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>01/10/2025</td>
+                    </tr>
+                    <tr>
+                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>Revision No.:</td>
+                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>01</td>
+                    </tr>
+                  </thead>
+                </table>
+
+                <div style={{ padding: '8px 4px', fontSize: '12px' }}>
+                  Frequency: Start - Mid - End (Every Hour)
+                </div>
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px', fontWeight: 'bold', backgroundColor: '#d9d9d9', width: '140px' }}>MACHINE DETAILS</td>
+                      <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px', width: '200px' }}>{groupEntries[0]?.machine_details || 'METAL DETECTOR'}</td>
+                      <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px' }}><strong>LOCATION:</strong> {groupEntries[0]?.location || ''}</td>
+                      <td style={{ border: '1px solid #000', padding: '6px 10px', fontSize: '11px', textAlign: 'right' }}><strong>Identification No:</strong> {identificationNo}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000', marginTop: '-2px' }}>
+                  <thead>
+                    <tr>
+                      <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '80px', verticalAlign: 'middle' }}>DATE</th>
+                      <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '60px', verticalAlign: 'middle' }}>TIME</th>
+                      <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '110px', verticalAlign: 'middle' }}>PRODUCT NAME</th>
+                      <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '80px', verticalAlign: 'middle' }}>BATCH/LOT<br />NO.</th>
+                      <th colSpan={3} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold' }}>SENSITIVITIES</th>
+                      <th colSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', lineHeight: '1.3' }}>IF METAL DETECTOR IS NOT<br />WORKING, CORRECTIVE ACTION<br />TAKEN ON</th>
+                      <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '85px', verticalAlign: 'middle' }}>CALIBRATED/<br />MONITORED<br />BY</th>
+                      <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '70px', verticalAlign: 'middle' }}>VERIFIED<br />BY</th>
+                      <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', fontSize: '10px', textAlign: 'center', fontWeight: 'bold', width: '75px', verticalAlign: 'middle' }}>REMARKS</th>
+                    </tr>
+                    <tr>
+                      <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '55px' }}>FE<br /><span style={{ fontWeight: 'normal' }}>{groupEntries[0]?.sensitivity_fe || '1 mm'}</span></th>
+                      <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '55px' }}>NFE<br /><span style={{ fontWeight: 'normal' }}>{groupEntries[0]?.sensitivity_nfe || '1.2 mm'}</span></th>
+                      <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '55px' }}>SS<br /><span style={{ fontWeight: 'normal' }}>{groupEntries[0]?.sensitivity_ss || '1.7 mm'}</span></th>
+                      <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '90px' }}>ON METAL<br />DETECTOR</th>
+                      <th style={{ border: '1px solid #000', padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold', width: '90px' }}>ON PRODUCT<br />PASSED</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getPrintRows(groupEntries).map((entry, index) => (
+                      <tr key={`dl-row-${index}`}>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center', height: '28px' }}>{entry?.entry_date || ''}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>{entry?.entry_time ? to12Hour(entry.entry_time) : ''}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>{entry?.product_name || ''}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>{entry?.batch_lot_no || ''}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '12px', textAlign: 'center' }}>{entry ? (entry.sensitivity_fe_checked ? '✓' : '') : ''}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '12px', textAlign: 'center' }}>{entry ? (entry.sensitivity_nfe_checked ? '✓' : '') : ''}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '12px', textAlign: 'center' }}>{entry ? (entry.sensitivity_ss_checked ? '✓' : '') : ''}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>{entry?.corrective_action_on_detector || ''}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>{entry?.corrective_action_on_product || ''}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                          <SignatureCell name={entry?.calibrated_by} maxHeight={26} maxWidth={70} />
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>
+                          <SignatureCell name={entry?.verified_by} maxHeight={26} maxWidth={70} />
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px', textAlign: 'center' }}>{entry?.remarks || ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', paddingLeft: '20px', paddingRight: '20px' }}>
+                  <div><strong>Prepared By:</strong> FST</div>
+                  <div style={{ border: '2px solid #000', padding: '4px 16px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center' }}>
+                    CONTROLLED<br />COPY
+                  </div>
+                  <div><strong>Approved By:</strong> FSTL</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Toast: PDF generating */}
+      {downloadingId !== null && (
+        <div className="fixed bottom-6 right-6 z-[70] bg-purple-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm font-medium">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Generating PDF…
         </div>
       )}
 

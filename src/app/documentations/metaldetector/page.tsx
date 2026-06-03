@@ -956,6 +956,9 @@ export default function MetalDetectorPage() {
                                     <option value="Shraddha Jadhav">Shraddha Jadhav</option>
                                     <option value="Pooja Mhalim">Pooja Mhalim</option>
                                     <option value="Nikita Jarag">Nikita Jarag</option>
+                                    <option value="Pankaj Gosavi">Pankaj Gosavi</option>
+                                    <option value="Sarvesh Davande">Sarvesh Davande</option>
+                                    <option value="Swapnil Mahajan">Swapnil Mahajan</option>
                                     <option value="Other">Other</option>
                                   </select>
                                 </td>

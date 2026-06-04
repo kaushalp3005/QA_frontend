@@ -208,8 +208,8 @@ export default function ProductWeightSealCheckRecord() {
           batch_no: p.batchNo,
           customer: p.customer,
           pkd: p.pkd,
-          declared_net_weight: p.declaredNetWeight !== "" ? Number(p.declaredNetWeight) : null,
-          permissible_error: p.permissibleError !== "" ? Number(p.permissibleError) : null,
+          declared_net_weight_gms: p.declaredNetWeight !== "" ? Number(p.declaredNetWeight) : null,
+          permissible_error_gms: p.permissibleError !== "" ? Number(p.permissibleError) : null,
           total_pkts_produced: p.totalPktsProduced !== "" ? Number(p.totalPktsProduced) : null,
           remarks: p.remarks,
           checked_by: p.recordCheckedBy || undefined,
@@ -465,12 +465,7 @@ export default function ProductWeightSealCheckRecord() {
       </div>
 
       {/* Submit Footer */}
-      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <p className="text-xs text-ink-400">
-          Prepared By: <span className="font-semibold text-ink-500">Production</span>
-          <span className="mx-2 text-cream-300">|</span>
-          Approved By: <span className="font-semibold text-ink-500">FSTL</span>
-        </p>
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
         <div className="flex items-center gap-3">
           {submitError && (
             <span className="text-xs text-danger-600 font-semibold">{submitError}</span>

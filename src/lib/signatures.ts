@@ -22,19 +22,25 @@ export const VERIFIED_BY_OPTIONS: SignatureOption[] = [
 
 /** QC documentation forms — "Checked By" preset list (operators / QC executives). */
 export const CHECKED_BY_OPTIONS: SignatureOption[] = [
-  { name: 'Pooja Mhalim',    signature: '/signatures/pooja-mhalim.png',    role: 'Quality Control Executive' },
-  { name: 'Shraddha Jadhav', signature: '/signatures/shraddha-jadhav.png', role: 'Quality Control Executive' },
-  { name: 'Nikita Jarag',    signature: null,                              role: 'Quality Control Executive' },
-  { name: 'Other',           signature: null },
+  { name: 'Pooja Mhalim',     signature: '/signatures/pooja-mhalim.png',    role: 'Quality Control Executive' },
+  { name: 'Shraddha Jadhav',  signature: '/signatures/shraddha-jadhav.png', role: 'Quality Control Executive' },
+  { name: 'Nikita Jarag',     signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Pankaj Gosavi',    signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Sarvesh Davande',  signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Swapnil Mahajan',  signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Other',            signature: null },
 ]
 
 /** QC documentation forms — "Verified By" preset list (Quality Manager / Sr. Executives). */
 export const QC_VERIFIED_BY_OPTIONS: SignatureOption[] = [
-  { name: 'Pooja Parkar',    signature: '/signatures/pooja-parkar.png',    role: 'Quality Manager' },
-  { name: 'Shraddha Jadhav', signature: '/signatures/shraddha-jadhav.png', role: 'Quality Control Executive' },
-  { name: 'Pooja Mhalim',    signature: '/signatures/pooja-mhalim.png',    role: 'Quality Control Executive' },
-  { name: 'Nikita Jarag',    signature: null,                              role: 'Quality Control Executive' },
-  { name: 'Other',           signature: null },
+  { name: 'Pooja Parkar',     signature: '/signatures/pooja-parkar.png',    role: 'Quality Manager' },
+  { name: 'Shraddha Jadhav',  signature: '/signatures/shraddha-jadhav.png', role: 'Quality Control Executive' },
+  { name: 'Pooja Mhalim',     signature: '/signatures/pooja-mhalim.png',    role: 'Quality Control Executive' },
+  { name: 'Nikita Jarag',     signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Pankaj Gosavi',    signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Sarvesh Davande',  signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Swapnil Mahajan',  signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Other',            signature: null },
 ]
 
 export const COMPANY_STAMP = '/signatures/company-stamp.png'

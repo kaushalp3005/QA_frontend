@@ -8,6 +8,15 @@ import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, type SignatureOption } from "@/lib/signatures";
 
+const AREA_OPTIONS = [
+  "First Floor",
+  "Lower Basement",
+  "Upper Basement",
+  "First Floor Mezzanine",
+  "Second Floor",
+  "Service Floor",
+];
+
 /** Compact dropdown used per-day in the grid footer. Stores the picked name as a string. */
 function CompactSignSelect({
   value,
@@ -153,8 +162,28 @@ function MonthlyGridChecklist({ title, documentNo, issueDate, issueNo, revDate, 
             <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="input-base" />
           </div>
           <div>
-            <label className="label-base">Area</label>
-            <input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="input-base" />
+            <label className="label-base">Area (Floor Name)</label>
+            <select
+              value={AREA_OPTIONS.includes(area) ? area : area === "" ? "" : "__other__"}
+              onChange={(e) => {
+                if (e.target.value === "__other__") setArea("");
+                else setArea(e.target.value);
+              }}
+              className="input-base"
+            >
+              <option value="">Select area…</option>
+              {AREA_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              <option value="__other__">Other…</option>
+            </select>
+            {!AREA_OPTIONS.includes(area) && (
+              <input
+                type="text"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                className="input-base mt-1"
+                placeholder="Type area name…"
+              />
+            )}
           </div>
         </div>
         <p className="text-[11px] text-ink-400 italic mt-3">
@@ -414,7 +443,7 @@ export default function DailyCleaningChecklist() {
           issueNo="04"
           revDate="13/12/2025"
           revNo="03"
-          defaultArea="Service floor"
+          defaultArea="Service Floor"
           parameters={["Floor Cleaned", "Walls Cleaned", "Strip Curtains Cleaned", "Gaps cleaned floor/door/machines", "Window / Mesh Cleaned", "Racks & pallets are cleaned & dust free", "Stairs are cleaned", "No dust on stored product / No Rat droppings", "Rodent Boxes Cleaned", "Sanitization area cleaned", "Dustbins Empty & Cleaned", "No Cob-webs", "Diesel drums are stored in designated place."]}
         />
       )}

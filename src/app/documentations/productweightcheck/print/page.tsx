@@ -28,9 +28,13 @@ interface SampleRow {
   verified_by?: string;
 }
 
-function RecordSheet({ record }: { record: Record<string, any> }) {
+function RecordSheet({ record, newLayout = false }: { record: Record<string, any>; newLayout?: boolean }) {
   const rows: SampleRow[] = Array.isArray(record?.rows) ? record.rows : [];
   const blankRows = Math.max(0, BLANK_ROW_COUNT - rows.length);
+
+  const issueNo = newLayout ? "04" : "03";
+  const revDate = newLayout ? "02/06/2026" : "01/10/2025";
+  const revNo = newLayout ? "03" : "02";
 
   return (
     <div
@@ -60,16 +64,16 @@ function RecordSheet({ record }: { record: Record<string, any> }) {
               Format: Product Weight and Sealing check record
             </td>
             <td style={tdHead}>Issue No:</td>
-            <td style={tdHead}>03</td>
+            <td style={tdHead}>{issueNo}</td>
           </tr>
           <tr>
             <td style={tdHead}>Revision Date:</td>
-            <td style={tdHead}>01/10/2025</td>
+            <td style={tdHead}>{revDate}</td>
           </tr>
           <tr>
             <td style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>Document No: CFPLA.C6.F.16</td>
             <td style={tdHead}>Revision No.:</td>
-            <td style={tdHead}>02</td>
+            <td style={tdHead}>{revNo}</td>
           </tr>
         </tbody>
       </table>
@@ -102,9 +106,9 @@ function RecordSheet({ record }: { record: Record<string, any> }) {
           </tr>
           <tr>
             <td style={{ ...tdInfo, fontWeight: "bold" }}>Declared Product Net Weight (gms)</td>
-            <td style={tdInfo}>{record?.declared_net_weight ?? ""}</td>
+            <td style={tdInfo}>{record?.declared_net_weight_gms ?? ""}</td>
             <td style={{ ...tdInfo, fontWeight: "bold" }}>Permissible error (±gms)</td>
-            <td style={tdInfo}>{record?.permissible_error ?? ""}</td>
+            <td style={tdInfo}>{record?.permissible_error_gms ?? ""}</td>
           </tr>
           <tr>
             <td style={{ ...tdInfo, fontWeight: "bold" }}>Total Pkts Produced (Nos)</td>
@@ -180,6 +184,7 @@ export default function ProductWeightCheckPrintPage() {
   const searchParams = useSearchParams();
   const [records, setRecords] = useState<Record<string, any>[]>([]);
   const [loading, setLoading] = useState(true);
+  const newLayout = searchParams.get("newLayout") === "1";
 
   useEffect(() => {
     const load = async () => {
@@ -249,7 +254,7 @@ export default function ProductWeightCheckPrintPage() {
           key={record.id ?? idx}
           style={idx < records.length - 1 ? { pageBreakAfter: "always" } : undefined}
         >
-          <RecordSheet record={record} />
+          <RecordSheet record={record} newLayout={newLayout} />
         </div>
       ))}
 

@@ -76,8 +76,8 @@ export default function ProductWeightSealCheckEditPage() {
         setBatchNo(d.batch_no || "");
         setCustomer(d.customer || "");
         setPkd(d.pkd || "");
-        setDeclaredNetWeight(d.declared_net_weight != null ? String(d.declared_net_weight) : "");
-        setPermissibleError(d.permissible_error != null ? String(d.permissible_error) : "");
+        setDeclaredNetWeight(d.declared_net_weight_gms != null ? String(d.declared_net_weight_gms) : "");
+        setPermissibleError(d.permissible_error_gms != null ? String(d.permissible_error_gms) : "");
         setTotalPktsProduced(d.total_pkts_produced != null ? String(d.total_pkts_produced) : "");
         setRemarks(d.remarks || "");
         setRecordCheckedBy(d.checked_by || "");
@@ -166,8 +166,8 @@ export default function ProductWeightSealCheckEditPage() {
       batch_no: batchNo,
       customer,
       pkd,
-      declared_net_weight: declaredNetWeight !== "" ? Number(declaredNetWeight) : null,
-      permissible_error: permissibleError !== "" ? Number(permissibleError) : null,
+      declared_net_weight_gms: declaredNetWeight !== "" ? Number(declaredNetWeight) : null,
+      permissible_error_gms: permissibleError !== "" ? Number(permissibleError) : null,
       total_pkts_produced: totalPktsProduced !== "" ? Number(totalPktsProduced) : null,
       remarks,
       checked_by: recordCheckedBy || undefined,

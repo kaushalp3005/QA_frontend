@@ -32,6 +32,12 @@ export const PHYSICAL_SEEDS_PARAMS: Parameter[] = [
   { key: "discolor", label: "Discolor" },
   { key: "broken", label: "Broken" },
   { key: "split", label: "Split" },
+  { key: "other", label: "Other" },
+];
+
+// Nut/shell-specific params — used by the "nuts" category and the comprehensive
+// "other" fallback, but intentionally NOT shown under "seeds".
+export const PHYSICAL_NUT_EXTRA_PARAMS: Parameter[] = [
   { key: "testa", label: "Testa" },
   { key: "tonch", label: "Tonch" },
   { key: "empty_shell", label: "Empty Shell" },
@@ -41,7 +47,6 @@ export const PHYSICAL_SEEDS_PARAMS: Parameter[] = [
   { key: "chipped_scratches", label: "Chipped / Scratches" },
   { key: "twins", label: "Twins" },
   { key: "doubles", label: "Doubles" },
-  { key: "other", label: "Other" },
 ];
 
 export const PHYSICAL_NUTS_PARAMS: Parameter[] = [
@@ -66,6 +71,7 @@ export const PHYSICAL_ALL_PARAMS: Parameter[] = [
   ...PHYSICAL_SEEDS_PARAMS.filter(
     (s) => !PHYSICAL_DATES_PARAMS.some((d) => d.key === s.key)
   ),
+  ...PHYSICAL_NUT_EXTRA_PARAMS,
 ];
 
 export const LABEL_CHECK_PARAMS: Parameter[] = [

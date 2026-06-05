@@ -35,9 +35,6 @@ type RowSig = { checkedBy: string; verifiedBy: string };
 export default function EquipmentCleaningSanitationRecord() {
   const router = useRouter();
   const [recordDate, setRecordDate] = useState("");
-  const [area, setArea] = useState("");
-  const [checkedBy, setCheckedBy] = useState("");
-  const [verifiedBy, setVerifiedBy] = useState("");
   const [observations, setObservations] = useState("");
   const [correctiveActions, setCorrectiveActions] = useState("");
   const [floor, setFloor] = useState<string>("");
@@ -103,10 +100,14 @@ export default function EquipmentCleaningSanitationRecord() {
   };
 
   const markRowAllOK = (eq: string) => {
+    const allTicked = selectedDates.every((d) => {
+      const cell = grid[eq]?.[d];
+      return cell?.B === "✓" && cell?.A === "✓";
+    });
     pushHistory(grid);
     setGrid((prev) => {
       const updated: Record<number, { B: BAStatus; A: BAStatus }> = { ...(prev[eq] || {}) };
-      selectedDates.forEach((d) => { updated[d] = { B: "✓", A: "✓" }; });
+      selectedDates.forEach((d) => { updated[d] = allTicked ? { B: "", A: "" } : { B: "✓", A: "✓" }; });
       return { ...prev, [eq]: updated };
     });
   };
@@ -121,9 +122,6 @@ export default function EquipmentCleaningSanitationRecord() {
   const buildPayload = (status: "draft" | "submitted") => ({
     warehouse: getStoredWarehouse() || null,
     month: recordDate ? recordDate.slice(0, 7) : "",
-    area,
-    checked_by: checkedBy,
-    verified_by: verifiedBy,
     observations,
     corrective_action: correctiveActions,
     grid: { selectedDates, cells: grid, record_date: recordDate, floor, rowSigs },
@@ -172,14 +170,10 @@ export default function EquipmentCleaningSanitationRecord() {
       )}
 
       <DocSection title="Period & Area">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="label-base">Date</label>
-            <input type="date" value={recordDate} onChange={(e) => setRecordDate(e.target.value)} className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">Area</label>
-            <input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="input-base" />
+            <label className="label-base">Month</label>
+            <input type="month" value={recordDate} onChange={(e) => setRecordDate(e.target.value)} className="input-base" />
           </div>
           <div>
             <label className="label-base">Floor</label>
@@ -295,14 +289,6 @@ export default function EquipmentCleaningSanitationRecord() {
 
       <DocSection title="Approvals & Notes">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="label-base">Checked By</label>
-            <input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">Verified By</label>
-            <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" />
-          </div>
           <div>
             <label className="label-base">Observations</label>
             <textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={3} className="input-base" />

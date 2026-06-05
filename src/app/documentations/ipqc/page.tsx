@@ -5,7 +5,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ipqc } from "@/lib/api";
 import { getSession } from "@/lib/auth";
 import { printRecord } from "@/lib/printRecord";
-import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import WarehouseSelector, { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { IPQCRecord, Session } from "@/types";
 import {
   Plus, Search, Printer, Eye, Trash2, Pencil,
@@ -41,7 +41,7 @@ export default function IPQCListPage() {
     setSessionState(s);
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      if (detail?.warehouse) setWarehouse(detail.warehouse);
+      if (detail?.warehouse) { setWarehouse(detail.warehouse); setPage(1); }
     };
     window.addEventListener('warehouseChanged', handler);
     return () => window.removeEventListener('warehouseChanged', handler);
@@ -147,14 +147,16 @@ export default function IPQCListPage() {
             ) : null
           }
           actions={
-            
-            <button
-              onClick={() => router.push("/documentations/ipqc/new")}
-              className="btn-primary"
-            >
-              <Plus className="w-4 h-4 mr-1.5" />
-              New IPQC
-            </button>
+            <div className="flex items-center gap-2">
+              <WarehouseSelector />
+              <button
+                onClick={() => router.push("/documentations/ipqc/new")}
+                className="btn-primary"
+              >
+                <Plus className="w-4 h-4 mr-1.5" />
+                New IPQC
+              </button>
+            </div>
           }
         />
 

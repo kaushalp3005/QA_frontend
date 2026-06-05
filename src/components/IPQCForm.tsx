@@ -308,6 +308,35 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
   return (
     <form onSubmit={handleSubmit}>
 
+      <div className="flex gap-4 items-start">
+        {/* ── Left SKU sidebar ─────────────────────── */}
+        <div className="hidden lg:block w-44 shrink-0 sticky top-4 self-start">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">Items</p>
+            <ol className="space-y-0.5">
+              {articles.map((art, idx) => (
+                <li key={idx}>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById(`article-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs hover:bg-emerald-50 transition-colors group text-left"
+                  >
+                    <span className="w-5 h-5 rounded-md bg-emerald-100 flex items-center justify-center text-[10px] font-bold text-emerald-700 shrink-0 group-hover:bg-emerald-200">
+                      {idx + 1}
+                    </span>
+                    <span className="text-gray-600 truncate group-hover:text-emerald-700 leading-tight">
+                      {art.item_description || `Article ${idx + 1}`}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+
+        {/* ── Main content ─────────────────────────── */}
+        <div className="flex-1 min-w-0">
+
       {/* ── Header Card ───────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5 mb-4">
         <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
@@ -343,7 +372,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
         const exp = expandedArticles[artIdx] || {};
 
         return (
-          <div key={artIdx} className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4 overflow-hidden">
+          <div key={artIdx} id={`article-${artIdx}`} className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4 overflow-hidden">
 
             {/* Article Header */}
             <div className="flex items-center justify-between px-4 py-3.5 bg-gray-50 border-b border-gray-200">
@@ -820,6 +849,9 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
           />
         </div>
       </div>
+
+        </div>{/* end flex-1 main */}
+      </div>{/* end flex sidebar+main */}
 
       {/* ── Sticky Save Bar ───────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 sm:static sm:bg-transparent sm:backdrop-blur-none sm:border-0 sm:p-0">

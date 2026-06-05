@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ipqc as ipqcApi } from '@/lib/api'
+import { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { customerToleranceApi, fgCoaApi, type CustomerToleranceRecord, type ToleranceParam, type FgCoaPayload } from '@/lib/api/documentations'
 import { ANALYSED_BY_OPTIONS, VERIFIED_BY_OPTIONS } from '@/lib/signatures'
 import {
@@ -703,7 +704,7 @@ export default function COACreatePage() {
     if (!ipqcNo) return
     setIpqcSearch(ipqcNo)
     setIpqcLoading(true)
-    ipqcApi.get(ipqcNo)
+    ipqcApi.get(ipqcNo, getStoredWarehouse())
       .then(record => {
         // eslint-disable-next-line no-console
         console.log('[coa-ipqc-auto-import] RAW IPQC record received (from ?ipqc=… query):', record)
@@ -837,7 +838,7 @@ export default function COACreatePage() {
     setIpqcLoading(true)
     setIpqcError('')
     try {
-      const record = await ipqcApi.get(no)
+      const record = await ipqcApi.get(no, getStoredWarehouse())
       // eslint-disable-next-line no-console
       console.log('[coa-ipqc-import] RAW IPQC record received:', record)
       // eslint-disable-next-line no-console

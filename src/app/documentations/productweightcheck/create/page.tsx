@@ -15,7 +15,7 @@ interface WeightRow {
   netWeight: string;
   observedGrossWeight: string;
   deviationsNoted: "Ok" | "Not Ok";
-  sealingCheck: "Ok" | "Not Ok";
+  sealingCheck: "Ok" | "No";
   n2Percent: string;
   checkedBy: string;
   verifiedBy: string;
@@ -46,7 +46,7 @@ const currentDate = () => {
 
 const emptyRow = (id: number): WeightRow => ({
   id, time: "", packingMaterialWeight: "", netWeight: "", observedGrossWeight: "",
-  deviationsNoted: "Ok", sealingCheck: "Ok", n2Percent: "-", checkedBy: "", verifiedBy: "",
+  deviationsNoted: "Ok", sealingCheck: "Ok" as "Ok" | "No", n2Percent: "-", checkedBy: "", verifiedBy: "",
 });
 
 let _entryCounter = 0;
@@ -361,7 +361,7 @@ export default function ProductWeightSealCheckRecord() {
                           <div className="flex flex-col items-center gap-1"><span>Gross Wt (g)</span>{fillAllBtn(product.entryId, "observedGrossWeight")}</div>
                         </th>
                         <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Deviation</th>
-                        <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Sealing</th>
+                        <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Seal/Drop Test</th>
                         <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">N₂ %</th>
                         <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">
                           <div className="flex flex-col items-center gap-1"><span>Checked By</span>{fillAllBtn(product.entryId, "checkedBy")}</div>
@@ -396,7 +396,7 @@ export default function ProductWeightSealCheckRecord() {
                           </td>
                           <td className="px-1 py-1.5">
                             <label className="flex items-center justify-center gap-1.5 cursor-pointer">
-                              <input type="checkbox" checked={row.sealingCheck === "Ok"} onChange={(e) => updateRow(product.entryId, row.id, "sealingCheck", e.target.checked ? "Ok" : "Not Ok")} className="h-4 w-4 accent-brand-500" />
+                              <input type="checkbox" checked={row.sealingCheck === "Ok"} onChange={(e) => updateRow(product.entryId, row.id, "sealingCheck", e.target.checked ? "Ok" : "No")} className="h-4 w-4 accent-brand-500" />
                               <span className={`text-[11px] font-semibold ${row.sealingCheck === "Ok" ? "text-success-600" : "text-danger-600"}`}>{row.sealingCheck}</span>
                             </label>
                           </td>

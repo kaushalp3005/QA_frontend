@@ -16,7 +16,7 @@ interface WeightRow {
   netWeight: string;
   observedGrossWeight: string;
   deviationsNoted: "Ok" | "Not Ok";
-  sealingCheck: "Ok" | "Not Ok";
+  sealingCheck: "Ok" | "No";
   n2Percent: string;
   checkedBy: string;
   verifiedBy: string;
@@ -24,7 +24,7 @@ interface WeightRow {
 
 const emptyRow = (id: number): WeightRow => ({
   id, time: "", packingMaterialWeight: "", netWeight: "", observedGrossWeight: "",
-  deviationsNoted: "Ok", sealingCheck: "Ok", n2Percent: "-", checkedBy: "", verifiedBy: "",
+  deviationsNoted: "Ok", sealingCheck: "Ok" as "Ok" | "No", n2Percent: "-", checkedBy: "", verifiedBy: "",
 });
 
 const normalizeStatus = (v: any, fallback: "Ok" | "Not Ok" = "Ok"): "Ok" | "Not Ok" => {
@@ -33,6 +33,12 @@ const normalizeStatus = (v: any, fallback: "Ok" | "Not Ok" = "Ok"): "Ok" | "Not 
   if (s === "ok" || s === "yes" || s === "✓") return "Ok";
   if (s === "not ok" || s === "notok" || s === "no" || s === "✕") return "Not Ok";
   return fallback;
+};
+const normalizeSealStatus = (v: any): "Ok" | "No" => {
+  if (!v) return "Ok";
+  const s = String(v).trim().toLowerCase();
+  if (s === "ok" || s === "yes" || s === "✓") return "Ok";
+  return "No";
 };
 
 export default function ProductWeightSealCheckEditPage() {
@@ -93,7 +99,7 @@ export default function ProductWeightSealCheckEditPage() {
               netWeight: r.net_weight != null ? String(r.net_weight) : "",
               observedGrossWeight: r.observed_gross_weight != null ? String(r.observed_gross_weight) : "",
               deviationsNoted: normalizeStatus(r.deviations_noted, "Ok"),
-              sealingCheck: normalizeStatus(r.sealing_check, "Ok"),
+              sealingCheck: normalizeSealStatus(r.sealing_check),
               n2Percent: r.n2_percent != null ? String(r.n2_percent) : "-",
               checkedBy: r.checked_by || "",
               verifiedBy: r.verified_by || "",
@@ -329,7 +335,7 @@ export default function ProductWeightSealCheckEditPage() {
                   </div>
                 </th>
                 <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Deviation</th>
-                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Sealing</th>
+                <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Seal/Drop Test</th>
                 <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">N₂ %</th>
                 <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">
                   <div className="flex flex-col items-center gap-1">
@@ -386,7 +392,7 @@ export default function ProductWeightSealCheckEditPage() {
                       className={`input-base !py-1.5 !px-2 text-center text-[11px] font-semibold ${row.sealingCheck === "Ok" ? "text-success-600" : "text-danger-600"}`}
                     >
                       <option value="Ok">Ok</option>
-                      <option value="Not Ok">Not Ok</option>
+                      <option value="No">No</option>
                     </select>
                   </td>
                   <td className="px-1 py-1.5">

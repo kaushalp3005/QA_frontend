@@ -4,10 +4,29 @@ import { useRouter } from "next/navigation";
 import { Brush, Undo2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 
 const FORM_TYPE = "equipmentcleaningsanitation";
+
+/** Compact per-day signatory dropdown, scoped to the active plant (A185 / W202). */
+function CompactSignSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: SignatureOption[] }) {
+  const visible = filterSignaturesByWarehouse(options, getStoredWarehouse());
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full min-w-[60px] text-[10px] px-1 py-0.5 border border-cream-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+      title={value || "Select"}
+    >
+      <option value="">—</option>
+      {visible.filter((o) => o.name !== "Other").map((o) => (
+        <option key={o.name} value={o.name}>{o.name}</option>
+      ))}
+    </select>
+  );
+}
 
 const EQUIPMENT_LIST = [
   "Weight Machine", "Sealing Machine", "Foot Sealer", "Strapping Machine", "Shrink Wrap Machine",
@@ -42,7 +61,7 @@ export default function EquipmentCleaningSanitationRecord() {
   const [recordId, setRecordId] = useState<number | null>(null);
   const [saving, setSaving] = useState<false | "draft" | "final">(false);
   const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
-  const [rowSigs, setRowSigs] = useState<Record<string, RowSig>>({});
+  const [daySigs, setDaySigs] = useState<Record<number, RowSig>>({});
   const historyRef = useRef<Grid[]>([]);
   const [canUndo, setCanUndo] = useState(false);
 
@@ -112,19 +131,20 @@ export default function EquipmentCleaningSanitationRecord() {
     });
   };
 
-  const updateRowSig = (eq: string, field: keyof RowSig, value: string) => {
-    setRowSigs((prev) => {
-      const existing: RowSig = prev[eq] || { checkedBy: "", verifiedBy: "" };
-      return { ...prev, [eq]: { ...existing, [field]: value } };
+  const updateDaySig = (day: number, field: keyof RowSig, value: string) => {
+    setDaySigs((prev) => {
+      const existing: RowSig = prev[day] || { checkedBy: "", verifiedBy: "" };
+      return { ...prev, [day]: { ...existing, [field]: value } };
     });
   };
 
   const buildPayload = (status: "draft" | "submitted") => ({
     warehouse: getStoredWarehouse() || null,
     month: recordDate ? recordDate.slice(0, 7) : "",
+    area: floor,
     observations,
     corrective_action: correctiveActions,
-    grid: { selectedDates, cells: grid, record_date: recordDate, floor, rowSigs },
+    grid: { selectedDates, cells: grid, record_date: recordDate, floor, daySigs },
     status,
   });
 
@@ -219,8 +239,6 @@ export default function EquipmentCleaningSanitationRecord() {
                     {d}
                   </th>
                 ))}
-                <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase text-ink-400 border-l border-cream-300 min-w-[110px]">Checked By</th>
-                <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase text-ink-400 min-w-[110px]">Verified By</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-300">
@@ -264,24 +282,29 @@ export default function EquipmentCleaningSanitationRecord() {
                       </td>
                     );
                   })}
-                  <td className="px-2 py-1 border-l border-cream-300">
-                    <input
-                      type="text"
-                      value={rowSigs[eq]?.checkedBy || ""}
-                      onChange={(e) => updateRowSig(eq, "checkedBy", e.target.value)}
-                      className="input-base !py-1 !px-2 text-xs"
-                    />
-                  </td>
-                  <td className="px-2 py-1">
-                    <input
-                      type="text"
-                      value={rowSigs[eq]?.verifiedBy || ""}
-                      onChange={(e) => updateRowSig(eq, "verifiedBy", e.target.value)}
-                      className="input-base !py-1 !px-2 text-xs"
-                    />
-                  </td>
                 </tr>
               ))}
+              {/* Per-day signatories — one dropdown per date column */}
+              <tr className="border-t-2 border-cream-300">
+                <td className="px-1 py-1 sticky left-0 bg-cream-100 z-10"></td>
+                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">Checked By</td>
+                <td className="px-1 py-1 sticky left-[188px] bg-cream-100 z-10"></td>
+                {selectedDates.map((d) => (
+                  <td key={`chk-${d}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
+                    <CompactSignSelect value={daySigs[d]?.checkedBy || ""} onChange={(v) => updateDaySig(d, "checkedBy", v)} options={CHECKED_BY_OPTIONS} />
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="px-1 py-1 sticky left-0 bg-cream-100 z-10"></td>
+                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">Verified By</td>
+                <td className="px-1 py-1 sticky left-[188px] bg-cream-100 z-10"></td>
+                {selectedDates.map((d) => (
+                  <td key={`ver-${d}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
+                    <CompactSignSelect value={daySigs[d]?.verifiedBy || ""} onChange={(v) => updateDaySig(d, "verifiedBy", v)} options={QC_VERIFIED_BY_OPTIONS} />
+                  </td>
+                ))}
+              </tr>
             </tbody>
           </table>
         </div>

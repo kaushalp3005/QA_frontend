@@ -10,7 +10,7 @@ import { IPQCRecord, Session } from "@/types";
 import {
   Plus, Search, Printer, Eye, Trash2, Pencil,
   CheckCircle2, Clock, ChevronLeft, ChevronRight, Building2,
-  ClipboardCheck,
+  ClipboardCheck, Copy,
 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Loader";
@@ -279,6 +279,9 @@ export default function IPQCListPage() {
                       <button onClick={() => handlePrint(record.ipqc_no)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-ink-500 hover:bg-cream-100 hover:text-brand-500 transition-colors">
                         <Printer className="w-3.5 h-3.5" /> Print
                       </button>
+                      <button onClick={() => router.push(`/documentations/ipqc/new?from=${record.ipqc_no}`)} title="Re-check this product (creates a new pre-filled entry)" className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-ink-500 hover:bg-cream-100 hover:text-brand-500 transition-colors">
+                        <Copy className="w-3.5 h-3.5" /> Copy
+                      </button>
                       <button onClick={() => router.push(`/lab-reports/create?ipqc=${record.ipqc_no}`)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-brand-600 hover:bg-brand-50 transition-colors">
                         COA
                       </button>
@@ -381,6 +384,13 @@ export default function IPQCListPage() {
                                 title="Print"
                               >
                                 <Printer className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => router.push(`/documentations/ipqc/new?from=${record.ipqc_no}`)}
+                                className="p-1.5 rounded-md text-ink-400 hover:text-brand-500 hover:bg-cream-100 transition-colors"
+                                title="Re-check (duplicate into a new entry)"
+                              >
+                                <Copy className="w-4 h-4" />
                               </button>
                               {isAdmin && (
                                 <button

@@ -22,6 +22,7 @@ interface AreaSection {
   area: string;
   items: CheckItem[];
   lineStatus: string;
+  timeOfInspection: string;
   timeOfVerification: string;
   checkedBy: string;
   verifiedBy: string;
@@ -30,7 +31,7 @@ interface AreaSection {
 const INITIAL_SECTIONS: AreaSection[] = [
   {
     area: "Production Floor (General)",
-    lineStatus: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    lineStatus: "Ready", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
     items: [
       { sr: 1, particular: "Waste/Trash Area", checkpoint: "Waste bins are empty and clean at the dedicated area.", status: "", correctiveAction: "" },
       { sr: 2, particular: "Production Floor/ceilings/wall", checkpoint: "The area is clean and debris-free. Floors, walls, windows, coving, cable trays, and ceilings are clean and free from dust and cobwebs. Dry and wet waste materials are properly contained and removed from the processing area.", status: "", correctiveAction: "" },
@@ -52,7 +53,7 @@ const INITIAL_SECTIONS: AreaSection[] = [
   },
   {
     area: "Lower Basement",
-    lineStatus: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    lineStatus: "Ready", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
     items: [
       { sr: 1, particular: "Shrink Wrap Machine/L-sealer/Web-sealer/Hand sealer/Foot sealer", checkpoint: "The wheels, conveyor belt, and covering of the conveyor belt are clean and without any signs of wear or damage. Check the cleanliness of the switchboard and any sign of damage. Heating sensors, Teflon tape integrity.", status: "", correctiveAction: "" },
       { sr: 2, particular: "Pet Sealer", checkpoint: "The conveyor belt is clean without any signs of wear or damage. Check heating sensors.", status: "", correctiveAction: "" },
@@ -63,7 +64,7 @@ const INITIAL_SECTIONS: AreaSection[] = [
   },
   {
     area: "Upper Basement",
-    lineStatus: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    lineStatus: "Ready", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
     items: [
       { sr: 1, particular: "Metal Detector", checkpoint: "Ensure the metal detector machine is calibrated with standard probes and working properly. Check the conveyor belt cleanliness and dust-free status for smooth operation.", status: "", correctiveAction: "" },
       { sr: 2, particular: "Magnet", checkpoint: "Magnets in the production line are in place & cleaned.", status: "", correctiveAction: "" },
@@ -71,7 +72,7 @@ const INITIAL_SECTIONS: AreaSection[] = [
   },
   {
     area: "First Floor",
-    lineStatus: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    lineStatus: "Ready", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
     items: [
       { sr: 1, particular: "Metal Detector", checkpoint: "Ensure the metal detector machine is calibrated with standard probes and working properly. Check the conveyor belt cleanliness and dust-free status for smooth operation.", status: "", correctiveAction: "" },
       { sr: 2, particular: "FFS Machine", checkpoint: "Check cleanliness for the feeding hopper, collar, and the conveyor belt. No remnants of previous material. Free from any chemical odor. Ensure the metal detector machine of FFS is calibrated with standard probes and working properly.", status: "", correctiveAction: "" },
@@ -83,7 +84,7 @@ const INITIAL_SECTIONS: AreaSection[] = [
   },
   {
     area: "First Floor Mezz",
-    lineStatus: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    lineStatus: "Ready", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
     items: [
       { sr: 1, particular: "Metal Detector", checkpoint: "Ensure the metal detector machine is calibrated with standard probes and working properly. Check the conveyor belt cleanliness and dust-free status for smooth operation.", status: "", correctiveAction: "" },
       { sr: 2, particular: "FFS Machine", checkpoint: "Check cleanliness for the feeding hopper, collar, and the conveyor belt. No remnants of previous material. Free from any chemical odor. Ensure the metal detector machine of FFS is calibrated with standard probes and working properly.", status: "", correctiveAction: "" },
@@ -92,7 +93,7 @@ const INITIAL_SECTIONS: AreaSection[] = [
   },
   {
     area: "Second Floor / Second Floor Mezzanine",
-    lineStatus: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    lineStatus: "Ready", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
     items: [
       { sr: 1, particular: "Kruger Bar Moulding Machine", checkpoint: "Product contact surfaces are clean, sanitized, and debris-free; Check cleanliness for the feeding hopper, roller, shafts, bar molds, and conveyor belts; verify that all guards and safety devices are in place and operational. Check for any signs of wear or damage. No remnants of previous material.", status: "", correctiveAction: "" },
       { sr: 2, particular: "Sheeting and Cutting Machine/Manual Cutter", checkpoint: "No remnants of the previous material. Observe for the clean, dry, and chemical-odor-free parts. Product contact surfaces are clean and sanitized. Ensure the feeding hopper is clean and free from blockages. Inspect the conveyor belt, cutting blades, and cutting surfaces for cleanliness.", status: "", correctiveAction: "" },
@@ -111,7 +112,7 @@ const INITIAL_SECTIONS: AreaSection[] = [
   },
   {
     area: "Terrace Floor",
-    lineStatus: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    lineStatus: "Ready", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
     items: [
       { sr: 14, particular: "Pan Coater", checkpoint: "Check whether the inner & outer surfaces of the coating tank are clean & sanitized. No remnants of the previous material. Observe for the clean, dry, and chemical-odor-free parts.", status: "", correctiveAction: "" },
       { sr: 15, particular: "Slicer/Dicer Machine/Slivering Machine", checkpoint: "Ensure that all the food contact surfaces, attachments, and corners are well cleaned and ready to use. Ensure the feeding hopper is clean and free from blockages. Check the blade's intactness and integrity.", status: "", correctiveAction: "" },
@@ -134,7 +135,8 @@ function sectionsFromInitial(initialData?: Record<string, any>): AreaSection[] {
   if (!Array.isArray(incoming) || incoming.length === 0) return withDefaults;
   return incoming.map((s: any) => ({
     area: s.area ?? "",
-    lineStatus: s.lineStatus ?? s.line_status ?? "",
+    lineStatus: s.lineStatus ?? s.line_status ?? "Ready",
+    timeOfInspection: s.timeOfInspection ?? s.time_of_inspection ?? "",
     timeOfVerification: s.timeOfVerification ?? s.time_of_verification ?? "",
     checkedBy: s.checkedBy ?? s.checked_by ?? "",
     verifiedBy: s.verifiedBy ?? s.verified_by ?? "",
@@ -163,7 +165,6 @@ export default function PreProductionInspectionForm({
 }: PreProductionInspectionFormProps = {}) {
   const router = useRouter();
   const [date, setDate] = useState((initialData?.inspection_date || "").slice(0, 10));
-  const [timeOfInspection, setTimeOfInspection] = useState(initialData?.inspection_time || "");
   const [sections, setSections] = useState<AreaSection[]>(() => sectionsFromInitial(initialData));
   const [activeSection, setActiveSection] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -175,7 +176,19 @@ export default function PreProductionInspectionForm({
       setSubmitError("Date is required.");
       return;
     }
-    // Each floor must have its own Time of Verification before submitting.
+    // Each floor must have its own Time of Inspection and Time of Verification before submitting.
+    const missingInspection = sections
+      .map((s, i) => ({ i, area: s.area, time: s.timeOfInspection }))
+      .filter((s) => !s.time || !s.time.trim());
+    if (missingInspection.length > 0) {
+      setActiveSection(missingInspection[0].i);
+      setSubmitError(
+        `Time of Inspection is required for each floor. Missing: ${missingInspection
+          .map((m) => m.area)
+          .join(", ")}`
+      );
+      return;
+    }
     const missing = sections
       .map((s, i) => ({ i, area: s.area, time: s.timeOfVerification }))
       .filter((s) => !s.time || !s.time.trim());
@@ -195,7 +208,6 @@ export default function PreProductionInspectionForm({
         warehouse: initialData?.warehouse ?? getStoredWarehouse() ?? null,
         sections,
       };
-      if (timeOfInspection) payload.inspection_time = timeOfInspection;
       if (onSubmit) {
         await onSubmit(payload);
       } else {
@@ -243,11 +255,10 @@ export default function PreProductionInspectionForm({
             <label className="label-base">Date</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-base" />
           </div>
-          <div>
-            <label className="label-base">Time of Inspection</label>
-            <Time12Picker value={timeOfInspection} onChange={setTimeOfInspection} />
-          </div>
         </div>
+        <p className="text-[11px] text-ink-400 mt-2">
+          Time of Inspection is recorded individually per floor below.
+        </p>
       </DocSection>
 
       <div className="surface-card p-2 overflow-x-auto">
@@ -268,9 +279,9 @@ export default function PreProductionInspectionForm({
                 {st.notOk > 0 && (
                   <span className="bg-warning-500 text-white rounded-full px-1.5 text-[10px] font-bold">{st.notOk}</span>
                 )}
-                {!s.timeOfVerification?.trim() && (
+                {(!s.timeOfInspection?.trim() || !s.timeOfVerification?.trim()) && (
                   <span
-                    title="Time of Verification missing"
+                    title="Time of Inspection / Verification missing"
                     className="w-2 h-2 rounded-full bg-danger-500 inline-block"
                   />
                 )}
@@ -360,6 +371,18 @@ export default function PreProductionInspectionForm({
                 onChange={(e) => updateSection(activeSection, "lineStatus", e.target.value)}
                 className="input-base"
                 placeholder="e.g. Ready / Hold"
+              />
+            </div>
+            <div>
+              <label className="label-base">
+                Time of Inspection <span className="text-danger-600">*</span>
+              </label>
+              {/* key forces a fresh mount per floor so the picker never shows a
+                  previous floor's time (Time12Picker keeps internal text state). */}
+              <Time12Picker
+                key={`toi-${activeSection}`}
+                value={section.timeOfInspection}
+                onChange={(v) => updateSection(activeSection, "timeOfInspection", v)}
               />
             </div>
             <div>

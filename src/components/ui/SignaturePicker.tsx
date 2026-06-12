@@ -1,5 +1,7 @@
 'use client'
 import type { SignatureOption } from '@/lib/signatures'
+import { filterSignaturesByWarehouse } from '@/lib/signatures'
+import { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 
 interface Props {
   label: string
@@ -29,7 +31,9 @@ export default function SignaturePicker({
   labelCls,
   placeholder,
 }: Props) {
-  const presetNames = options.filter(o => o.name !== 'Other').map(o => o.name)
+  // Only show signatories belonging to the active plant (A185 / W202).
+  const visibleOptions = filterSignaturesByWarehouse(options, getStoredWarehouse())
+  const presetNames = visibleOptions.filter(o => o.name !== 'Other').map(o => o.name)
   const isOther = value !== '' && !presetNames.includes(value)
   const selectVal = isOther ? 'Other' : value
 
@@ -52,7 +56,7 @@ export default function SignaturePicker({
         required={required}
       >
         <option value="">Select…</option>
-        {options.map(o => (
+        {visibleOptions.map(o => (
           <option key={o.name} value={o.name}>{o.name}</option>
         ))}
       </select>

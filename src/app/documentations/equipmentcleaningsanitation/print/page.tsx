@@ -45,7 +45,7 @@ export default function EquipmentCleaningPrintPage() {
 
   const gridObj = record?.grid || {};
   const cells: Record<string, Record<number | string, { B: BAStatus; A: BAStatus }>> = gridObj.cells || {};
-  const rowSigs: Record<string, { checkedBy?: string; verifiedBy?: string }> = gridObj.rowSigs || {};
+  const daySigs: Record<string, { checkedBy?: string; verifiedBy?: string }> = gridObj.daySigs || {};
   const equipmentList = Object.keys(cells);
   const selectedDates: number[] = Array.isArray(gridObj.selectedDates) ? gridObj.selectedDates : Array.from({ length: 31 }, (_, i) => i + 1);
 
@@ -124,8 +124,6 @@ export default function EquipmentCleaningPrintPage() {
               {selectedDates.map((d) => (
                 <th key={`day-${d}`} style={{ ...th }} colSpan={2}>{d}</th>
               ))}
-              <th style={{ ...th, width: "70px" }} rowSpan={2}>Checked By</th>
-              <th style={{ ...th, width: "70px" }} rowSpan={2}>Verified By</th>
             </tr>
             <tr>
               {selectedDates.map((d) => (
@@ -136,7 +134,7 @@ export default function EquipmentCleaningPrintPage() {
               ))}
             </tr>
             <tr>
-              <th style={{ ...th, textAlign: "left", paddingLeft: "4px" }} colSpan={2 + selectedDates.length * 2 + 2}>
+              <th style={{ ...th, textAlign: "left", paddingLeft: "4px" }} colSpan={2 + selectedDates.length * 2}>
                 Frequency: Before &amp; After Production
               </th>
             </tr>
@@ -155,14 +153,25 @@ export default function EquipmentCleaningPrintPage() {
                     </Fragment>
                   );
                 })}
-                <td style={{ ...td, padding: "1px" }}>
-                  <SignatureCell name={rowSigs[eq]?.checkedBy} maxHeight={20} maxWidth={65} showName={false} />
-                </td>
-                <td style={{ ...td, padding: "1px" }}>
-                  <SignatureCell name={rowSigs[eq]?.verifiedBy} maxHeight={20} maxWidth={65} showName={false} />
-                </td>
               </tr>
             ))}
+            {/* Per-day signatories */}
+            <tr>
+              <td colSpan={2} style={{ ...td, textAlign: "left", paddingLeft: "4px", fontWeight: "bold" }}>Checked By</td>
+              {selectedDates.map((d) => (
+                <td key={`chk-${d}`} colSpan={2} style={{ ...td, padding: "1px", fontSize: "7px" }}>
+                  <SignatureCell name={daySigs[d]?.checkedBy || daySigs[String(d)]?.checkedBy} maxHeight={18} maxWidth={34} showName={false} />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td colSpan={2} style={{ ...td, textAlign: "left", paddingLeft: "4px", fontWeight: "bold" }}>Verified By</td>
+              {selectedDates.map((d) => (
+                <td key={`ver-${d}`} colSpan={2} style={{ ...td, padding: "1px", fontSize: "7px" }}>
+                  <SignatureCell name={daySigs[d]?.verifiedBy || daySigs[String(d)]?.verifiedBy} maxHeight={18} maxWidth={34} showName={false} />
+                </td>
+              ))}
+            </tr>
           </tbody>
         </table>
 

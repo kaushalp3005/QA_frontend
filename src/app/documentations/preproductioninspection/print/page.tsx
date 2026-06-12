@@ -18,6 +18,7 @@ interface AreaSection {
   area: string;
   items: CheckItem[];
   lineStatus: string;
+  timeOfInspection: string;
   timeOfVerification: string;
   checkedBy: string;
   verifiedBy: string;
@@ -153,7 +154,6 @@ export default function PreProductionInspectionPrintPage() {
           <PageHeader />
           <div style={{ marginTop: "10px", marginBottom: "6px", display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "bold" }}>
             <span>Date - <span style={{ fontWeight: "normal" }}>{record?.inspection_date ? fmt(record.inspection_date) : ""}</span></span>
-            <span>Time of Inspection - <span style={{ fontWeight: "normal" }}>{record?.inspection_time || ""}</span></span>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
             <thead>
@@ -181,6 +181,7 @@ export default function PreProductionInspectionPrintPage() {
           {/* Line status & signatories below the first section */}
           <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: "bold" }}>
             <span>Line Status - <span style={{ fontWeight: "normal" }}>{firstSection.lineStatus || ""}</span></span>
+            <span>Time of Inspection : <span style={{ fontWeight: "normal" }}>{firstSection.timeOfInspection || ""}</span></span>
             <span>Time of Verification : <span style={{ fontWeight: "normal" }}>{firstSection.timeOfVerification || ""}</span></span>
           </div>
           <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
@@ -247,6 +248,7 @@ export default function PreProductionInspectionPrintPage() {
 
           <div style={{ marginTop: "16px", display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: "bold" }}>
             <span>Line Status - <span style={{ fontWeight: "normal" }}>{section.lineStatus || ""}</span></span>
+            <span>Time of Inspection : <span style={{ fontWeight: "normal" }}>{section.timeOfInspection || ""}</span></span>
             <span>Time of Verification : <span style={{ fontWeight: "normal" }}>{section.timeOfVerification || ""}</span></span>
           </div>
           <div style={{ marginTop: "18px", display: "flex", justifyContent: "space-between", fontSize: "11px" }}>

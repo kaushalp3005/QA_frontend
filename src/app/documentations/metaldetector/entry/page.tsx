@@ -487,7 +487,7 @@ export default function MetalDetectorEntryPage() {
   return (
     <DashboardLayout>
       <div className="space-y-3 sm:space-y-6 pb-6">
-        <div className="flex items-center justify-between gap-2">
+        <div className="sticky top-0 z-20 -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 py-2 bg-white/85 backdrop-blur-md border-b border-gray-200 flex items-center justify-between gap-2">
           <button
             onClick={() => router.push('/documentations/metaldetector')}
             className="flex items-center text-gray-600 hover:text-gray-900 active:text-gray-900 transition-colors py-2"
@@ -529,8 +529,8 @@ export default function MetalDetectorEntryPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm sm:shadow-lg border border-gray-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-3 sm:py-4">
+        <div className="bg-white rounded-xl shadow-sm sm:shadow-lg border border-gray-200">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-3 sm:py-4 rounded-t-xl">
             <h3 className="text-base sm:text-xl font-bold text-white leading-tight">
               CCP Calibration & Verification Record
             </h3>
@@ -875,8 +875,8 @@ export default function MetalDetectorEntryPage() {
               />
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-2 border-t border-gray-100">
+            {/* Action Buttons — pinned to the bottom while scrolling the form */}
+            <div className="sticky bottom-0 z-10 flex gap-3 pt-3 pb-2 bg-white border-t border-gray-200 shadow-[0_-6px_16px_-8px_rgba(0,0,0,0.18)]">
               <button
                 type="button"
                 onClick={() => router.push('/documentations/metaldetector')}

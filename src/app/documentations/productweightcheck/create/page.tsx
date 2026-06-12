@@ -4,8 +4,6 @@ import { useRouter } from "next/navigation";
 import { Scale, Plus, X, ChevronDown, ChevronUp, Trash2, Package, Loader2, CheckCircle2 } from "lucide-react";
 import Time12Picker from "@/components/Time12Picker";
 import DocFormShell from "@/components/documentations/DocFormShell";
-import SignaturePicker from "@/components/ui/SignaturePicker";
-import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 import { docsApi } from "@/lib/api/documentations";
 
 interface WeightRow {
@@ -34,8 +32,6 @@ interface ProductEntry {
   permissibleError: string;
   totalPktsProduced: string;
   remarks: string;
-  recordCheckedBy: string;
-  recordVerifiedBy: string;
   rows: WeightRow[];
 }
 
@@ -63,8 +59,6 @@ const newEntry = (): ProductEntry => ({
   permissibleError: "",
   totalPktsProduced: "",
   remarks: "",
-  recordCheckedBy: "",
-  recordVerifiedBy: "",
   rows: Array.from({ length: 35 }, (_, i) => emptyRow(i + 1)),
 });
 
@@ -212,8 +206,6 @@ export default function ProductWeightSealCheckRecord() {
           permissible_error_gms: p.permissibleError !== "" ? Number(p.permissibleError) : null,
           total_pkts_produced: p.totalPktsProduced !== "" ? Number(p.totalPktsProduced) : null,
           remarks: p.remarks,
-          checked_by: p.recordCheckedBy || undefined,
-          verified_by: p.recordVerifiedBy || undefined,
           rows: p.rows.map(r => ({
             time: r.time,
             packing_material_weight: r.packingMaterialWeight,
@@ -425,28 +417,6 @@ export default function ProductWeightSealCheckRecord() {
               <div>
                 <label className="label-base">Remarks</label>
                 <textarea value={product.remarks} onChange={(e) => updateEntry(product.entryId, { remarks: e.target.value })} rows={2} className="input-base" placeholder="Optional remarks for this product..." />
-              </div>
-
-              {/* Signatories */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <SignaturePicker
-                  label="Checked By"
-                  value={product.recordCheckedBy}
-                  onChange={(v) => updateEntry(product.entryId, { recordCheckedBy: v })}
-                  options={CHECKED_BY_OPTIONS}
-                  roleHint="Quality Control Executive"
-                  inputCls="input-base"
-                  labelCls="label-base"
-                />
-                <SignaturePicker
-                  label="Verified By"
-                  value={product.recordVerifiedBy}
-                  onChange={(v) => updateEntry(product.entryId, { recordVerifiedBy: v })}
-                  options={QC_VERIFIED_BY_OPTIONS}
-                  roleHint="Quality Manager"
-                  inputCls="input-base"
-                  labelCls="label-base"
-                />
               </div>
             </div>
           )}

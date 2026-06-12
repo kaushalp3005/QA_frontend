@@ -5,7 +5,7 @@ import { HeartPulse, Plus, X, Loader2 } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 import SignaturePicker from "@/components/ui/SignaturePicker";
-import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, type SignatureOption } from "@/lib/signatures";
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
@@ -19,6 +19,7 @@ function CompactSignSelect({
   onChange: (v: string) => void;
   options: SignatureOption[];
 }) {
+  const visible = filterSignaturesByWarehouse(options, getStoredWarehouse());
   return (
     <select
       value={value}
@@ -27,7 +28,7 @@ function CompactSignSelect({
       title={value || "Select signatory"}
     >
       <option value="">—</option>
-      {options.filter((o) => o.name !== "Other").map((o) => (
+      {visible.filter((o) => o.name !== "Other").map((o) => (
         <option key={o.name} value={o.name}>{o.name}</option>
       ))}
     </select>

@@ -1308,8 +1308,8 @@ export default function COACreatePage() {
                     <span
                       role="button"
                       tabIndex={0}
-                      onClick={e => { e.stopPropagation(); set('customerName', ''); set('sampleName', ''); setCustomerSearch('') }}
-                      onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), set('customerName', ''), set('sampleName', ''))}
+                      onClick={e => { e.stopPropagation(); set('customerName', ''); setCustomerSearch('') }}
+                      onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), set('customerName', ''))}
                       className="p-0.5 rounded hover:bg-cream-200 transition-colors"
                     >
                       <X className="w-3 h-3 text-ink-300" />
@@ -1371,14 +1371,14 @@ export default function COACreatePage() {
                           </div>
                           {/* Sample rows under this customer */}
                           {rows.map(c => {
-                            const isSelected = form.customerName === c.customer_name && form.sampleName === c.sample_name
+                            const isSelected = form.customerName === c.customer_name
                             return (
                               <button
                                 key={c.id}
                                 type="button"
                                 onClick={() => {
+                                  // Only set the customer — leave Sample Name as-is (it mirrors the linked IPQC article).
                                   set('customerName', c.customer_name)
-                                  set('sampleName', c.sample_name)
                                   setCustomerDropdownOpen(false)
                                   setCustomerSearch('')
                                 }}

@@ -120,13 +120,32 @@ export async function deleteXRayRecord(id: string | number): Promise<void> {
   }
 }
 
-/** Delete a single row from a batch. */
-export async function deleteXRayEntry(entryId: string | number): Promise<void> {
+/** Edit a single saved row in place. */
+export async function updateXRayEntry(
+  entryId: string | number,
+  data: Partial<XRayEntryInput>,
+): Promise<XRayEntry> {
+  const res = await fetch(`${API_BASE_URL}/xray/entry/${entryId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}))
+    throw new Error(error.detail || 'Failed to update entry')
+  }
+  return res.json()
+}
+
+/** Delete a single row from a batch. Returns whether the parent sheet was emptied & removed. */
+export async function deleteXRayEntry(entryId: string | number): Promise<{ sheet_deleted: boolean }> {
   const res = await fetch(`${API_BASE_URL}/xray/entry/${entryId}`, { method: 'DELETE', headers: { ...authHeaders() } })
   if (!res.ok) {
     const error = await res.json().catch(() => ({}))
     throw new Error(error.detail || 'Failed to delete entry')
   }
+  const data = await res.json().catch(() => ({}))
+  return { sheet_deleted: Boolean(data?.sheet_deleted) }
 }
 
 /** Fixed header for the single X-Ray machine (display only). */

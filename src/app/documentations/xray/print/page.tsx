@@ -14,11 +14,28 @@ function fmt(date: string) {
   return `${d}/${m}/${y}`;
 }
 
+/** "HH:MM" → minutes since midnight; blank/invalid sort to the end. */
+function timeKey(t?: string): number {
+  if (!t) return Number.MAX_SAFE_INTEGER;
+  const [h, m] = t.split(":").map(Number);
+  if (isNaN(h)) return Number.MAX_SAFE_INTEGER;
+  return h * 60 + (isNaN(m) ? 0 : m);
+}
+
+/** Chronological order: by date, then time (earliest first). */
+function sortByDateTime<T extends { date?: string; time?: string }>(arr: T[]): T[] {
+  return [...arr].sort((a, b) => {
+    const ad = a.date || "", bd = b.date || "";
+    if (ad !== bd) return ad < bd ? -1 : 1;
+    return timeKey(a.time) - timeKey(b.time);
+  });
+}
+
 const BLANK_ROW_COUNT = 12;
 
 /** One printed X-Ray sheet = one batch, its entries as the table rows. */
 function Sheet({ batch }: { batch: XRayBatch }) {
-  const entries = batch.entries || [];
+  const entries = sortByDateTime(batch.entries || []);
   const blankRows = Math.max(0, BLANK_ROW_COUNT - entries.length);
 
   return (
@@ -189,7 +206,7 @@ export default function XRayPrintPage() {
             {recordId ? "Single sheet" : `${batches.length} sheet${batches.length !== 1 ? "s" : ""}`}
           </span>
         </div>
-        <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors">
+        <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-md transition-colors">
           <Printer size={15} /> Print
         </button>
       </div>

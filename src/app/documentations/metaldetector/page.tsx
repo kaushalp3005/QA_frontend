@@ -3,9 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, X, Printer, Edit2, Save, Loader2, Trash2, PlayCircle, Download } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, Clock, User, Package, Check, Eye, X, Printer, Edit2, Save, Loader2, Trash2, PlayCircle, Download, Search } from 'lucide-react'
 import WarehouseSelector, { getStoredWarehouse, WarehouseCode } from '@/components/ui/WarehouseSelector'
 import SignatureCell from '@/components/ui/SignatureCell'
+import SignaturePicker from '@/components/ui/SignaturePicker'
+import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse } from '@/lib/signatures'
+import { detectorsForWarehouse, findDetector } from '@/lib/metalDetectors'
+import MetalDetectorEditRows from '@/components/metaldetector/MetalDetectorEditRows'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 const AUTHORIZED_EMAIL = 'pooja.parkar@candorfoods.in'
@@ -102,6 +106,7 @@ export default function MetalDetectorPage() {
   const router = useRouter()
   const [records, setRecords] = useState<MetalDetectorRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [warehouse, setWarehouse] = useState<WarehouseCode>('A185')
   const [viewRecord, setViewRecord] = useState<MDRecordWithEntries | null>(null)
   const [viewLoading, setViewLoading] = useState(false)
@@ -116,6 +121,7 @@ export default function MetalDetectorPage() {
     entry_date: string
     entry_time: string
     identification_no: string
+    location: string
     customer_name: string
     batch_lot_no: string
     calibrated_by: string
@@ -125,6 +131,7 @@ export default function MetalDetectorPage() {
       entry_date: string
       entry_time: string
       identification_no: string
+      location: string
       customer_name: string
       product_name: string
       batch_lot_no: string
@@ -377,6 +384,7 @@ export default function MetalDetectorPage() {
           entry_date: data.entry_date || '',
           entry_time: data.entry_time || '',
           identification_no: data.identification_no || '',
+          location: data.location || '',
           customer_name: data.customer_name || '',
           batch_lot_no: data.batch_lot_no || '',
           calibrated_by: data.calibrated_by || '',
@@ -386,6 +394,7 @@ export default function MetalDetectorPage() {
             entry_date: e.entry_date || '',
             entry_time: e.entry_time || '',
             identification_no: e.identification_no || '',
+            location: e.location || '',
             customer_name: e.customer_name || '',
             product_name: e.product_name || '',
             batch_lot_no: e.batch_lot_no || '',
@@ -413,32 +422,59 @@ export default function MetalDetectorPage() {
     }
   }
 
+  // Changing the sheet's detector cascades its Location + Fe/NFe/SS specs to every row.
+  const applyEditDetector = (identificationNo: string) => {
+    const det = findDetector(identificationNo, warehouse)
+    setEditFormData(prev => {
+      if (!prev) return prev
+      const location = det?.location ?? prev.location
+      return {
+        ...prev,
+        identification_no: identificationNo,
+        location,
+        entries: prev.entries.map(en => ({
+          ...en,
+          identification_no: identificationNo,
+          location,
+          sensitivity_fe: det?.sensitivityFE ?? en.sensitivity_fe,
+          sensitivity_nfe: det?.sensitivityNFE ?? en.sensitivity_nfe,
+          sensitivity_ss: det?.sensitivitySS ?? en.sensitivity_ss,
+        })),
+      }
+    })
+  }
+
   const handleAddEditRow = () => {
-    setEditFormData(prev => prev ? {
-      ...prev,
-      entries: [
-        ...prev.entries,
-        {
-          entry_date: prev.entry_date || '',
-          entry_time: prev.entry_time || '',
-          identification_no: prev.identification_no || '',
-          customer_name: prev.customer_name || '',
-          product_name: '',
-          batch_lot_no: prev.batch_lot_no || '',
-          sensitivity_fe: '',
-          sensitivity_nfe: '',
-          sensitivity_ss: '',
-          sensitivity_fe_checked: true,
-          sensitivity_nfe_checked: true,
-          sensitivity_ss_checked: true,
-          corrective_action_on_detector: '',
-          corrective_action_on_product: '',
-          calibrated_by: prev.calibrated_by || '',
-          verified_by: prev.verified_by || '',
-          remarks: '',
-        },
-      ],
-    } : prev)
+    setEditFormData(prev => {
+      if (!prev) return prev
+      const det = findDetector(prev.identification_no, warehouse)
+      return {
+        ...prev,
+        entries: [
+          ...prev.entries,
+          {
+            entry_date: prev.entry_date || '',
+            entry_time: prev.entry_time || '',
+            identification_no: prev.identification_no || '',
+            location: prev.location || '',
+            customer_name: prev.customer_name || '',
+            product_name: '',
+            batch_lot_no: prev.batch_lot_no || '',
+            sensitivity_fe: det?.sensitivityFE || '',
+            sensitivity_nfe: det?.sensitivityNFE || '',
+            sensitivity_ss: det?.sensitivitySS || '',
+            sensitivity_fe_checked: true,
+            sensitivity_nfe_checked: true,
+            sensitivity_ss_checked: true,
+            corrective_action_on_detector: '',
+            corrective_action_on_product: '',
+            calibrated_by: prev.calibrated_by || '',
+            verified_by: prev.verified_by || '',
+            remarks: '',
+          },
+        ],
+      }
+    })
   }
 
   const handleRemoveEditRow = (index: number) => {
@@ -453,13 +489,26 @@ export default function MetalDetectorPage() {
     if (!editRecord || !editFormData) return
     setEditSaving(true)
     try {
+      // Per-row editing: keep the record-level summary in sync with the first entry.
+      const first = editFormData.entries[0]
+      const payload = {
+        ...editFormData,
+        entry_date: first?.entry_date || editFormData.entry_date,
+        entry_time: first?.entry_time || editFormData.entry_time,
+        identification_no: first?.identification_no || editFormData.identification_no,
+        location: first?.location || editFormData.location,
+        customer_name: first?.customer_name || editFormData.customer_name,
+        batch_lot_no: first?.batch_lot_no || editFormData.batch_lot_no,
+        calibrated_by: first?.calibrated_by || editFormData.calibrated_by,
+        verified_by: first?.verified_by || editFormData.verified_by,
+      }
       const response = await fetch(`${API_BASE}/metaldetector/${editRecord.id}?warehouse=${warehouse}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders(),
         },
-        body: JSON.stringify(editFormData),
+        body: JSON.stringify(payload),
       })
       if (response.ok) {
         alert('Record updated successfully!')
@@ -481,6 +530,26 @@ export default function MetalDetectorPage() {
 
   const todayStr = new Date().toISOString().split('T')[0]
 
+  // Filter the records table by a free-text query across the visible columns.
+  const query = search.trim().toLowerCase()
+  const filteredRecords = query
+    ? records.filter((r) =>
+        [
+          r.entry_date,
+          r.entry_time,
+          to12Hour(r.entry_time),
+          r.identification_no,
+          r.location,
+          r.customer_name,
+          r.batch_lot_no,
+          r.verified_by,
+          r.calibrated_by,
+          r.status,
+          r.batch_id,
+        ].some((v) => (v ?? '').toString().toLowerCase().includes(query))
+      )
+    : records
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -496,7 +565,7 @@ export default function MetalDetectorPage() {
           <div className="flex items-center gap-3">
             <span
               className={`px-3 py-1 rounded-full text-xs font-bold ${
-                warehouse === 'W202' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                warehouse === 'W202' ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-700'
               }`}
             >
               Showing: {warehouse}
@@ -507,11 +576,11 @@ export default function MetalDetectorPage() {
 
         {/* Page Header */}
         <div className="bg-white rounded-lg shadow-lg border border-gray-200">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 rounded-t-lg">
+          <div className="bg-gradient-to-r from-brand-500 to-brand-600 px-6 py-4 rounded-t-lg">
             <h3 className="text-2xl font-bold text-white">
               Metal Detector Monitoring
             </h3>
-            <p className="text-blue-100 mt-1">
+            <p className="text-brand-100 mt-1">
               CCP Calibration, Monitoring and Verification Records
             </p>
           </div>
@@ -530,26 +599,26 @@ export default function MetalDetectorPage() {
                 </div>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="bg-brand-50 p-4 rounded-lg border border-brand-200">
                 <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Package className="h-6 w-6 text-blue-600" />
+                  <div className="p-2 bg-brand-100 rounded-lg">
+                    <Package className="h-6 w-6 text-brand-600" />
                   </div>
                   <div className="ml-4">
-                    <h4 className="text-lg font-semibold text-blue-800">Total Records</h4>
-                    <p className="text-2xl font-bold text-blue-600">{records.length}</p>
+                    <h4 className="text-lg font-semibold text-brand-800">Total Records</h4>
+                    <p className="text-2xl font-bold text-brand-600">{records.length}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+              <div className="bg-cream-100 p-4 rounded-lg border border-cream-300">
                 <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Calendar className="h-6 w-6 text-purple-600" />
+                  <div className="p-2 bg-cream-200 rounded-lg">
+                    <Calendar className="h-6 w-6 text-ink-500" />
                   </div>
                   <div className="ml-4">
-                    <h4 className="text-lg font-semibold text-purple-800">Last Entry</h4>
-                    <p className="text-sm text-purple-600">
+                    <h4 className="text-lg font-semibold text-ink-600">Last Entry</h4>
+                    <p className="text-sm text-ink-500">
                       {records.length > 0 ? `${records[0].entry_date} ${to12Hour(records[0].entry_time)}` : 'No entries'}
                     </p>
                   </div>
@@ -561,7 +630,7 @@ export default function MetalDetectorPage() {
             <div className="mb-6">
               <button
                 onClick={handleAddEntry}
-                className="w-full md:w-auto flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                className="w-full md:w-auto flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Add New Metal Detector Entry
@@ -573,13 +642,35 @@ export default function MetalDetectorPage() {
         {/* Records Section */}
         <div className="bg-white rounded-lg shadow-lg border border-gray-200">
           <div className="bg-white px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <h3 className="text-xl font-bold text-gray-900">
                 Recent Metal Detector Records
               </h3>
-              <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
-                {records.length} Records
-              </span>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search records…"
+                    className="pl-9 pr-8 py-2 w-64 max-w-full border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <span className="bg-brand-100 text-brand-800 text-sm font-medium px-3 py-1 rounded-full whitespace-nowrap">
+                  {filteredRecords.length}{query ? ` of ${records.length}` : ''} Records
+                </span>
+              </div>
             </div>
           </div>
 
@@ -587,7 +678,7 @@ export default function MetalDetectorPage() {
             <div className="px-6 py-12 text-center">
               <p className="text-sm text-gray-500">Loading records...</p>
             </div>
-          ) : records.length > 0 ? (
+          ) : filteredRecords.length > 0 ? (
             <div className="px-4 py-4">
               <div className="overflow-x-auto">
                 <table className="w-full table-fixed divide-y divide-gray-200">
@@ -614,14 +705,14 @@ export default function MetalDetectorPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {records.map((record) => (
+                    {filteredRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-gray-50">
                         <td className="px-2 py-3 align-middle">
                           <div className="text-sm font-medium text-gray-900 truncate">{record.entry_date}</div>
                           <div className="text-xs text-gray-500 truncate">{to12Hour(record.entry_time)}</div>
                         </td>
                         <td className="px-2 py-3 align-middle">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-100 text-blue-800 truncate max-w-full" title={record.identification_no}>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-100 text-brand-800 truncate max-w-full" title={record.identification_no}>
                             {record.identification_no}
                           </span>
                         </td>
@@ -715,6 +806,23 @@ export default function MetalDetectorPage() {
                 </table>
               </div>
             </div>
+          ) : records.length > 0 ? (
+            <div className="px-6 py-12 text-center">
+              <Search className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No matching records</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                No records match &ldquo;{search}&rdquo;. Try a different search.
+              </p>
+              <div className="mt-6">
+                <button
+                  onClick={() => setSearch('')}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear search
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="px-6 py-12 text-center">
               <Package className="mx-auto h-12 w-12 text-gray-400" />
@@ -725,7 +833,7 @@ export default function MetalDetectorPage() {
               <div className="mt-6">
                 <button
                   onClick={handleAddEntry}
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add First Entry
@@ -744,13 +852,13 @@ export default function MetalDetectorPage() {
 
             <div className="relative bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden z-10">
               {/* Modal Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-brand-500 to-brand-600 px-6 py-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-white">
                     Record Details {viewRecord ? `- ${viewRecord.batch_id}` : ''}
                   </h3>
                   {viewRecord && (
-                    <p className="text-blue-100 text-sm mt-0.5">
+                    <p className="text-brand-100 text-sm mt-0.5">
                       {viewRecord.entry_date} | Detector: {viewRecord.identification_no} | Customer: {viewRecord.customer_name || '-'}
                     </p>
                   )}
@@ -769,7 +877,7 @@ export default function MetalDetectorPage() {
                   )}
                   <button
                     onClick={() => setViewRecord(null)}
-                    className="text-white hover:text-blue-200 transition-colors"
+                    className="text-white hover:text-brand-200 transition-colors"
                   >
                     <X className="h-6 w-6" />
                   </button>
@@ -835,7 +943,7 @@ export default function MetalDetectorPage() {
                           {viewRecord.entries.map((entry, index) => (
                             <tr key={entry.id} className="hover:bg-gray-50">
                               <td className="px-3 py-2 text-sm text-gray-500">{index + 1}</td>
-                              <td className="px-3 py-2 text-sm font-medium text-blue-800">{entry.identification_no || '-'}</td>
+                              <td className="px-3 py-2 text-sm font-medium text-brand-800">{entry.identification_no || '-'}</td>
                               <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{entry.entry_date}</td>
                               <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{to12Hour(entry.entry_time)}</td>
                               <td className="px-3 py-2 text-sm text-gray-900">{entry.customer_name || '-'}</td>
@@ -912,7 +1020,15 @@ export default function MetalDetectorPage() {
                     <p className="text-sm text-gray-500">Loading record for editing...</p>
                   </div>
                 ) : editRecord ? (
-                  <div className="p-6 space-y-6">
+                  <div className="p-6">
+                    <MetalDetectorEditRows
+                      entries={editFormData.entries}
+                      warehouse={warehouse}
+                      onChange={(entries) => setEditFormData(prev => prev ? { ...prev, entries } : prev)}
+                    />
+                    {/* LEGACY shared-record edit UI below — DISABLED, replaced by the per-row
+                        MetalDetectorEditRows above. Kept temporarily; safe to delete wholesale. */}
+                    {editFormData && (false as boolean) && (<>
                     {/* Record-level fields */}
                     <div>
                       <h4 className="text-md font-semibold text-gray-800 mb-3">Record Details</h4>
@@ -968,12 +1084,30 @@ export default function MetalDetectorPage() {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Identification No</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Identification No (Detector)</label>
+                          <select
+                            value={editFormData.identification_no}
+                            onChange={(e) => applyEditDetector(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          >
+                            {editFormData.identification_no && !detectorsForWarehouse(warehouse).some(d => d.identificationNo === editFormData.identification_no) && (
+                              <option value={editFormData.identification_no}>{editFormData.identification_no} (current)</option>
+                            )}
+                            {detectorsForWarehouse(warehouse).map((d) => (
+                              <option key={d.identificationNo} value={d.identificationNo}>
+                                {d.identificationNo} · {d.srNo.replace(/[()]/g, '')}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                           <input
                             type="text"
-                            value={editFormData.identification_no}
-                            onChange={(e) => setEditFormData(prev => prev ? { ...prev, identification_no: e.target.value } : prev)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            value={editFormData.location}
+                            readOnly
+                            title="Auto-filled from the selected detector"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600"
                           />
                         </div>
                         <div>
@@ -994,24 +1128,24 @@ export default function MetalDetectorPage() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
                           />
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Calibrated By</label>
-                          <input
-                            type="text"
-                            value={editFormData.calibrated_by}
-                            onChange={(e) => setEditFormData(prev => prev ? { ...prev, calibrated_by: e.target.value } : prev)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Verified By</label>
-                          <input
-                            type="text"
-                            value={editFormData.verified_by}
-                            onChange={(e) => setEditFormData(prev => prev ? { ...prev, verified_by: e.target.value } : prev)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          />
-                        </div>
+                        <SignaturePicker
+                          label="Calibrated / Checked By"
+                          value={editFormData.calibrated_by}
+                          onChange={(v) => setEditFormData(prev => prev ? { ...prev, calibrated_by: v } : prev)}
+                          options={CHECKED_BY_OPTIONS}
+                          roleHint="Quality Control Executive"
+                          inputCls="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          labelCls="block text-sm font-medium text-gray-700 mb-1"
+                        />
+                        <SignaturePicker
+                          label="Verified By"
+                          value={editFormData.verified_by}
+                          onChange={(v) => setEditFormData(prev => prev ? { ...prev, verified_by: v } : prev)}
+                          options={QC_VERIFIED_BY_OPTIONS}
+                          roleHint="Quality Manager"
+                          inputCls="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          labelCls="block text-sm font-medium text-gray-700 mb-1"
+                        />
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
                           <input
@@ -1045,7 +1179,6 @@ export default function MetalDetectorPage() {
                           <thead className="bg-gray-50">
                             <tr>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID No</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
@@ -1066,18 +1199,6 @@ export default function MetalDetectorPage() {
                             {editFormData.entries.map((entry, index) => (
                               <tr key={index}>
                                 <td className="px-3 py-2 text-sm text-gray-500">{index + 1}</td>
-                                <td className="px-3 py-2">
-                                  <input
-                                    type="text"
-                                    value={entry.identification_no}
-                                    onChange={(e) => {
-                                      const newEntries = [...editFormData.entries]
-                                      newEntries[index] = { ...newEntries[index], identification_no: e.target.value }
-                                      setEditFormData(prev => prev ? { ...prev, entries: newEntries } : prev)
-                                    }}
-                                    className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                  />
-                                </td>
                                 <td className="px-3 py-2">
                                   <input
                                     type="date"
@@ -1242,28 +1363,42 @@ export default function MetalDetectorPage() {
                                   />
                                 </td>
                                 <td className="px-3 py-2">
-                                  <input
-                                    type="text"
+                                  <select
                                     value={entry.calibrated_by}
                                     onChange={(e) => {
                                       const newEntries = [...editFormData.entries]
                                       newEntries[index] = { ...newEntries[index], calibrated_by: e.target.value }
                                       setEditFormData(prev => prev ? { ...prev, entries: newEntries } : prev)
                                     }}
-                                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                  />
+                                    className="w-28 px-2 py-1 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                  >
+                                    <option value="">—</option>
+                                    {entry.calibrated_by && !filterSignaturesByWarehouse(CHECKED_BY_OPTIONS, warehouse).some(o => o.name === entry.calibrated_by) && (
+                                      <option value={entry.calibrated_by}>{entry.calibrated_by}</option>
+                                    )}
+                                    {filterSignaturesByWarehouse(CHECKED_BY_OPTIONS, warehouse).filter(o => o.name !== 'Other').map(o => (
+                                      <option key={o.name} value={o.name}>{o.name}</option>
+                                    ))}
+                                  </select>
                                 </td>
                                 <td className="px-3 py-2">
-                                  <input
-                                    type="text"
+                                  <select
                                     value={entry.verified_by}
                                     onChange={(e) => {
                                       const newEntries = [...editFormData.entries]
                                       newEntries[index] = { ...newEntries[index], verified_by: e.target.value }
                                       setEditFormData(prev => prev ? { ...prev, entries: newEntries } : prev)
                                     }}
-                                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                  />
+                                    className="w-28 px-2 py-1 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                  >
+                                    <option value="">—</option>
+                                    {entry.verified_by && !filterSignaturesByWarehouse(QC_VERIFIED_BY_OPTIONS, warehouse).some(o => o.name === entry.verified_by) && (
+                                      <option value={entry.verified_by}>{entry.verified_by}</option>
+                                    )}
+                                    {filterSignaturesByWarehouse(QC_VERIFIED_BY_OPTIONS, warehouse).filter(o => o.name !== 'Other').map(o => (
+                                      <option key={o.name} value={o.name}>{o.name}</option>
+                                    ))}
+                                  </select>
                                 </td>
                                 <td className="px-3 py-2">
                                   <input
@@ -1295,6 +1430,7 @@ export default function MetalDetectorPage() {
                         </table>
                       </div>
                     </div>
+                    </>)}
                   </div>
                 ) : null}
               </div>

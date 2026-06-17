@@ -284,10 +284,12 @@ export function buildDCCPayload(opts: {
   parameters: string[];
   floors: DCCFloor[];
   warehouse: string | null;
+  status?: "draft" | "submitted";
 }): Record<string, unknown> {
   return {
     month: opts.month,
     tab_code: opts.tabCode,
+    status: opts.status ?? "submitted",
     area: opts.floors.map((f) => f.area).filter(Boolean).join(", "),
     observations: opts.floors.map((f) => f.observations).filter(Boolean).join(" | "),
     corrective_action: opts.floors.map((f) => f.correctiveAction).filter(Boolean).join(" | "),

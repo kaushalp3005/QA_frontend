@@ -260,57 +260,42 @@
            animate-fade-in;
   }
 
-  /* ── 3D action icon buttons (View/Edit/Print/Delete/Continue) ──────── */
+  /* ── Action icon buttons (View/Edit/Print/Delete/Continue) — flat tonal ── */
   .action-btn-3d {
     @apply inline-flex items-center justify-center w-9 h-9 rounded-lg
-           text-white font-semibold
-           transition-all duration-150 ease-out
-           focus:outline-none focus:ring-2 focus:ring-offset-2
-           active:translate-y-[2px];
-    background-image: linear-gradient(180deg, var(--btn-top) 0%, var(--btn-bot) 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.35),
-      inset 0 -2px 0 var(--btn-edge),
-      0 2px 0 var(--btn-edge),
-      0 3px 5px rgba(0, 0, 0, 0.15);
+           border font-semibold
+           transition-colors duration-150 ease-out
+           focus:outline-none focus:ring-2 focus:ring-offset-1
+           active:translate-y-[1px];
+    background-color: var(--btn-bg);
+    color: var(--btn-fg);
+    border-color: var(--btn-bd);
   }
   .action-btn-3d:hover {
-    filter: brightness(1.08) saturate(1.05);
-    transform: translateY(-1px);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.4),
-      inset 0 -2px 0 var(--btn-edge),
-      0 3px 0 var(--btn-edge),
-      0 5px 10px rgba(0, 0, 0, 0.2);
-  }
-  .action-btn-3d:active {
-    box-shadow:
-      inset 0 1px 2px rgba(0, 0, 0, 0.25),
-      inset 0 -1px 0 var(--btn-edge),
-      0 0 0 var(--btn-edge),
-      0 1px 2px rgba(0, 0, 0, 0.1);
+    background-color: var(--btn-bg-hover);
+    border-color: var(--btn-fg);
   }
   .action-btn-3d:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
     transform: none;
   }
 
-  .action-btn-blue   { --btn-top: #60a5fa; --btn-bot: #2563eb; --btn-edge: #1e40af; }
-  .action-btn-blue:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4); }
+  .action-btn-blue   { --btn-bg: #eff6ff; --btn-bg-hover: #dbeafe; --btn-fg: #2563eb; --btn-bd: #bfdbfe; }
+  .action-btn-blue:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
 
-  .action-btn-amber  { --btn-top: #fbbf24; --btn-bot: #d97706; --btn-edge: #92400e; }
-  .action-btn-amber:focus { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.4); }
+  .action-btn-amber  { --btn-bg: #fffbeb; --btn-bg-hover: #fef3c7; --btn-fg: #b45309; --btn-bd: #fde68a; }
+  .action-btn-amber:focus { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3); }
 
-  .action-btn-green  { --btn-top: #34d399; --btn-bot: #059669; --btn-edge: #065f46; }
-  .action-btn-green:focus { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.4); }
+  .action-btn-green  { --btn-bg: #ecfdf5; --btn-bg-hover: #d1fae5; --btn-fg: #047857; --btn-bd: #a7f3d0; }
+  .action-btn-green:focus { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3); }
 
-  .action-btn-red    { --btn-top: #f87171; --btn-bot: #dc2626; --btn-edge: #991b1b; }
-  .action-btn-red:focus { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.4); }
+  .action-btn-red    { --btn-bg: #fef2f2; --btn-bg-hover: #fee2e2; --btn-fg: #dc2626; --btn-bd: #fecaca; }
+  .action-btn-red:focus { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3); }
 
-  .action-btn-orange { --btn-top: #fb923c; --btn-bot: #ea580c; --btn-edge: #9a3412; }
-  .action-btn-orange:focus { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.4); }
+  .action-btn-orange { --btn-bg: #fff7ed; --btn-bg-hover: #ffedd5; --btn-fg: #ea580c; --btn-bd: #fed7aa; }
+  .action-btn-orange:focus { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.3); }
 
-  .action-btn-purple { --btn-top: #c084fc; --btn-bot: #7c3aed; --btn-edge: #5b21b6; }
-  .action-btn-purple:focus { box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.4); }
+  .action-btn-purple { --btn-bg: #faf5ff; --btn-bg-hover: #f3e8ff; --btn-fg: #7c3aed; --btn-bd: #e9d5ff; }
+  .action-btn-purple:focus { box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3); }
 }

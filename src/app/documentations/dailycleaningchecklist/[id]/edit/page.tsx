@@ -43,11 +43,6 @@ export default function EditDailyCleaningChecklist() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleUpdate = async (payload: Record<string, unknown>) => {
-    await docsApi.update("dailycleaningchecklist", id, payload);
-    router.push(`/documentations/dailycleaningchecklist/${id}`);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -77,11 +72,13 @@ export default function EditDailyCleaningChecklist() {
     >
       <DailyCleaningTypeForm
         meta={meta}
+        formType="dailycleaningchecklist"
         initialMonth={initialMonth}
         initialFloors={initialFloors}
         monthReadOnly
         isEdit
-        onSubmit={handleUpdate}
+        initialRecordId={id}
+        onDone={(rid) => router.push(`/documentations/dailycleaningchecklist/${rid}`)}
       />
     </DocFormShell>
   );

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import DocSection from "@/components/documentations/DocSection";
+import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
 import {
@@ -46,12 +47,16 @@ function CompactSignSelect({
 
 interface Props {
   meta: DCCTabDef;
+  /** Doc form type used for persistence, e.g. "dailycleaningchecklist". */
+  formType: string;
   initialMonth?: string;
   initialFloors?: DCCFloor[];
   monthReadOnly?: boolean;
   isEdit?: boolean;
-  /** Receives the built payload; performs create/update + navigation. */
-  onSubmit: (payload: Record<string, unknown>) => Promise<void>;
+  /** Existing record id (edit / resumed draft) — makes saves update instead of create. */
+  initialRecordId?: number | null;
+  /** Called after a successful FINAL submit so the parent can navigate. */
+  onDone?: (id: number) => void;
 }
 
 const DAY_LIST = Array.from({ length: DCC_DAYS }, (_, i) => i + 1);
@@ -67,19 +72,23 @@ const DAY_CHUNKS: number[][] = Array.from(
 
 export default function DailyCleaningTypeForm({
   meta,
+  formType,
   initialMonth,
   initialFloors,
   monthReadOnly,
   isEdit,
-  onSubmit,
+  initialRecordId,
+  onDone,
 }: Props) {
   const [month, setMonth] = useState(initialMonth || "");
   const [floors, setFloors] = useState<DCCFloor[]>(
     () => initialFloors && initialFloors.length > 0 ? initialFloors : [emptyFloor(meta.parameters, meta.defaultArea)]
   );
   const [activeFloor, setActiveFloor] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
+  const [savedId, setSavedId] = useState<number | null>(initialRecordId ?? null);
+  const [saving, setSaving] = useState<false | "draft" | "final">(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
 
   const updateFloor = (idx: number, updater: (f: DCCFloor) => DCCFloor) =>
     setFloors((prev) => prev.map((f, i) => (i === idx ? updater(f) : f)));
@@ -96,6 +105,17 @@ export default function DailyCleaningTypeForm({
       ...f,
       grid: { ...f.grid, [param]: { ...f.grid[param], [day]: f.grid[param]?.[day] === "✕" ? "" : "✕" } },
     }));
+
+  // Vertical "tick all" — set every parameter to ✓ for a single day/column (toggle).
+  const markColumnAllOK = (day: number) =>
+    updateFloor(activeFloor, (f) => {
+      const allTicked = meta.parameters.every((p) => f.grid[p]?.[day] === "✓");
+      const grid = { ...f.grid };
+      meta.parameters.forEach((p) => {
+        grid[p] = { ...grid[p], [day]: allTicked ? "" : "✓" };
+      });
+      return { ...f, grid };
+    });
 
   const setArea = (v: string) => updateFloor(activeFloor, (f) => ({ ...f, area: v }));
   const setCheckedBy = (day: number, v: string) =>
@@ -116,19 +136,24 @@ export default function DailyCleaningTypeForm({
     setActiveFloor((a) => (a >= idx && a > 0 ? a - 1 : a));
   };
 
-  const handleSubmit = async () => {
-    if (submitting) return;
-    setSubmitError(null);
+  // Create the record on the first save, then update it on every save after that —
+  // so "Save Draft" can be used repeatedly and the final Submit updates the same
+  // record instead of creating a duplicate.
+  const persist = async (status: "draft" | "submitted"): Promise<number | null> => {
     if (!month) {
       setSubmitError("Month is required.");
-      return;
+      return null;
     }
-    const missingArea = floors.findIndex((f) => !f.area.trim());
-    if (missingArea >= 0) {
-      setActiveFloor(missingArea);
-      setSubmitError("Area (Floor Name) is required for every floor.");
-      return;
+    // Area is only enforced on the final submit so partial drafts can be saved early.
+    if (status === "submitted") {
+      const missingArea = floors.findIndex((f) => !f.area.trim());
+      if (missingArea >= 0) {
+        setActiveFloor(missingArea);
+        setSubmitError("Area (Floor Name) is required for every floor.");
+        return null;
+      }
     }
+    setSubmitError(null);
     const payload = buildDCCPayload({
       month,
       tabCode: meta.key,
@@ -137,13 +162,46 @@ export default function DailyCleaningTypeForm({
       parameters: meta.parameters,
       floors,
       warehouse: getStoredWarehouse() || null,
+      status,
     });
-    setSubmitting(true);
+    if (savedId == null) {
+      const res = await docsApi.create(formType, payload);
+      const id = res.data?.id as number | undefined;
+      if (typeof id === "number") {
+        setSavedId(id);
+        return id;
+      }
+      return null;
+    }
+    await docsApi.update(formType, savedId, payload);
+    return savedId;
+  };
+
+  const handleSaveDraft = async () => {
+    if (saving) return;
+    setSaving("draft");
+    setSavedNote(null);
     try {
-      await onSubmit(payload);
+      const id = await persist("draft");
+      if (id != null) setSavedNote(`Draft saved · #${id}. Keep editing — Submit when done.`);
     } catch (e: any) {
-      setSubmitError(e?.message || "Failed to save record");
-      setSubmitting(false);
+      setSubmitError(e?.message || "Failed to save draft");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFinalSubmit = async () => {
+    if (saving) return;
+    setSaving("final");
+    setSavedNote(null);
+    try {
+      const id = await persist("submitted");
+      if (id != null) onDone?.(id);
+    } catch (e: any) {
+      setSubmitError(e?.message || "Failed to submit record");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -151,6 +209,12 @@ export default function DailyCleaningTypeForm({
 
   return (
     <div className="space-y-5">
+      {savedId != null && !isEdit && (
+        <div className="surface-card p-3 border-l-4 border-warning-500 bg-warning-50 text-xs text-warning-800 font-medium">
+          Draft <span className="font-bold">#{savedId}</span> saved. Add or change entries anytime, then <strong>Submit Record</strong> to finalize.
+        </div>
+      )}
+
       <DocSection
         title={meta.title}
         description={`${meta.documentNo} · Issue ${meta.issueNo} · Rev ${meta.revNo} · ${meta.revDate}`}
@@ -251,7 +315,19 @@ export default function DailyCleaningTypeForm({
                       <span className="ml-1 normal-case font-normal text-ink-300">· days {days[0]}–{days[days.length - 1]}</span>
                     </th>
                     {days.map((d) => (
-                      <th key={d} className="px-1 py-2 text-center text-[11px] font-semibold text-ink-400">{d}</th>
+                      <th key={d} className="px-1 py-2 text-center text-[11px] font-semibold text-ink-400">
+                        <div className="flex flex-col items-center gap-1">
+                          <span>{d}</span>
+                          <button
+                            type="button"
+                            onClick={() => markColumnAllOK(d)}
+                            className="text-[9px] font-bold leading-none bg-success-50 text-success-700 px-1.5 py-0.5 rounded hover:bg-success-100"
+                            title={`Tick all parameters ✓ for day ${d}`}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -324,16 +400,27 @@ export default function DailyCleaningTypeForm({
           <span className="mx-2 text-cream-300">|</span>
           Approved By: <span className="font-semibold text-ink-500">FSTL</span>
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap justify-end">
           {submitError && <span className="text-xs text-danger-600 font-semibold">{submitError}</span>}
+          {savedNote && <span className="text-xs text-success-600 font-semibold">{savedNote}</span>}
           <button
             type="button"
-            onClick={handleSubmit}
-            disabled={submitting}
+            onClick={handleSaveDraft}
+            disabled={!!saving}
+            className="btn-outline inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            title="Save progress without finalizing — you can reopen and edit anytime"
+          >
+            {saving === "draft" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {saving === "draft" ? "Saving…" : "Save Draft"}
+          </button>
+          <button
+            type="button"
+            onClick={handleFinalSubmit}
+            disabled={!!saving}
             className="btn-primary inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {submitting ? "Saving…" : isEdit ? "Save Changes" : "Submit Record"}
+            {saving === "final" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {saving === "final" ? "Saving…" : isEdit ? "Save Changes" : "Submit Record"}
           </button>
         </div>
       </div>

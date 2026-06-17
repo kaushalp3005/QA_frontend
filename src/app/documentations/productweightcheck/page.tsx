@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, LayoutTemplate } from 'lucide-react'
+import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, LayoutTemplate, Search, X, Play } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { docsApi, isDocAdmin } from '@/lib/api/documentations'
@@ -14,6 +14,7 @@ export default function ProductWeightCheckListPage() {
   const router = useRouter()
   const [records, setRecords] = useState<Record<string, any>[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [total, setTotal] = useState(0)
@@ -64,6 +65,16 @@ export default function ProductWeightCheckListPage() {
     return String(val)
   }
 
+  // Live filter the records table across every visible column (raw + formatted).
+  const query = search.trim().toLowerCase()
+  const filtered = query
+    ? records.filter((r) =>
+        config.listColumns
+          .flatMap((col) => [r[col], formatValue(r[col])])
+          .some((v) => (v ?? '').toString().toLowerCase().includes(query))
+      )
+    : records
+
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto">
@@ -89,12 +100,33 @@ export default function ProductWeightCheckListPage() {
                   {config.docNo}
                 </span>
                 <span className="text-xs text-ink-400 font-medium">
-                  {total} record{total !== 1 ? 's' : ''}
+                  {query ? `${filtered.length} of ${total}` : total} record{(query ? filtered.length : total) !== 1 ? 's' : ''}
                 </span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Live search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search records…"
+                className="pl-9 pr-8 py-2 w-64 max-w-full border border-cream-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
             {/* New Print Layout toggle */}
             <button
               type="button"
@@ -157,6 +189,23 @@ export default function ProductWeightCheckListPage() {
               Create first record
             </button>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="surface-card p-12 flex flex-col items-center text-center animate-fade-in">
+            <div className="bg-cream-200 w-16 h-16 rounded-full flex items-center justify-center mb-3">
+              <Search className="w-7 h-7 text-ink-300" />
+            </div>
+            <p className="text-sm font-semibold text-ink-500">No matching records</p>
+            <p className="text-xs text-ink-400 mt-0.5">
+              No records match &ldquo;{search}&rdquo;. Try a different search.
+            </p>
+            <button
+              onClick={() => setSearch('')}
+              className="btn-outline mt-4 inline-flex items-center"
+            >
+              <X className="w-4 h-4 mr-1.5" />
+              Clear search
+            </button>
+          </div>
         ) : (
           <div className="surface-card overflow-hidden animate-fade-in">
             <div className="overflow-x-auto">
@@ -173,7 +222,7 @@ export default function ProductWeightCheckListPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cream-300">
-                  {records.map((rec, i) => (
+                  {filtered.map((rec, i) => (
                     <tr key={rec.id} className="hover:bg-cream-100/60 transition-colors">
                       <td className="px-4 py-3 text-ink-400 font-medium">{(page - 1) * 50 + i + 1}</td>
                       {config.listColumns.map((col) => (
@@ -187,6 +236,13 @@ export default function ProductWeightCheckListPage() {
                             title="View"
                           >
                             <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => router.push(`/documentations/${config.routeSlug}/create?id=${rec.id}`)}
+                            className="action-btn-3d action-btn-orange"
+                            title="Continue (resume in the create form)"
+                          >
+                            <Play className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}/edit`)}

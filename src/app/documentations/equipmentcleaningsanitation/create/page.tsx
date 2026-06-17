@@ -35,15 +35,16 @@ const EQUIPMENT_LIST = [
   "Chocolate Enrober", "Dicer", "Blast Freezer", "Deep Freezer", "Sorting Tables", "Roasting Tray",
   "Coating Pan", "Salinity Tank", "Blancher", "Sheet & Cut Machine", "Paddle Mixer", "Pulveriser",
   "Tempering Machine", "Kruger Machine", "Manual Cutter", "Vibro Shifter", "Destoner",
+  "Hand Magnet", "Vacuum Packing Machine",
 ];
 
 const FLOOR_EQUIPMENT: Record<string, string[]> = {
-  "Lower Basement": ["Shrink Wrap Machine", "Pet Sealer", "Vacuum Machine", "Strapping Machine", "L-sealer", "Web Sealer", "Foot Sealer", "Hand Sealer"],
-  "Upper Basement": ["Metal Detector", "Magnet", "Weight Machine", "Sealing Machine"],
-  "First Floor": ["Metal Detector", "FFS Machine", "Destoner", "Vibro Shifter", "Strapping Machine", "Magnet"],
-  "First Floor Mezz": ["Metal Detector", "FFS Machine", "Magnet"],
-  "Second Floor": ["Kruger Machine", "Sheet & Cut Machine", "Manual Cutter", "Oven-Roasting", "Tray Roaster", "Roasting Tray", "Selmi Chocolate", "Chocolate Enrober", "Flow Wrap Machines", "X-Ray Machine", "Coating Pan", "Paddle Mixer", "Slicer", "Mixers", "Pulveriser", "Magnet", "Deep Freezer"],
-  "Terrace Floor": ["Coating Pan", "Slicer", "Dicer", "Blancher", "Magnet", "Salinity Tank"],
+  "Lower Basement": ["Shrink Wrap Machine", "Pet Sealer", "Vacuum Machine", "Strapping Machine", "L-sealer", "Web Sealer", "Foot Sealer", "Hand Sealer", "Weight Machine", "Sealing Machine", "Sorting Tables", "Hand Magnet"],
+  "Upper Basement": ["Metal Detector", "Magnet", "Weight Machine", "Sealing Machine", "Sorting Tables", "Strapping Machine"],
+  "First Floor": ["Metal Detector", "FFS Machine", "Destoner", "Vibro Shifter", "Strapping Machine", "Magnet", "Weight Machine", "Sealing Machine", "Sorting Tables"],
+  "First Floor Mezz": ["Metal Detector", "FFS Machine", "Magnet", "Weight Machine", "Sealing Machine", "Foot Sealer", "Sorting Tables", "Vacuum Packing Machine"],
+  "Second Floor": ["Kruger Machine", "Sheet & Cut Machine", "Manual Cutter", "Oven-Roasting", "Tray Roaster", "Roasting Tray", "Tempering Machine", "Chocolate Enrober", "Flow Wrap Machines", "X-Ray Machine", "Coating Pan", "Paddle Mixer", "Slicer", "Mixers", "Pulveriser", "Magnet", "Deep Freezer", "Weight Machine", "Sealing Machine", "Shrink Wrap Machine", "Foot Sealer"],
+  "Terrace Floor": ["Coating Pan", "Slicer", "Dicer", "Blancher", "Magnet", "Salinity Tank", "Sorting Tables", "Weight Machine", "Sealing Machine", "Foot Sealer", "Vacuum Machine", "Tray Roaster", "Roasting Tray"],
   "Other / All": EQUIPMENT_LIST,
 };
 
@@ -118,16 +119,21 @@ export default function EquipmentCleaningSanitationRecord() {
     });
   };
 
-  const markRowAllOK = (eq: string) => {
-    const allTicked = selectedDates.every((d) => {
-      const cell = grid[eq]?.[d];
+  // Vertical "tick all" — mark every equipment (B & A) for a single day/column.
+  const markColumnAllOK = (day: number) => {
+    const allTicked = visibleEquipment.every((eq) => {
+      const cell = grid[eq]?.[day];
       return cell?.B === "✓" && cell?.A === "✓";
     });
     pushHistory(grid);
     setGrid((prev) => {
-      const updated: Record<number, { B: BAStatus; A: BAStatus }> = { ...(prev[eq] || {}) };
-      selectedDates.forEach((d) => { updated[d] = allTicked ? { B: "", A: "" } : { B: "✓", A: "✓" }; });
-      return { ...prev, [eq]: updated };
+      const next: Grid = { ...prev };
+      visibleEquipment.forEach((eq) => {
+        const row = { ...(next[eq] || {}) };
+        row[day] = allTicked ? { B: "", A: "" } : { B: "✓", A: "✓" };
+        next[eq] = row;
+      });
+      return next;
     });
   };
 
@@ -233,10 +239,18 @@ export default function EquipmentCleaningSanitationRecord() {
               <tr>
                 <th className="px-2 py-2 sticky left-0 bg-cream-100 z-10 text-[11px] font-semibold uppercase text-ink-400">Sr</th>
                 <th className="px-2 py-2 sticky left-8 bg-cream-100 z-10 min-w-[140px] text-left text-[11px] font-semibold uppercase text-ink-400">Equipment</th>
-                <th className="px-1 py-2 sticky left-[188px] bg-cream-100 z-10 text-[10px] font-semibold text-ink-400">Row</th>
                 {selectedDates.map((d) => (
                   <th key={d} className="px-1 py-2 text-center text-[11px] font-semibold text-ink-400 border-l border-cream-300">
-                    {d}
+                    <div className="flex flex-col items-center gap-1">
+                      <span>{d}</span>
+                      <button
+                        onClick={() => markColumnAllOK(d)}
+                        className="text-[9px] font-bold leading-none bg-success-50 text-success-700 px-1.5 py-0.5 rounded hover:bg-success-100"
+                        title={`Mark all equipment (B & A) as ✓ for day ${d}`}
+                      >
+                        ✓
+                      </button>
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -246,15 +260,6 @@ export default function EquipmentCleaningSanitationRecord() {
                 <tr key={eq} className="hover:bg-cream-100/60">
                   <td className="px-1 py-1 text-center sticky left-0 bg-cream-50 text-ink-400 font-medium">{idx + 1}</td>
                   <td className="px-2 py-1 sticky left-8 bg-cream-50 font-semibold whitespace-nowrap text-ink-500">{eq}</td>
-                  <td className="px-1 py-1 sticky left-[188px] bg-cream-50">
-                    <button
-                      onClick={() => markRowAllOK(eq)}
-                      className="text-[9px] font-semibold bg-success-50 text-success-700 px-1.5 py-0.5 rounded hover:bg-success-100 whitespace-nowrap"
-                      title={`Mark all selected dates (B & A) as ✓ for ${eq}`}
-                    >
-                      All ✓
-                    </button>
-                  </td>
                   {selectedDates.map((d) => {
                     const cell = grid[eq]?.[d] || { B: "" as BAStatus, A: "" as BAStatus };
                     return (
@@ -288,7 +293,6 @@ export default function EquipmentCleaningSanitationRecord() {
               <tr className="border-t-2 border-cream-300">
                 <td className="px-1 py-1 sticky left-0 bg-cream-100 z-10"></td>
                 <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">Checked By</td>
-                <td className="px-1 py-1 sticky left-[188px] bg-cream-100 z-10"></td>
                 {selectedDates.map((d) => (
                   <td key={`chk-${d}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
                     <CompactSignSelect value={daySigs[d]?.checkedBy || ""} onChange={(v) => updateDaySig(d, "checkedBy", v)} options={CHECKED_BY_OPTIONS} />
@@ -298,7 +302,6 @@ export default function EquipmentCleaningSanitationRecord() {
               <tr>
                 <td className="px-1 py-1 sticky left-0 bg-cream-100 z-10"></td>
                 <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">Verified By</td>
-                <td className="px-1 py-1 sticky left-[188px] bg-cream-100 z-10"></td>
                 {selectedDates.map((d) => (
                   <td key={`ver-${d}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
                     <CompactSignSelect value={daySigs[d]?.verifiedBy || ""} onChange={(v) => updateDaySig(d, "verifiedBy", v)} options={QC_VERIFIED_BY_OPTIONS} />

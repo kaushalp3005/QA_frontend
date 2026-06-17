@@ -4,18 +4,12 @@ import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DailyCleaningTypeForm from "@/components/forms/DailyCleaningTypeForm";
-import { docsApi } from "@/lib/api/documentations";
 import { DCC_TABS, getTabDef } from "@/lib/dailyCleaning";
 
 export default function DailyCleaningChecklistCreatePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("floor");
   const meta = getTabDef(activeTab) || DCC_TABS[0];
-
-  const handleCreate = async (payload: Record<string, unknown>) => {
-    await docsApi.create("dailycleaningchecklist", payload);
-    router.push("/documentations/dailycleaningchecklist");
-  };
 
   return (
     <DocFormShell
@@ -43,7 +37,12 @@ export default function DailyCleaningChecklistCreatePage() {
       </div>
 
       {/* key resets the form (and its floors) when switching checklist type */}
-      <DailyCleaningTypeForm key={activeTab} meta={meta} onSubmit={handleCreate} />
+      <DailyCleaningTypeForm
+        key={activeTab}
+        meta={meta}
+        formType="dailycleaningchecklist"
+        onDone={() => router.push("/documentations/dailycleaningchecklist")}
+      />
     </DocFormShell>
   );
 }

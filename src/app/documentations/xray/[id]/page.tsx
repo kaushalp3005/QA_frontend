@@ -3,9 +3,26 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { ArrowLeft, Loader2, Printer, Building2 } from "lucide-react";
+import { ArrowLeft, Loader2, Printer, Building2, Pencil } from "lucide-react";
 import { getXRayRecord, type XRayBatch } from "@/lib/api/xray";
 import SignatureCell from "@/components/ui/SignatureCell";
+
+/** "HH:MM" → minutes; blank/invalid sort to the end. */
+function timeKey(t?: string): number {
+  if (!t) return Number.MAX_SAFE_INTEGER;
+  const [h, m] = t.split(":").map(Number);
+  if (isNaN(h)) return Number.MAX_SAFE_INTEGER;
+  return h * 60 + (isNaN(m) ? 0 : m);
+}
+
+/** Chronological order: by date, then time (earliest first). */
+function sortByDateTime<T extends { date?: string; time?: string }>(arr: T[]): T[] {
+  return [...arr].sort((a, b) => {
+    const ad = a.date || "", bd = b.date || "";
+    if (ad !== bd) return ad < bd ? -1 : 1;
+    return timeKey(a.time) - timeKey(b.time);
+  });
+}
 
 export default function XRayViewPage() {
   const router = useRouter();
@@ -35,7 +52,7 @@ export default function XRayViewPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 text-green-500 animate-spin" />
+          <Loader2 className="h-8 w-8 text-brand-500 animate-spin" />
           <span className="ml-2 text-gray-500">Loading record...</span>
         </div>
       </DashboardLayout>
@@ -66,18 +83,26 @@ export default function XRayViewPage() {
           <button onClick={() => router.back()} className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
             <ArrowLeft className="h-5 w-5 mr-2" /> Back to Records
           </button>
-          <button
-            onClick={() => router.push(`/documentations/xray/print?id=${record.id}`)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
-          >
-            <Printer className="h-4 w-4" /> Print
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push(`/documentations/xray/create?id=${record.id}`)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-md transition-colors"
+            >
+              <Pencil className="h-4 w-4" /> Edit
+            </button>
+            <button
+              onClick={() => router.push(`/documentations/xray/print?id=${record.id}`)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-600 bg-white border border-brand-500 hover:bg-brand-50 rounded-md transition-colors"
+            >
+              <Printer className="h-4 w-4" /> Print
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-green-600 to-green-800 px-6 py-4">
+          <div className="bg-gradient-to-r from-brand-500 to-brand-600 px-6 py-4">
             <h2 className="text-xl font-bold text-white">X-Ray Detection Sheet</h2>
-            <p className="text-green-100 text-sm mt-1">
+            <p className="text-brand-100 text-sm mt-1">
               CCP-2 · Document: CFPLA.C2.F.20 · {record.batch_id} · {fmtDate(record.check_date)} ·{" "}
               <span className="capitalize">{record.status || "—"}</span>
             </p>
@@ -113,7 +138,7 @@ export default function XRayViewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {record.entries.map((e, i) => (
+                  {sortByDateTime(record.entries).map((e, i) => (
                     <tr key={e.id} className="hover:bg-gray-50">
                       <td className={td}>{i + 1}</td>
                       <td className={`${td} whitespace-nowrap`}>{fmtDate(e.date)}</td>

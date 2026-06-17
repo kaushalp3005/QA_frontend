@@ -8,7 +8,7 @@ import {
 } from "@/lib/constant";
 import { DropdownData, IPQCRecord, IPQCCheckItem } from "@/types";
 import {
-  Plus, Trash2, ChevronDown, ChevronUp, Search, Save, Loader2
+  Plus, Trash2, ChevronDown, ChevronUp, Search, Save, Loader2, Copy
 } from "lucide-react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import SignaturePicker from "@/components/ui/SignaturePicker";
@@ -33,6 +33,8 @@ interface ArticleForm {
   seal_check: boolean;
   verdict: "accept" | "reject";
   overall_remark: string;
+  checked_by: string;
+  verified_by: string;
 }
 
 function makeDefaultArticle(floor = ""): ArticleForm {
@@ -49,6 +51,8 @@ function makeDefaultArticle(floor = ""): ArticleForm {
     seal_check: true,
     verdict: "accept",
     overall_remark: "",
+    checked_by: "",
+    verified_by: "",
   };
 }
 
@@ -86,6 +90,8 @@ function articleFromRecord(record: IPQCRecord): ArticleForm[] {
       seal_check: a.seal_check ?? true,
       verdict: a.verdict || "accept",
       overall_remark: a.overall_remark || "",
+      checked_by: (a as any).checked_by || record.checked_by || "",
+      verified_by: (a as any).verified_by || record.verified_by || record.approved_by || "",
     }));
   }
   const def = makeDefaultArticle(record.floor || "");
@@ -105,6 +111,8 @@ function articleFromRecord(record: IPQCRecord): ArticleForm[] {
     seal_check: record.seal_check ?? true,
     verdict: (record.verdict as any) || "accept",
     overall_remark: record.overall_remark || "",
+    checked_by: record.checked_by || "",
+    verified_by: record.verified_by || record.approved_by || "",
   }];
 }
 
@@ -126,10 +134,6 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
 
   const [checkDate, setCheckDate] = useState(
     initialData?.check_date || new Date().toISOString().slice(0, 10)
-  );
-  const [checkedBy, setCheckedBy] = useState<string>((initialData as any)?.checked_by || "");
-  const [verifiedBy, setVerifiedBy] = useState<string>(
-    (initialData as any)?.verified_by || (initialData as any)?.approved_by || ""
   );
   const [dropdowns, setDropdowns] = useState<DropdownData>({ factories: [] });
   const [articles, setArticles] = useState<ArticleForm[]>(
@@ -286,22 +290,49 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
     }));
   }
 
+  // Duplicate an existing article into a fresh section at the end of the list.
+  function recreateArticle(idx: number) {
+    const newIdx = articles.length;
+    setArticles((prev) => {
+      const src = prev[idx];
+      if (!src) return prev;
+      const clone: ArticleForm = {
+        ...src,
+        sensory_evaluation: src.sensory_evaluation.map((i) => ({ ...i })),
+        physical_parameters: src.physical_parameters.map((i) => ({ ...i })),
+        label_check: src.label_check.map((i) => ({ ...i })),
+        chemical_parameter: src.chemical_parameter.map((i) => ({ ...i })),
+      };
+      return [...prev, clone];
+    });
+    setExpandedArticles((prev) => ({
+      ...prev,
+      [newIdx]: { sensory: true, physical: true, label: true, chemical: true },
+    }));
+    setTimeout(() => {
+      document.getElementById(`article-${newIdx}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const payload = articles.map((a) => ({
       ...a,
       chemical_parameter: isA185 ? a.chemical_parameter : [],
     }));
-    // Use the first article's floor as the record-level floor for backward compatibility
+    // Use the first article's floor/signatories as the record-level values for
+    // backward compatibility (flat columns + list/view headers).
     const recordFloor = articles[0]?.floor || "";
+    const recordCheckedBy = articles[0]?.checked_by || "";
+    const recordVerifiedBy = articles[0]?.verified_by || "";
     onSubmit({
       check_date: checkDate,
       warehouse,
       floor: recordFloor,
       articles: payload,
-      checked_by: checkedBy || undefined,
-      verified_by: verifiedBy || undefined,
-      approved_by: verifiedBy || undefined,
+      checked_by: recordCheckedBy || undefined,
+      verified_by: recordVerifiedBy || undefined,
+      approved_by: recordVerifiedBy || undefined,
     });
   }
 
@@ -327,6 +358,14 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
                     <span className="text-gray-600 truncate group-hover:text-emerald-700 leading-tight">
                       {art.item_description || `Article ${idx + 1}`}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => recreateArticle(idx)}
+                    title="Duplicate this item as a new article at the end"
+                    className="ml-7 mb-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors"
+                  >
+                    <Copy className="w-3 h-3" /> Recreate
                   </button>
                 </li>
               ))}
@@ -807,6 +846,28 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
                 </div>
               </div>
 
+              {/* ── Signatories (per article) ─ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                <SignaturePicker
+                  label="Checked By"
+                  value={art.checked_by}
+                  onChange={(v) => updateArticle(artIdx, { checked_by: v })}
+                  options={CHECKED_BY_OPTIONS}
+                  roleHint="Quality Control Executive"
+                  inputCls={inputCls}
+                  labelCls={labelCls}
+                />
+                <SignaturePicker
+                  label="Verified By"
+                  value={art.verified_by}
+                  onChange={(v) => updateArticle(artIdx, { verified_by: v })}
+                  options={QC_VERIFIED_BY_OPTIONS}
+                  roleHint="Quality Manager"
+                  inputCls={inputCls}
+                  labelCls={labelCls}
+                />
+              </div>
+
             </div>
           </div>
         );
@@ -821,34 +882,6 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
         <Plus className="w-4 h-4" />
         Add Another Article
       </button>
-
-      {/* ── Signatories ───────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5 mb-4">
-        <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-          <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />
-          Signatories
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <SignaturePicker
-            label="Checked By"
-            value={checkedBy}
-            onChange={setCheckedBy}
-            options={CHECKED_BY_OPTIONS}
-            roleHint="Quality Control Executive"
-            inputCls={inputCls}
-            labelCls={labelCls}
-          />
-          <SignaturePicker
-            label="Verified By"
-            value={verifiedBy}
-            onChange={setVerifiedBy}
-            options={QC_VERIFIED_BY_OPTIONS}
-            roleHint="Quality Manager"
-            inputCls={inputCls}
-            labelCls={labelCls}
-          />
-        </div>
-      </div>
 
         </div>{/* end flex-1 main */}
       </div>{/* end flex sidebar+main */}

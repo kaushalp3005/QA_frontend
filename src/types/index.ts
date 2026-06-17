@@ -268,6 +268,8 @@ export interface IPQCArticle {
   seal_check: boolean;
   verdict: "accept" | "reject";
   overall_remark: string;
+  checked_by?: string;
+  verified_by?: string;
 }
 
 export interface IPQCCheckItem {

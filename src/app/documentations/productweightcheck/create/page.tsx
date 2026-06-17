@@ -1,10 +1,13 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Scale, Plus, X, ChevronDown, ChevronUp, Trash2, Package, Loader2, CheckCircle2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Scale, Plus, X, ChevronDown, ChevronUp, Trash2, Package, Loader2, CheckCircle2, Save, Check } from "lucide-react";
 import Time12Picker from "@/components/Time12Picker";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { docsApi } from "@/lib/api/documentations";
+import { dropdown as dropdownApi } from "@/lib/api";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import type { DropdownData } from "@/types";
 
 interface WeightRow {
   id: number;
@@ -21,6 +24,9 @@ interface WeightRow {
 
 interface ProductEntry {
   entryId: string;
+  savedId: number | null;   // DB record id once this product has been saved
+  saving: boolean;          // save request in flight
+  dirty: boolean;           // edited since the last successful save
   collapsed: boolean;
   date: string;
   location: string;
@@ -45,9 +51,26 @@ const emptyRow = (id: number): WeightRow => ({
   deviationsNoted: "Ok", sealingCheck: "Ok" as "Ok" | "No", n2Percent: "-", checkedBy: "", verifiedBy: "",
 });
 
+const normalizeStatus = (v: any, fallback: "Ok" | "Not Ok" = "Ok"): "Ok" | "Not Ok" => {
+  if (!v) return fallback;
+  const s = String(v).trim().toLowerCase();
+  if (s === "ok" || s === "yes" || s === "✓") return "Ok";
+  if (s === "not ok" || s === "notok" || s === "no" || s === "✕") return "Not Ok";
+  return fallback;
+};
+const normalizeSealStatus = (v: any): "Ok" | "No" => {
+  if (!v) return "Ok";
+  const s = String(v).trim().toLowerCase();
+  if (s === "ok" || s === "yes" || s === "✓") return "Ok";
+  return "No";
+};
+
 let _entryCounter = 0;
 const newEntry = (): ProductEntry => ({
   entryId: String(++_entryCounter),
+  savedId: null,
+  saving: false,
+  dirty: false,
   collapsed: false,
   date: currentDate(),
   location: "",
@@ -62,25 +85,77 @@ const newEntry = (): ProductEntry => ({
   rows: Array.from({ length: 35 }, (_, i) => emptyRow(i + 1)),
 });
 
+/** Map a saved DB record into a form ProductEntry (for the Continue flow). */
+const recordToEntry = (d: any): ProductEntry => ({
+  entryId: String(++_entryCounter),
+  savedId: d.id ?? null,
+  saving: false,
+  dirty: false,
+  collapsed: false,
+  date: d.check_date || currentDate(),
+  location: d.location || "",
+  productName: d.product_name || "",
+  batchNo: d.batch_no || "",
+  customer: d.customer || "",
+  pkd: d.pkd || "",
+  declaredNetWeight: d.declared_net_weight_gms != null ? String(d.declared_net_weight_gms) : "",
+  permissibleError: d.permissible_error_gms != null ? String(d.permissible_error_gms) : "",
+  totalPktsProduced: d.total_pkts_produced != null ? String(d.total_pkts_produced) : "",
+  remarks: d.remarks || "",
+  rows: Array.isArray(d.rows) && d.rows.length > 0
+    ? d.rows.map((r: any, i: number) => ({
+        id: i + 1,
+        time: r.time || "",
+        packingMaterialWeight: r.packing_material_weight != null ? String(r.packing_material_weight) : "",
+        netWeight: r.net_weight != null ? String(r.net_weight) : "",
+        observedGrossWeight: r.observed_gross_weight != null ? String(r.observed_gross_weight) : "",
+        deviationsNoted: normalizeStatus(r.deviations_noted, "Ok"),
+        sealingCheck: normalizeSealStatus(r.sealing_check),
+        n2Percent: r.n2_percent != null ? String(r.n2_percent) : "-",
+        checkedBy: r.checked_by || "",
+        verifiedBy: r.verified_by || "",
+      }))
+    : Array.from({ length: 35 }, (_, i) => emptyRow(i + 1)),
+});
+
 const DRAFT_KEY = "pwc-draft";
 const DRAFT_TTL_MS = 5 * 60 * 1000;
 
 export default function ProductWeightSealCheckRecord() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const continueId = searchParams.get("id"); // resume a saved product (Continue)
   const [products, setProducts] = useState<ProductEntry[]>(() => [newEntry()]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitOk, setSubmitOk] = useState(false);
+  const [loadingRecord, setLoadingRecord] = useState(false);
   const hydrated = useRef(false);
 
+  // Floor options for the Location dropdown — same source as the IPQC floor field.
+  const [dropdowns, setDropdowns] = useState<DropdownData>({ factories: [] });
+  useEffect(() => { dropdownApi.getFactoriesFloors().then(setDropdowns).catch(() => {}); }, []);
+  const warehouse = getStoredWarehouse();
+  const availableFloors = dropdowns.factories?.find((f) => f.factory_code === warehouse)?.floors || [];
+
   useEffect(() => {
+    // Continue mode: load the saved product from the DB, ignore the local draft.
+    if (continueId) {
+      setLoadingRecord(true);
+      docsApi.get("productweightcheck", Number(continueId))
+        .then((res) => { if (res?.data) setProducts([recordToEntry(res.data)]); })
+        .catch((e) => setSubmitError(e?.message || "Failed to load record"))
+        .finally(() => { hydrated.current = true; setLoadingRecord(false); });
+      return;
+    }
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as { savedAt: number; data: { products?: ProductEntry[] } };
         if (parsed.savedAt && Date.now() - parsed.savedAt < DRAFT_TTL_MS) {
           if (Array.isArray(parsed.data.products) && parsed.data.products.length > 0) {
-            setProducts(parsed.data.products);
+            // never restore a stale "saving" flag
+            setProducts(parsed.data.products.map((p) => ({ ...p, saving: false })));
           }
         } else {
           localStorage.removeItem(DRAFT_KEY);
@@ -90,19 +165,33 @@ export default function ProductWeightSealCheckRecord() {
       localStorage.removeItem(DRAFT_KEY);
     }
     hydrated.current = true;
-  }, []);
+  }, [continueId]);
 
   useEffect(() => {
-    if (!hydrated.current) return;
+    if (!hydrated.current || continueId) return; // don't draft-cache the Continue session
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), data: { products } }));
     } catch {}
-  }, [products]);
+  }, [products, continueId]);
 
   const addProduct = () => setProducts(prev => [...prev, newEntry()]);
 
-  const removeProduct = (entryId: string) => {
-    setProducts(prev => prev.length > 1 ? prev.filter(p => p.entryId !== entryId) : prev);
+  const removeProduct = async (entryId: string) => {
+    const p = products.find(x => x.entryId === entryId);
+    if (!p) return;
+    if (p.savedId) {
+      if (!confirm("Delete this saved product from the database?")) return;
+      try {
+        await docsApi.delete("productweightcheck", p.savedId);
+      } catch (e: any) {
+        setSubmitError(e?.message || "Failed to delete product");
+        return;
+      }
+    }
+    setProducts(prev => {
+      const remaining = prev.filter(x => x.entryId !== entryId);
+      return remaining.length > 0 ? remaining : [newEntry()];
+    });
   };
 
   const toggleCollapse = (entryId: string) => {
@@ -110,20 +199,20 @@ export default function ProductWeightSealCheckRecord() {
   };
 
   const updateEntry = (entryId: string, updates: Partial<ProductEntry>) => {
-    setProducts(prev => prev.map(p => p.entryId === entryId ? { ...p, ...updates } : p));
+    setProducts(prev => prev.map(p => p.entryId === entryId ? { ...p, ...updates, dirty: true } : p));
   };
 
   const addRow = (entryId: string) => {
     setProducts(prev => prev.map(p => {
       if (p.entryId !== entryId) return p;
-      return { ...p, rows: [...p.rows, emptyRow(p.rows.length + 1)] };
+      return { ...p, dirty: true, rows: [...p.rows, emptyRow(p.rows.length + 1)] };
     }));
   };
 
   const removeRow = (entryId: string, rowId: number) => {
     setProducts(prev => prev.map(p => {
       if (p.entryId !== entryId || p.rows.length <= 1) return p;
-      return { ...p, rows: p.rows.filter(r => r.id !== rowId) };
+      return { ...p, dirty: true, rows: p.rows.filter(r => r.id !== rowId) };
     }));
   };
 
@@ -132,6 +221,7 @@ export default function ProductWeightSealCheckRecord() {
       if (p.entryId !== entryId) return p;
       return {
         ...p,
+        dirty: true,
         rows: p.rows.map(r => {
           if (r.id !== rowId) return r;
           const next = { ...r, [field]: value };
@@ -154,6 +244,7 @@ export default function ProductWeightSealCheckRecord() {
       const val = firstFilled[field];
       return {
         ...p,
+        dirty: true,
         rows: p.rows.map(r => {
           const next = { ...r, [field]: val };
           if (field === "packingMaterialWeight" || field === "netWeight") {
@@ -177,6 +268,57 @@ export default function ProductWeightSealCheckRecord() {
     </button>
   );
 
+  // Build the API payload for one product entry.
+  const buildPayload = (p: ProductEntry) => ({
+    check_date: p.date,
+    location: p.location,
+    product_name: p.productName,
+    batch_no: p.batchNo,
+    customer: p.customer,
+    pkd: p.pkd,
+    declared_net_weight_gms: p.declaredNetWeight !== "" ? Number(p.declaredNetWeight) : null,
+    permissible_error_gms: p.permissibleError !== "" ? Number(p.permissibleError) : null,
+    total_pkts_produced: p.totalPktsProduced !== "" ? Number(p.totalPktsProduced) : null,
+    remarks: p.remarks,
+    rows: p.rows.map(r => ({
+      time: r.time,
+      packing_material_weight: r.packingMaterialWeight,
+      net_weight: r.netWeight,
+      observed_gross_weight: r.observedGrossWeight,
+      deviations_noted: r.deviationsNoted,
+      sealing_check: r.sealingCheck,
+      n2_percent: r.n2Percent,
+      checked_by: r.checkedBy,
+      verified_by: r.verifiedBy,
+    })),
+  });
+
+  // Save a single product to the DB now: create on first save, update afterwards.
+  const saveProduct = async (entryId: string) => {
+    const p = products.find(x => x.entryId === entryId);
+    if (!p || p.saving) return;
+    if (!p.date || !p.productName || !p.batchNo) {
+      setSubmitError(`Date, Product Name and Batch No. are required to save this product.`);
+      setProducts(prev => prev.map(x => x.entryId === entryId ? { ...x, collapsed: false } : x));
+      return;
+    }
+    setSubmitError(null);
+    setProducts(prev => prev.map(x => x.entryId === entryId ? { ...x, saving: true } : x));
+    try {
+      let id = p.savedId;
+      if (id) {
+        await docsApi.update("productweightcheck", id, buildPayload(p));
+      } else {
+        const res = await docsApi.create("productweightcheck", buildPayload(p));
+        id = res?.data?.id ?? null;
+      }
+      setProducts(prev => prev.map(x => x.entryId === entryId ? { ...x, savedId: id, saving: false, dirty: false } : x));
+    } catch (e: any) {
+      setSubmitError(e?.message || "Failed to save product");
+      setProducts(prev => prev.map(x => x.entryId === entryId ? { ...x, saving: false } : x));
+    }
+  };
+
   const handleSubmitAll = async () => {
     if (submitting) return;
     setSubmitError(null);
@@ -194,33 +336,22 @@ export default function ProductWeightSealCheckRecord() {
     setSubmitting(true);
     try {
       const savedIds: number[] = [];
-      for (const p of products) {
-        const payload = {
-          check_date: p.date,
-          location: p.location,
-          product_name: p.productName,
-          batch_no: p.batchNo,
-          customer: p.customer,
-          pkd: p.pkd,
-          declared_net_weight_gms: p.declaredNetWeight !== "" ? Number(p.declaredNetWeight) : null,
-          permissible_error_gms: p.permissibleError !== "" ? Number(p.permissibleError) : null,
-          total_pkts_produced: p.totalPktsProduced !== "" ? Number(p.totalPktsProduced) : null,
-          remarks: p.remarks,
-          rows: p.rows.map(r => ({
-            time: r.time,
-            packing_material_weight: r.packingMaterialWeight,
-            net_weight: r.netWeight,
-            observed_gross_weight: r.observedGrossWeight,
-            deviations_noted: r.deviationsNoted,
-            sealing_check: r.sealingCheck,
-            n2_percent: r.n2Percent,
-            checked_by: r.checkedBy,
-            verified_by: r.verifiedBy,
-          })),
-        };
-        const res = await docsApi.create("productweightcheck", payload);
-        if (res?.data?.id) savedIds.push(res.data.id);
+      const next = [...products];
+      for (let i = 0; i < next.length; i++) {
+        const p = next[i];
+        let id = p.savedId;
+        if (id) {
+          await docsApi.update("productweightcheck", id, buildPayload(p));
+        } else {
+          const res = await docsApi.create("productweightcheck", buildPayload(p));
+          id = res?.data?.id ?? null;
+        }
+        if (id) {
+          savedIds.push(id);
+          next[i] = { ...p, savedId: id, dirty: false };
+        }
       }
+      setProducts(next);
       setSubmitOk(true);
       try { localStorage.removeItem(DRAFT_KEY); } catch {}
       if (savedIds.length > 1) {
@@ -243,6 +374,18 @@ export default function ProductWeightSealCheckRecord() {
       icon={Scale}
       note="Frequency: Every hour, 10 samples (Start–Mid–End)"
     >
+      {loadingRecord ? (
+        <div className="surface-card p-8 flex items-center justify-center gap-2 text-sm text-ink-500">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading saved record…
+        </div>
+      ) : (
+      <>
+      <div className="mb-1 px-4 py-2.5 bg-brand-50 border border-brand-200 rounded-xl text-xs text-brand-700 font-medium flex items-center gap-2">
+        <Save className="w-3.5 h-3.5 shrink-0" />
+        {continueId
+          ? "Continuing a saved product — edit any field and tap Update to store the change."
+          : "Each product saves on its own. Tap Save on a product, then leave anytime and resume later via Continue on the records list."}
+      </div>
       {products.map((product, productIdx) => (
         <div key={product.entryId} className="border border-cream-300 rounded-xl overflow-hidden">
           {/* Product block header */}
@@ -256,13 +399,37 @@ export default function ProductWeightSealCheckRecord() {
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0 ml-2">
-              {products.length > 1 && (
+              {/* Saved / unsaved badge */}
+              {product.savedId && !product.dirty ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  <Check className="w-3 h-3" /> Saved
+                </span>
+              ) : product.savedId && product.dirty ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  Unsaved changes
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink-400 bg-cream-100 border border-cream-300 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  Not saved
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => saveProduct(product.entryId)}
+                disabled={product.saving || (!!product.savedId && !product.dirty)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-50 px-2.5 py-1 rounded"
+                title="Save this product to the database"
+              >
+                {product.saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {product.saving ? "Saving…" : product.savedId ? "Update" : "Save"}
+              </button>
+              {(products.length > 1 || product.savedId) && (
                 <button
                   type="button"
                   onClick={() => removeProduct(product.entryId)}
                   className="inline-flex items-center gap-1 text-xs text-danger-600 hover:bg-danger-50 px-2 py-1 rounded"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Remove
+                  <Trash2 className="w-3.5 h-3.5" /> {product.savedId ? "Delete" : "Remove"}
                 </button>
               )}
               <button
@@ -288,7 +455,15 @@ export default function ProductWeightSealCheckRecord() {
                   </div>
                   <div>
                     <label className="label-base">Location</label>
-                    <input type="text" value={product.location} onChange={(e) => updateEntry(product.entryId, { location: e.target.value })} className="input-base" />
+                    <select value={product.location} onChange={(e) => updateEntry(product.entryId, { location: e.target.value })} className="input-base">
+                      <option value="">Select location…</option>
+                      {availableFloors.map((fl) => (
+                        <option key={fl.id} value={fl.floor_name}>{fl.floor_name}</option>
+                      ))}
+                      {product.location && !availableFloors.some((fl) => fl.floor_name === product.location) && (
+                        <option value={product.location}>{product.location}</option>
+                      )}
+                    </select>
                   </div>
                   <div>
                     <label className="label-base">Frequency</label>
@@ -446,6 +621,13 @@ export default function ProductWeightSealCheckRecord() {
             </span>
           )}
           <button
+            type="button"
+            onClick={() => router.push("/documentations/productweightcheck")}
+            className="btn-outline inline-flex items-center gap-2"
+          >
+            Back to list
+          </button>
+          <button
             onClick={handleSubmitAll}
             disabled={submitting}
             className="btn-primary inline-flex items-center gap-2"
@@ -454,11 +636,13 @@ export default function ProductWeightSealCheckRecord() {
             {submitting
               ? "Saving…"
               : products.length > 1
-              ? `Submit All ${products.length} Products`
-              : "Submit Record"}
+              ? `Save All ${products.length} & Finish`
+              : "Save & Finish"}
           </button>
         </div>
       </div>
+      </>
+      )}
     </DocFormShell>
   );
 }

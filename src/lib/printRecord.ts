@@ -3,7 +3,7 @@ import {
   LABEL_CHECK_PARAMS,
   getPhysicalParams,
 } from "@/lib/constant";
-import { getSignaturePath } from "@/lib/signatures";
+import { getSignaturePath, resolveSignatoryName } from "@/lib/signatures";
 
 interface Article {
   floor?: string;
@@ -17,6 +17,8 @@ interface Article {
   seal_check: boolean;
   verdict: string;
   overall_remark: string;
+  checked_by?: string;
+  verified_by?: string;
 }
 
 interface PrintRecord {
@@ -42,10 +44,11 @@ interface PrintRecord {
 
 function renderSignatureHtml(name?: string | null): string {
   if (!name) return "";
+  const display = resolveSignatoryName(name);   // map username/email → "Pooja Parkar"
   const sig = getSignaturePath(name);
-  if (!sig) return esc(name);
+  if (!sig) return esc(display);
   const url = typeof window !== "undefined" ? window.location.origin + sig : sig;
-  return `<img src="${url}" alt="${esc(name)}" style="max-height:26pt;max-width:80pt;object-fit:contain;display:block;margin:0 auto 1pt;" /><span style="font-size:7pt;color:#444">${esc(name)}</span>`;
+  return `<img src="${url}" alt="${esc(display)}" style="max-height:26pt;max-width:80pt;object-fit:contain;display:block;margin:0 auto 1pt;" /><span style="font-size:7pt;color:#444">${esc(display)}</span>`;
 }
 
 function getLabel(params: any[], key: string): string {
@@ -135,8 +138,8 @@ function buildArticleRows(article: any, record: PrintRecord): string {
       rows += `<td class="mc" rowspan="${maxRows}" style="text-align:center;font-weight:bold">${sealText}</td>`;
       rows += `<td class="mc" rowspan="${maxRows}" style="text-align:center;font-weight:bold">${verdictText}</td>`;
       rows += `<td class="mc" rowspan="${maxRows}">${esc(article.overall_remark)}</td>`;
-      rows += `<td class="mc" rowspan="${maxRows}">${renderSignatureHtml(record.checked_by)}</td>`;
-      rows += `<td class="mc" rowspan="${maxRows}">${renderSignatureHtml(record.verified_by || record.approved_by)}</td>`;
+      rows += `<td class="mc" rowspan="${maxRows}">${renderSignatureHtml(article.checked_by || record.checked_by)}</td>`;
+      rows += `<td class="mc" rowspan="${maxRows}">${renderSignatureHtml(article.verified_by || record.verified_by || record.approved_by)}</td>`;
     }
     rows += "</tr>";
   }
@@ -325,18 +328,40 @@ export function printRecord(record: PrintRecord): void {
   iframe.style.cssText = "position:fixed;width:0;height:0;border:none;left:-9999px;";
   document.body.appendChild(iframe);
   const doc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (doc) {
-    doc.open();
-    doc.write(html);
-    doc.close();
-    if (iframe.contentWindow) {
-      iframe.contentWindow.onload = function () {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        iframe.contentWindow!.onafterprint = function () { iframe?.remove(); };
-      };
-    }
-  }
+  if (!doc) return;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const win = iframe.contentWindow;
+  if (!win) return;
+
+  const triggerPrint = () => {
+    win.focus();
+    win.print();
+    win.onafterprint = () => iframe?.remove();
+  };
+
+  win.onload = () => {
+    // A dynamically written iframe can fire `load` before its images finish
+    // downloading — so a signature that isn't already cached (e.g. the verified-by
+    // signature on its first print) ends up blank. Wait for every image to settle
+    // before opening the print dialog.
+    const imgs = Array.from(win.document.images || []);
+    const pending = imgs.filter((im) => !im.complete || im.naturalWidth === 0);
+    if (pending.length === 0) { triggerPrint(); return; }
+
+    let remaining = pending.length;
+    let fired = false;
+    const done = () => { if (!fired) { fired = true; triggerPrint(); } };
+    const tick = () => { if (--remaining <= 0) done(); };
+    pending.forEach((im) => {
+      im.addEventListener("load", tick);
+      im.addEventListener("error", tick);
+    });
+    // Safety net: never leave the print dialog hanging if an image stalls.
+    setTimeout(done, 2000);
+  };
 }
 
 export async function downloadRecord(record: PrintRecord): Promise<void> {

@@ -39,6 +39,7 @@ export const CHECKED_BY_OPTIONS: SignatureOption[] = [
   { name: 'Pankaj Gosavi',    signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Sarvesh Davande',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Swapnil Mahajan',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Tejashri Jadhav',  signature: null,                              role: 'Quality Control Executive' },
   { name: 'Other',            signature: null },
 ]
 
@@ -53,6 +54,7 @@ export const QC_VERIFIED_BY_OPTIONS: SignatureOption[] = [
   { name: 'Pankaj Gosavi',    signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Sarvesh Davande',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Swapnil Mahajan',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Tejashri Jadhav',  signature: null,                              role: 'Quality Control Executive' },
   { name: 'Other',            signature: null },
 ]
 
@@ -69,9 +71,18 @@ export function filterSignaturesByWarehouse(
 
 export const COMPANY_STAMP = '/signatures/company-stamp.png'
 
-/** lowercase, turn dots/commas into spaces, collapse whitespace */
+/**
+ * lowercase, drop any email domain, turn dots/underscores/commas into spaces,
+ * collapse whitespace. This lets a stored username/email like
+ * "pooja.parkar@candorfoods.in" resolve to the preset "Pooja Parkar".
+ */
 function normalizeName(s: string): string {
-  return s.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim()
+  return s
+    .toLowerCase()
+    .replace(/@.*$/, ' ')        // drop email domain → "pooja.parkar"
+    .replace(/[._,]/g, ' ')      // dots/underscores/commas → spaces
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 /**
@@ -111,6 +122,20 @@ export function getSignaturePath(name: string): string | null {
   // 2. Tolerant match for abbreviated/free-typed names — only against staff
   //    that actually have a signature image, so we never false-match "Other".
   return ALL_SIGNATORIES.find(o => o.signature && namesMatch(name, o.name))?.signature ?? null
+}
+
+/**
+ * Resolve a stored value (preset name, abbreviation, or email/username) to the
+ * canonical signatory display name. Falls back to the original value when no
+ * preset matches (e.g. a free-typed "Other" name). Used for print captions so
+ * a username like "pooja.parkar@candorfoods.in" prints as "Pooja Parkar".
+ */
+export function resolveSignatoryName(value: string): string {
+  if (!value) return value
+  const exact = ALL_SIGNATORIES.find(o => o.name === value)
+  if (exact) return exact.name
+  const match = ALL_SIGNATORIES.find(o => o.signature && namesMatch(value, o.name))
+  return match ? match.name : value
 }
 
 /** Look up role for a name across any option list */

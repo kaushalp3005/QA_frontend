@@ -530,15 +530,15 @@ export default function MetalDetectorEntryPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm sm:shadow-lg border border-gray-200">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-3 sm:py-4 rounded-t-xl">
+          <div className="bg-gradient-to-r from-brand-500 to-brand-600 px-4 sm:px-6 py-3 sm:py-4 rounded-t-xl">
             <h3 className="text-base sm:text-xl font-bold text-white leading-tight">
               CCP Calibration & Verification Record
             </h3>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-1 gap-1">
-              <p className="text-xs sm:text-sm text-blue-100">
+              <p className="text-xs sm:text-sm text-brand-100">
                 {selectedWarehouse === 'W202' ? 'CFPLA.C2.F.24' : 'CFPLB.C2.F.18'} | Every Hour
               </p>
-              <div className="flex items-center text-xs text-blue-100">
+              <div className="flex items-center text-xs text-brand-100">
                 <div className="w-1.5 h-1.5 bg-green-300 rounded-full mr-1.5 animate-pulse"></div>
                 Each entry saves to database instantly
               </div>
@@ -556,7 +556,7 @@ export default function MetalDetectorEntryPage() {
                   name="identificationNo"
                   value={formData.identificationNo ? `${formData.identificationNo}-${metalDetectorOptions.find(opt => opt.identificationNo === formData.identificationNo)?.srNo || ''}` : ''}
                   onChange={handleIdentificationChange}
-                  className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white"
                   required
                 >
                   <option value="">Select Detector ({selectedWarehouse})</option>
@@ -573,7 +573,7 @@ export default function MetalDetectorEntryPage() {
                 <div className="flex flex-wrap gap-2">
                   <span
                     className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${
-                      selectedWarehouse === 'W202' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                      selectedWarehouse === 'W202' ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-700'
                     }`}
                   >
                     {selectedWarehouse}
@@ -601,7 +601,7 @@ export default function MetalDetectorEntryPage() {
                   name="date"
                   value={formData.date}
                   onChange={isAuthorized ? handleInputChange : undefined}
-                  className={`w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
+                  className={`w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
                   readOnly={!isAuthorized}
                 />
               </div>
@@ -617,7 +617,7 @@ export default function MetalDetectorEntryPage() {
                       setFormData(prev => ({ ...prev, time: to24Hour(Number(e.target.value), minute, period) }))
                     } : undefined}
                     disabled={!isAuthorized}
-                    className={`w-[70px] px-2 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
+                    className={`w-[70px] px-2 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
                   >
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
                       <option key={h} value={h}>{h}</option>
@@ -631,7 +631,7 @@ export default function MetalDetectorEntryPage() {
                       setFormData(prev => ({ ...prev, time: to24Hour(hour, Number(e.target.value), period) }))
                     } : undefined}
                     disabled={!isAuthorized}
-                    className={`w-[70px] px-2 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
+                    className={`w-[70px] px-2 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
                   >
                     {Array.from({ length: 60 }, (_, i) => i).map(m => (
                       <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
@@ -644,7 +644,7 @@ export default function MetalDetectorEntryPage() {
                       setFormData(prev => ({ ...prev, time: to24Hour(hour, minute, e.target.value) }))
                     } : undefined}
                     disabled={!isAuthorized}
-                    className={`w-[65px] px-2 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
+                    className={`w-[65px] px-2 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${isAuthorized ? 'bg-white' : 'bg-gray-50'}`}
                   >
                     <option value="AM">AM</option>
                     <option value="PM">PM</option>
@@ -664,7 +664,7 @@ export default function MetalDetectorEntryPage() {
                   name="customerName"
                   value={formData.customerName}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Customer name"
                   required
                 />
@@ -679,7 +679,7 @@ export default function MetalDetectorEntryPage() {
                     name="productName"
                     value={formData.productName}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                     placeholder="Product name"
                     required
                   />
@@ -693,7 +693,7 @@ export default function MetalDetectorEntryPage() {
                     name="batchLotNo"
                     value={formData.batchLotNo}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                     placeholder="Batch/lot number"
                     required
                   />
@@ -816,7 +816,7 @@ export default function MetalDetectorEntryPage() {
                     value={formData.correctiveActionOnDetector}
                     onChange={handleInputChange}
                     rows={2}
-                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                     placeholder="Action on detector"
                   />
                 </div>
@@ -829,7 +829,7 @@ export default function MetalDetectorEntryPage() {
                     value={formData.correctiveActionOnProduct}
                     onChange={handleInputChange}
                     rows={2}
-                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                     placeholder="Action on product"
                   />
                 </div>
@@ -845,7 +845,7 @@ export default function MetalDetectorEntryPage() {
                 options={CHECKED_BY_OPTIONS}
                 roleHint="Quality Control Executive"
                 required
-                inputCls="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                inputCls="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
                 labelCls="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5"
               />
               <SignaturePicker
@@ -855,7 +855,7 @@ export default function MetalDetectorEntryPage() {
                 options={QC_VERIFIED_BY_OPTIONS}
                 roleHint="Quality Manager"
                 required
-                inputCls="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                inputCls="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
                 labelCls="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5"
               />
             </div>
@@ -870,7 +870,7 @@ export default function MetalDetectorEntryPage() {
                 value={formData.remarks}
                 onChange={handleInputChange}
                 rows={2}
-                className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                 placeholder="Additional remarks"
               />
             </div>
@@ -887,7 +887,7 @@ export default function MetalDetectorEntryPage() {
               <button
                 type="submit"
                 disabled={isSavingEntry}
-                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg shadow-sm text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 active:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSavingEntry && <Loader2 className="w-4 h-4 animate-spin" />}
                 {isSavingEntry ? 'Saving...' : '+ Add Row'}
@@ -1020,7 +1020,7 @@ export default function MetalDetectorEntryPage() {
               <button
                 onClick={handleFinalizeRecord}
                 disabled={isFinalizing}
-                className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isFinalizing && <Loader2 className="w-4 h-4 animate-spin" />}
                 {isFinalizing ? 'Saving...' : 'Save Data'}

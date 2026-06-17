@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer } from 'lucide-react'
+import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, Search, X } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { docsApi, isDocAdmin } from '@/lib/api/documentations'
@@ -16,6 +16,7 @@ export default function DocListPage({ config }: Props) {
   const router = useRouter()
   const [records, setRecords] = useState<Record<string, any>[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [total, setTotal] = useState(0)
@@ -64,6 +65,14 @@ export default function DocListPage({ config }: Props) {
     return String(val)
   }
 
+  // Filter the loaded records by a free-text query across the visible columns.
+  const query = search.trim().toLowerCase()
+  const filtered = query
+    ? records.filter((rec) =>
+        config.listColumns.some((col) => formatValue(rec[col]).toLowerCase().includes(query))
+      )
+    : records
+
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto">
@@ -106,6 +115,37 @@ export default function DocListPage({ config }: Props) {
           </div>
         </div>
 
+        {/* Search */}
+        {!loading && records.length > 0 && (
+          <div className="mb-4 flex items-center gap-3 flex-wrap animate-fade-in">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-300 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search records…"
+                className="w-full rounded-xl border border-cream-300 bg-cream-50 pl-10 pr-9 py-2.5 text-sm text-ink-600 placeholder-ink-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-300 hover:text-ink-500"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {query && (
+              <span className="text-xs text-ink-400 font-medium">
+                {filtered.length} match{filtered.length !== 1 ? 'es' : ''}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Body */}
         {loading ? (
           <div className="surface-card p-8 animate-fade-in">
@@ -134,6 +174,19 @@ export default function DocListPage({ config }: Props) {
               Create first record
             </button>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="surface-card p-12 flex flex-col items-center text-center animate-fade-in">
+            <div className="bg-cream-200 w-16 h-16 rounded-full flex items-center justify-center mb-3">
+              <Search className="w-7 h-7 text-ink-300" />
+            </div>
+            <p className="text-sm font-semibold text-ink-500">No matching records</p>
+            <p className="text-xs text-ink-400 mt-0.5">
+              Nothing matches &ldquo;<span className="font-semibold text-ink-500">{search}</span>&rdquo;{totalPages > 1 ? ' on this page' : ''}.
+            </p>
+            <button onClick={() => setSearch('')} className="btn-outline mt-4">
+              Clear search
+            </button>
+          </div>
         ) : (
           <div className="surface-card overflow-hidden animate-fade-in">
             <div className="overflow-x-auto">
@@ -150,7 +203,7 @@ export default function DocListPage({ config }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cream-300">
-                  {records.map((rec, i) => (
+                  {filtered.map((rec, i) => (
                     <tr key={rec.id} className="hover:bg-cream-100/60 transition-colors">
                       <td className="px-4 py-3 text-ink-400 font-medium">{(page - 1) * 50 + i + 1}</td>
                       {config.listColumns.map((col) => (

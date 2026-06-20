@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import { Printer } from 'lucide-react'
 import { docsApi, isDocAdmin } from '@/lib/api/documentations'
-import type { DocFormConfig } from '@/config/doc-forms'
+import { PRINTABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 import SignatureCell from '@/components/ui/SignatureCell'
 
 const SIGNATURE_FIELD_KEYS = new Set([
@@ -37,6 +38,7 @@ export default function DocViewPage({ config }: Props) {
   const [prevId, setPrevId] = useState<number | null>(null)
   const [nextId, setNextId] = useState<number | null>(null)
   const admin = isDocAdmin()
+  const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
 
   useEffect(() => {
     if (!id) return
@@ -171,7 +173,16 @@ export default function DocViewPage({ config }: Props) {
             </button>
 
             {/* Action buttons */}
-            <button onClick={() => router.push(`/documentations/${config.routeSlug}/${id}/edit`)} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 ml-2">Edit</button>
+            {showPrint && (
+              <button
+                onClick={() => router.push(`/documentations/${config.routeSlug}/print?id=${id}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-brand-500 text-white rounded hover:bg-brand-600 ml-2"
+                title="Print this record"
+              >
+                <Printer className="w-4 h-4" /> Print
+              </button>
+            )}
+            <button onClick={() => router.push(`/documentations/${config.routeSlug}/${id}/edit`)} className={`px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 ${showPrint ? '' : 'ml-2'}`}>Edit</button>
             {admin && <button onClick={handleDelete} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700">Delete</button>}
           </div>
         </div>

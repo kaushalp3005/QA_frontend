@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import SignatureCell from "@/components/ui/SignatureCell";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 function fmt(date: string) {
   if (!date) return "";
@@ -32,9 +33,14 @@ function RecordSheet({ record, newLayout = false }: { record: Record<string, any
   const rows: SampleRow[] = Array.isArray(record?.rows) ? record.rows : [];
   const blankRows = Math.max(0, BLANK_ROW_COUNT - rows.length);
 
-  const issueNo = newLayout ? "04" : "03";
-  const revDate = newLayout ? "02/06/2026" : "01/10/2025";
-  const revNo = newLayout ? "03" : "02";
+  // A185 uses its own plant-specific header (CFPLB code); W202 keeps the
+  // existing values, with newLayout overriding issue/revision fields.
+  const isA185 = getStoredWarehouse() === "A185";
+  const issueDate = isA185 ? "01/11/2019" : "01/11/2017";
+  const documentNo = isA185 ? "CFPLB.C6.F.20" : "CFPLA.C6.F.16";
+  const issueNo = isA185 ? "05" : newLayout ? "04" : "03";
+  const revDate = isA185 ? "02/06/2026" : newLayout ? "02/06/2026" : "01/10/2025";
+  const revNo = isA185 ? "04" : newLayout ? "03" : "02";
 
   return (
     <div
@@ -57,7 +63,7 @@ function RecordSheet({ record, newLayout = false }: { record: Record<string, any
             </td>
             <td style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>CANDOR FOODS PRIVATE LIMITED</td>
             <td style={tdHead}>Issue Date:</td>
-            <td style={tdHead}>01/11/2017</td>
+            <td style={tdHead}>{issueDate}</td>
           </tr>
           <tr>
             <td rowSpan={2} style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>
@@ -71,7 +77,7 @@ function RecordSheet({ record, newLayout = false }: { record: Record<string, any
             <td style={tdHead}>{revDate}</td>
           </tr>
           <tr>
-            <td style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>Document No: CFPLA.C6.F.16</td>
+            <td style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>Document No: {documentNo}</td>
             <td style={tdHead}>Revision No.:</td>
             <td style={tdHead}>{revNo}</td>
           </tr>

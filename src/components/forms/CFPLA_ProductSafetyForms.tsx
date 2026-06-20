@@ -6,6 +6,97 @@ import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 interface SensoryRow { id: number; panelName: string; taste: "Ok" | "Not ok" | ""; odor: "Ok" | "Not ok" | ""; appearance: "Ok" | "Not ok" | ""; mouthfeel: "Ok" | "Not ok" | ""; decision: "Accept" | "Reject" | ""; signature: string; }
 const emptySensoryRow = (id: number): SensoryRow => ({ id, panelName: "", taste: "", odor: "", appearance: "", mouthfeel: "", decision: "", signature: "" });
 
+interface IngredientRow { id: number; ingredient: string; variety: string; vendor: string; percentage: string; specification: string; protein: string; fiber: string; sugar: string; energy: string; }
+const emptyIngredientRow = (id: number): IngredientRow => ({ id, ingredient: "", variety: "", vendor: "", percentage: "", specification: "", protein: "", fiber: "", sugar: "", energy: "" });
+const INGREDIENT_COLS: { key: keyof Omit<IngredientRow, "id">; label: string; min: string; optional?: boolean }[] = [
+  // First five are mandatory (always shown, no checkbox); the rest are optional (toggle via checkbox).
+  { key: "ingredient", label: "Ingredient", min: "min-w-[150px]" },
+  { key: "variety", label: "Variety", min: "min-w-[120px]" },
+  { key: "vendor", label: "Vendor", min: "min-w-[120px]" },
+  { key: "percentage", label: "Percentage (%)", min: "min-w-[90px]" },
+  { key: "specification", label: "Specification / Preparation", min: "min-w-[170px]" },
+  { key: "protein", label: "Protein", min: "min-w-[80px]", optional: true },
+  { key: "fiber", label: "Fiber", min: "min-w-[80px]", optional: true },
+  { key: "sugar", label: "Sugar", min: "min-w-[80px]", optional: true },
+  { key: "energy", label: "Energy (kcal)", min: "min-w-[90px]", optional: true },
+];
+
+// One trial = the Trial Information → Chemical Analysis block (repeated via tabs).
+interface Trial {
+  date: string; productName: string; customerName: string; trialNo: string;
+  personsPresent: string; preroastingTemp: string; batchNumber: string; bakingTemp: string;
+  ingredientChanges: string; flowChart: string; equipmentAdded: string;
+  ingredientRows: IngredientRow[]; sensoryRows: SensoryRow[];
+  moisture: string; fat: string; acidValue: string; peroxideValue: string; salt: string; ph: string;
+}
+const mapIngredients = (src: any): IngredientRow[] => {
+  if (Array.isArray(src)) return src.map((r: any, i: number) => ({ id: i + 1, ingredient: r.ingredient || "", variety: r.variety || "", vendor: r.vendor || "", percentage: r.percentage || "", specification: r.specification || "", protein: r.protein || "", fiber: r.fiber || "", sugar: r.sugar || "", energy: r.energy || "" }));
+  if (typeof src === "string" && src.trim()) return [{ ...emptyIngredientRow(1), ingredient: src }];
+  return Array.from({ length: 3 }, (_, i) => emptyIngredientRow(i + 1));
+};
+const mapSensory = (src: any): SensoryRow[] => {
+  if (Array.isArray(src)) return src.map((r: any, i: number) => ({ id: i + 1, panelName: r.panel_name || r.panelName || "", taste: r.taste || "", odor: r.odor || "", appearance: r.appearance || "", mouthfeel: r.mouthfeel || "", decision: r.decision || "", signature: r.signature || "" }));
+  return Array.from({ length: 3 }, (_, i) => emptySensoryRow(i + 1));
+};
+const makeTrial = (src?: any): Trial => ({
+  date: src?.verify_date ?? src?.date ?? "",
+  productName: src?.product_name ?? src?.productName ?? "",
+  customerName: src?.customer_name ?? src?.customerName ?? "",
+  trialNo: src?.trial_no ?? src?.trialNo ?? "",
+  personsPresent: src?.persons_present ?? src?.personsPresent ?? "",
+  preroastingTemp: src?.preroasting_temp ?? src?.preroastingTemp ?? "",
+  batchNumber: src?.batch_number ?? src?.batchNumber ?? "",
+  bakingTemp: src?.baking_temp ?? src?.bakingTemp ?? "",
+  ingredientChanges: src?.ingredient_changes ?? src?.ingredientChanges ?? "",
+  flowChart: src?.flow_chart ?? src?.flowChart ?? "",
+  equipmentAdded: src?.equipment_added ?? src?.equipmentAdded ?? "",
+  ingredientRows: mapIngredients(src?.ingredients_used ?? src?.ingredientRows),
+  sensoryRows: mapSensory(src?.sensory_rows ?? src?.sensoryRows),
+  moisture: src?.moisture != null ? String(src.moisture) : "",
+  fat: src?.fat != null ? String(src.fat) : "",
+  acidValue: src?.acid_value != null ? String(src.acid_value) : (src?.acidValue ?? ""),
+  peroxideValue: src?.peroxide_value != null ? String(src.peroxide_value) : (src?.peroxideValue ?? ""),
+  salt: src?.salt != null ? String(src.salt) : "",
+  ph: src?.ph != null ? String(src.ph) : "",
+});
+const numOrNull = (s: string) => (s ? Number(s) : null);
+const trialPayload = (tr: Trial) => ({
+  verify_date: tr.date, product_name: tr.productName, customer_name: tr.customerName, trial_no: tr.trialNo,
+  persons_present: tr.personsPresent, preroasting_temp: tr.preroastingTemp, batch_number: tr.batchNumber, baking_temp: tr.bakingTemp,
+  ingredient_changes: tr.ingredientChanges, flow_chart: tr.flowChart, equipment_added: tr.equipmentAdded,
+  ingredients_used: tr.ingredientRows.filter((r) => r.ingredient.trim() || r.variety.trim() || r.vendor.trim() || r.percentage.trim() || r.specification.trim()).map((r) => ({ ingredient: r.ingredient, variety: r.variety, vendor: r.vendor, percentage: r.percentage, specification: r.specification, protein: r.protein, fiber: r.fiber, sugar: r.sugar, energy: r.energy })),
+  sensory_rows: tr.sensoryRows.filter((r) => r.panelName).map((r) => ({ panel_name: r.panelName, taste: r.taste, odor: r.odor, appearance: r.appearance, mouthfeel: r.mouthfeel, decision: r.decision, signature: r.signature })),
+  moisture: numOrNull(tr.moisture), fat: numOrNull(tr.fat), acid_value: numOrNull(tr.acidValue), peroxide_value: numOrNull(tr.peroxideValue), salt: numOrNull(tr.salt), ph: numOrNull(tr.ph),
+});
+
+// One pilot = the Pilot Run Details block (repeated via tabs).
+interface Pilot {
+  labTrialName: string; pilotQty: string; pilotBatch: string; pilotSuccess: string; pilotPersons: string;
+  packagingMaterial: string; claims: string; regulatory: string; shelfLife: string;
+  storageCondition: string; haccpImpact: string; crossContamination: string;
+}
+const makePilot = (src?: any): Pilot => ({
+  labTrialName: src?.lab_trial_name ?? src?.labTrialName ?? "",
+  pilotQty: src?.pilot_qty ?? src?.pilotQty ?? "",
+  pilotBatch: src?.pilot_batch ?? src?.pilotBatch ?? "",
+  pilotSuccess: src?.pilot_success ?? src?.pilotSuccess ?? "",
+  pilotPersons: src?.pilot_persons ?? src?.pilotPersons ?? "",
+  packagingMaterial: src?.packaging_material ?? src?.packagingMaterial ?? "",
+  claims: src?.claims ?? "",
+  regulatory: src?.regulatory ?? "",
+  shelfLife: src?.shelf_life ?? src?.shelfLife ?? "",
+  storageCondition: src?.storage_condition ?? src?.storageCondition ?? "",
+  haccpImpact: src?.haccp_impact ?? src?.haccpImpact ?? "",
+  crossContamination: src?.cross_contamination ?? src?.crossContamination ?? "",
+});
+const pilotPayload = (p: Pilot) => ({
+  lab_trial_name: p.labTrialName, pilot_qty: p.pilotQty, pilot_batch: p.pilotBatch,
+  pilot_success: p.pilotSuccess, pilot_persons: p.pilotPersons,
+  packaging_material: p.packagingMaterial, claims: p.claims, regulatory: p.regulatory,
+  shelf_life: p.shelfLife, storage_condition: p.storageCondition,
+  haccp_impact: p.haccpImpact, cross_contamination: p.crossContamination,
+});
+
 interface NewProductVerificationProps {
   initialData?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => Promise<void>;
@@ -13,28 +104,91 @@ interface NewProductVerificationProps {
 }
 
 export function NewProductVerification({ initialData, onSubmit, isEdit }: NewProductVerificationProps = {}) {
-  const [date, setDate] = useState(initialData?.verify_date || ""); const [productName, setProductName] = useState(initialData?.product_name || ""); const [customerName, setCustomerName] = useState(initialData?.customer_name || ""); const [trialNo, setTrialNo] = useState(initialData?.trial_no || "");
-  const [personsPresent, setPersonsPresent] = useState(initialData?.persons_present || ""); const [ingredientsUsed, setIngredientsUsed] = useState(initialData?.ingredients_used || ""); const [preroastingTemp, setPreroastingTemp] = useState(initialData?.preroasting_temp || "");
-  const [batchNumber, setBatchNumber] = useState(initialData?.batch_number || ""); const [bakingTemp, setBakingTemp] = useState(initialData?.baking_temp || ""); const [ingredientChanges, setIngredientChanges] = useState(initialData?.ingredient_changes || "");
-  const [flowChart, setFlowChart] = useState(initialData?.flow_chart || ""); const [equipmentAdded, setEquipmentAdded] = useState(initialData?.equipment_added || "");
-  const [sensoryRows, setSensoryRows] = useState<SensoryRow[]>(() => {
-    if (initialData?.sensory_rows && Array.isArray(initialData.sensory_rows)) {
-      return initialData.sensory_rows.map((r: any, i: number) => ({ id: i + 1, panelName: r.panel_name || "", taste: r.taste || "", odor: r.odor || "", appearance: r.appearance || "", mouthfeel: r.mouthfeel || "", decision: r.decision || "", signature: r.signature || "" }));
-    }
-    return Array.from({ length: 3 }, (_, i) => emptySensoryRow(i + 1));
+  // Trials: each holds Trial Information → Chemical Analysis. Tabs switch between them.
+  const [trials, setTrials] = useState<Trial[]>(() => {
+    if (Array.isArray(initialData?.trials) && initialData.trials.length) return initialData.trials.map(makeTrial);
+    return [makeTrial(initialData)];
   });
-  const [moisture, setMoisture] = useState(initialData?.moisture?.toString() || ""); const [fat, setFat] = useState(initialData?.fat?.toString() || ""); const [acidValue, setAcidValue] = useState(initialData?.acid_value?.toString() || "");
-  const [peroxideValue, setPeroxideValue] = useState(initialData?.peroxide_value?.toString() || ""); const [salt, setSalt] = useState(initialData?.salt?.toString() || ""); const [ph, setPh] = useState(initialData?.ph?.toString() || "");
-  const [labTrialName, setLabTrialName] = useState(initialData?.lab_trial_name || ""); const [pilotQty, setPilotQty] = useState(initialData?.pilot_qty || ""); const [pilotBatch, setPilotBatch] = useState(initialData?.pilot_batch || "");
-  const [pilotSuccess, setPilotSuccess] = useState(initialData?.pilot_success || ""); const [pilotPersons, setPilotPersons] = useState(initialData?.pilot_persons || "");
-  const [packagingMaterial, setPackagingMaterial] = useState(initialData?.packaging_material || ""); const [claims, setClaims] = useState(initialData?.claims || ""); const [regulatory, setRegulatory] = useState(initialData?.regulatory || "");
-  const [shelfLife, setShelfLife] = useState(initialData?.shelf_life || ""); const [storageCondition, setStorageCondition] = useState(initialData?.storage_condition || ""); const [haccpImpact, setHaccpImpact] = useState(initialData?.haccp_impact || ""); const [crossContamination, setCrossContamination] = useState(initialData?.cross_contamination || "");
+  const [activeTrial, setActiveTrial] = useState(0);
+  const t = trials[activeTrial] ?? trials[0];
+  const patchTrial = (patch: Partial<Trial>) =>
+    setTrials((prev) => prev.map((tr, i) => (i === activeTrial ? { ...tr, ...patch } : tr)));
+
+  const addTrial = () => { setTrials((prev) => [...prev, makeTrial()]); setActiveTrial(trials.length); };
+  const removeTrial = (idx: number) => {
+    if (trials.length <= 1) return;
+    setTrials((prev) => prev.filter((_, i) => i !== idx));
+    setActiveTrial((a) => {
+      let na = a === idx ? Math.max(0, idx - 1) : a > idx ? a - 1 : a;
+      return Math.min(na, trials.length - 2);
+    });
+  };
+
+  // Per-trial accessors — read the active trial; setters patch it (so existing JSX is unchanged).
+  const date = t.date, setDate = (v: string) => patchTrial({ date: v });
+  const productName = t.productName, setProductName = (v: string) => patchTrial({ productName: v });
+  const customerName = t.customerName, setCustomerName = (v: string) => patchTrial({ customerName: v });
+  const trialNo = t.trialNo, setTrialNo = (v: string) => patchTrial({ trialNo: v });
+  const personsPresent = t.personsPresent, setPersonsPresent = (v: string) => patchTrial({ personsPresent: v });
+  const preroastingTemp = t.preroastingTemp, setPreroastingTemp = (v: string) => patchTrial({ preroastingTemp: v });
+  const batchNumber = t.batchNumber, setBatchNumber = (v: string) => patchTrial({ batchNumber: v });
+  const bakingTemp = t.bakingTemp, setBakingTemp = (v: string) => patchTrial({ bakingTemp: v });
+  const ingredientChanges = t.ingredientChanges, setIngredientChanges = (v: string) => patchTrial({ ingredientChanges: v });
+  const flowChart = t.flowChart, setFlowChart = (v: string) => patchTrial({ flowChart: v });
+  const equipmentAdded = t.equipmentAdded, setEquipmentAdded = (v: string) => patchTrial({ equipmentAdded: v });
+  const moisture = t.moisture, setMoisture = (v: string) => patchTrial({ moisture: v });
+  const fat = t.fat, setFat = (v: string) => patchTrial({ fat: v });
+  const acidValue = t.acidValue, setAcidValue = (v: string) => patchTrial({ acidValue: v });
+  const peroxideValue = t.peroxideValue, setPeroxideValue = (v: string) => patchTrial({ peroxideValue: v });
+  const salt = t.salt, setSalt = (v: string) => patchTrial({ salt: v });
+  const ph = t.ph, setPh = (v: string) => patchTrial({ ph: v });
+  const ingredientRows = t.ingredientRows;
+  const setIngredientRows = (u: IngredientRow[] | ((p: IngredientRow[]) => IngredientRow[])) =>
+    setTrials((prev) => prev.map((tr, i) => (i === activeTrial ? { ...tr, ingredientRows: typeof u === "function" ? (u as any)(tr.ingredientRows) : u } : tr)));
+  const sensoryRows = t.sensoryRows;
+  const setSensoryRows = (u: SensoryRow[] | ((p: SensoryRow[]) => SensoryRow[])) =>
+    setTrials((prev) => prev.map((tr, i) => (i === activeTrial ? { ...tr, sensoryRows: typeof u === "function" ? (u as any)(tr.sensoryRows) : u } : tr)));
+  // Pilots: each holds the Pilot Run Details block. Tabs switch between them.
+  const [pilots, setPilots] = useState<Pilot[]>(() => {
+    if (Array.isArray(initialData?.pilots) && initialData.pilots.length) return initialData.pilots.map(makePilot);
+    return [makePilot(initialData)];
+  });
+  const [activePilot, setActivePilot] = useState(0);
+  const pl = pilots[activePilot] ?? pilots[0];
+  const patchPilot = (patch: Partial<Pilot>) =>
+    setPilots((prev) => prev.map((pv, i) => (i === activePilot ? { ...pv, ...patch } : pv)));
+  const addPilot = () => { setPilots((prev) => [...prev, makePilot()]); setActivePilot(pilots.length); };
+  const removePilot = (idx: number) => {
+    if (pilots.length <= 1) return;
+    setPilots((prev) => prev.filter((_, i) => i !== idx));
+    setActivePilot((a) => {
+      let na = a === idx ? Math.max(0, idx - 1) : a > idx ? a - 1 : a;
+      return Math.min(na, pilots.length - 2);
+    });
+  };
+  const labTrialName = pl.labTrialName, setLabTrialName = (v: string) => patchPilot({ labTrialName: v });
+  const pilotQty = pl.pilotQty, setPilotQty = (v: string) => patchPilot({ pilotQty: v });
+  const pilotBatch = pl.pilotBatch, setPilotBatch = (v: string) => patchPilot({ pilotBatch: v });
+  const pilotSuccess = pl.pilotSuccess, setPilotSuccess = (v: string) => patchPilot({ pilotSuccess: v });
+  const pilotPersons = pl.pilotPersons, setPilotPersons = (v: string) => patchPilot({ pilotPersons: v });
+  const packagingMaterial = pl.packagingMaterial, setPackagingMaterial = (v: string) => patchPilot({ packagingMaterial: v });
+  const claims = pl.claims, setClaims = (v: string) => patchPilot({ claims: v });
+  const regulatory = pl.regulatory, setRegulatory = (v: string) => patchPilot({ regulatory: v });
+  const shelfLife = pl.shelfLife, setShelfLife = (v: string) => patchPilot({ shelfLife: v });
+  const storageCondition = pl.storageCondition, setStorageCondition = (v: string) => patchPilot({ storageCondition: v });
+  const haccpImpact = pl.haccpImpact, setHaccpImpact = (v: string) => patchPilot({ haccpImpact: v });
+  const crossContamination = pl.crossContamination, setCrossContamination = (v: string) => patchPilot({ crossContamination: v });
   const [supervisorName, setSupervisorName] = useState(initialData?.supervisor_name || ""); const [productionManagerName, setProductionManagerName] = useState(initialData?.production_manager_name || "");
   const [approvedByName, setApprovedByName] = useState(initialData?.approved_by_name || ""); const [customerRepName, setCustomerRepName] = useState(initialData?.customer_rep_name || "");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  // Optional ingredient columns (Protein/Fiber/Sugar/Energy) can be toggled; the 3 core columns are always shown.
+  const [hiddenIngCols, setHiddenIngCols] = useState<Record<string, boolean>>({});
+  const toggleIngCol = (key: string) => setHiddenIngCols((p) => ({ ...p, [key]: !p[key] }));
 
   const addSensoryRow = () => setSensoryRows((p) => [...p, emptySensoryRow(p.length + 1)]);
+  const addIngredientRow = () => setIngredientRows((p) => [...p, emptyIngredientRow(p.length + 1)]);
+  const removeIngredientRow = (id: number) => setIngredientRows((p) => p.filter((s) => s.id !== id));
   const OkSel = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <select
       value={value}
@@ -54,7 +208,7 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
   const fields = [
     { label: "Date", value: date, set: setDate, type: "date" }, { label: "Product Name", value: productName, set: setProductName },
     { label: "Customer Name", value: customerName, set: setCustomerName }, { label: "Trial No", value: trialNo, set: setTrialNo },
-    { label: "Persons Present for Trial", value: personsPresent, set: setPersonsPresent }, { label: "Ingredients Used", value: ingredientsUsed, set: setIngredientsUsed },
+    { label: "Persons Present for Trial", value: personsPresent, set: setPersonsPresent },
     { label: "Time & Temp for Preroasting (if applicable)", value: preroastingTemp, set: setPreroastingTemp }, { label: "Batch Number", value: batchNumber, set: setBatchNumber },
     { label: "Time & Temp for Baking/Roasting (if applicable)", value: bakingTemp, set: setBakingTemp },
     { label: "Ingredients Changed/Replaced (if any)", value: ingredientChanges, set: setIngredientChanges },
@@ -66,17 +220,12 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
     setSuccess(false);
     const payload: Record<string, any> = {
       warehouse: getStoredWarehouse() || null,
-      verify_date: date, product_name: productName, customer_name: customerName, trial_no: trialNo,
-      persons_present: personsPresent, ingredients_used: ingredientsUsed, preroasting_temp: preroastingTemp,
-      batch_number: batchNumber, baking_temp: bakingTemp, ingredient_changes: ingredientChanges,
-      flow_chart: flowChart, equipment_added: equipmentAdded,
-      sensory_rows: sensoryRows.filter((r) => r.panelName).map((r) => ({ panel_name: r.panelName, taste: r.taste, odor: r.odor, appearance: r.appearance, mouthfeel: r.mouthfeel, decision: r.decision, signature: r.signature })),
-      moisture: moisture ? Number(moisture) : null, fat: fat ? Number(fat) : null, acid_value: acidValue ? Number(acidValue) : null,
-      peroxide_value: peroxideValue ? Number(peroxideValue) : null, salt: salt ? Number(salt) : null, ph: ph ? Number(ph) : null,
-      lab_trial_name: labTrialName, pilot_qty: pilotQty, pilot_batch: pilotBatch,
-      pilot_success: pilotSuccess, pilot_persons: pilotPersons,
-      packaging_material: packagingMaterial, claims, regulatory,
-      shelf_life: shelfLife, storage_condition: storageCondition, haccp_impact: haccpImpact, cross_contamination: crossContamination,
+      // Trial 1 is mirrored to the top-level columns so list/view/print keep working.
+      ...trialPayload(trials[0]),
+      trials: trials.map(trialPayload),
+      // Pilot 1 is mirrored to the top-level columns so list/view/print keep working.
+      ...pilotPayload(pilots[0]),
+      pilots: pilots.map(pilotPayload),
       supervisor_name: supervisorName, production_manager_name: productionManagerName,
       approved_by_name: approvedByName, customer_rep_name: customerRepName,
     };
@@ -99,7 +248,32 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
     <div className="space-y-5">
       <section className="surface-card overflow-hidden">
         <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
-          <h2 className="text-sm font-bold text-ink-600">Trial Information</h2>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-sm font-bold text-ink-600">Trial Information</h2>
+            <button type="button" onClick={addTrial} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Trial</button>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            {trials.map((_, i) => (
+              <div
+                key={i}
+                className={`inline-flex items-center rounded-md border text-xs font-semibold transition-colors ${
+                  i === activeTrial ? "bg-brand-500 text-white border-brand-500" : "bg-cream-50 text-ink-500 border-cream-300 hover:border-brand-400"
+                }`}
+              >
+                <button type="button" onClick={() => setActiveTrial(i)} className="px-2.5 py-1">Trial {i + 1}</button>
+                {trials.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeTrial(i)}
+                    title={`Remove Trial ${i + 1}`}
+                    className={`pr-1.5 pl-0.5 leading-none ${i === activeTrial ? "text-white/80 hover:text-white" : "text-ink-300 hover:text-danger-600"}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </header>
         <div className="divide-y divide-cream-300">
           {fields.map((f) => (
@@ -110,6 +284,55 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
               </div>
             </div>
           ))}
+        </div>
+        <div className="border-t border-cream-300">
+          <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 bg-cream-100/40">
+            <h3 className="text-xs sm:text-sm font-semibold text-ink-500">Ingredients list</h3>
+            <button type="button" onClick={addIngredientRow} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Ingredient</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-cream-100/70 border-b border-cream-300">
+                <tr>
+                  {INGREDIENT_COLS.map((c) => {
+                    if (!c.optional) {
+                      return (
+                        <th key={c.key} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400 whitespace-nowrap">
+                          {c.label}
+                        </th>
+                      );
+                    }
+                    const hidden = !!hiddenIngCols[c.key];
+                    return (
+                      <th key={c.key} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400 whitespace-nowrap">
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer select-none" title={hidden ? `Show ${c.label}` : `Hide ${c.label}`}>
+                          <input type="checkbox" checked={!hidden} onChange={() => toggleIngCol(c.key)} className="accent-brand-600 w-3.5 h-3.5" />
+                          {!hidden && <span>{c.label}</span>}
+                        </label>
+                      </th>
+                    );
+                  })}
+                  <th className="px-2 py-2 w-10 text-[11px] font-semibold uppercase tracking-wider text-ink-400"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-cream-300">
+                {ingredientRows.map((r) => (
+                  <tr key={r.id} className="hover:bg-cream-100/60">
+                    {INGREDIENT_COLS.map((c) => (
+                      <td key={c.key} className="px-1 py-1">
+                        {!hiddenIngCols[c.key] && (
+                          <input type="text" value={r[c.key]} onChange={(e) => setIngredientRows((p) => p.map((s) => s.id === r.id ? { ...s, [c.key]: e.target.value } : s))} className={`input-base !py-1 !px-2 text-sm ${c.min}`} />
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-1 py-1 text-center">
+                      <button type="button" onClick={() => removeIngredientRow(r.id)} title="Remove ingredient" className="inline-flex items-center justify-center w-6 h-6 rounded-md text-danger-500 hover:bg-danger-50 hover:text-danger-600 transition-colors text-sm font-bold leading-none">✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -172,7 +395,32 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
 
       <section className="surface-card overflow-hidden">
         <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
-          <h2 className="text-sm font-bold text-ink-600">Pilot Run Details</h2>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-sm font-bold text-ink-600">Pilot Run Details</h2>
+            <button type="button" onClick={addPilot} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Pilot</button>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            {pilots.map((_, i) => (
+              <div
+                key={i}
+                className={`inline-flex items-center rounded-md border text-xs font-semibold transition-colors ${
+                  i === activePilot ? "bg-brand-500 text-white border-brand-500" : "bg-cream-50 text-ink-500 border-cream-300 hover:border-brand-400"
+                }`}
+              >
+                <button type="button" onClick={() => setActivePilot(i)} className="px-2.5 py-1">Pilot {i + 1}</button>
+                {pilots.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removePilot(i)}
+                    title={`Remove Pilot ${i + 1}`}
+                    className={`pr-1.5 pl-0.5 leading-none ${i === activePilot ? "text-white/80 hover:text-white" : "text-ink-300 hover:text-danger-600"}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </header>
         <div className="divide-y divide-cream-300">
           {[{ l: "Lab Scale Trial Done By", v: labTrialName, s: setLabTrialName }, { l: "Quantity for Pilot Run (kg)", v: pilotQty, s: setPilotQty }, { l: "Batch Number", v: pilotBatch, s: setPilotBatch },
@@ -427,7 +675,10 @@ interface GMPGHPInspectionProps {
 export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGHPInspectionProps = {}) {
   const [scores, setScores] = useState<Record<number, { obtained: string; remarks: string }>>(() => {
     if (initialData?.scores) return initialData.scores;
-    return {};
+    // New record: pre-fill Obtained with each item's Max score (editable).
+    const init: Record<number, { obtained: string; remarks: string }> = {};
+    GMP_SECTIONS.forEach((s) => s.items.forEach((i) => { init[i.sr] = { obtained: String(i.maxScore), remarks: "" }; }));
+    return init;
   });
   const [auditorName, setAuditorName] = useState(initialData?.auditor_name || "");
   const [auditeeName, setAuditeeName] = useState(initialData?.auditee_name || "");
@@ -458,6 +709,25 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
       : "border-danger-500 bg-danger-50/60 text-danger-600";
   const barColor = parseFloat(percentage) >= 85 ? "#16a34a" : parseFloat(percentage) >= 70 ? "#d97706" : "#dc2626";
 
+  // Scoring card — group the checklist into the three summary categories from the format.
+  const groupDefs: { label: string; match: (name: string) => boolean }[] = [
+    { label: "Manufacturing and facility", match: (n) => n !== "COLD STORAGE & WAREHOUSE" && n !== "TRANSPORT" },
+    { label: "Cold storage and warehouse", match: (n) => n === "COLD STORAGE & WAREHOUSE" },
+    { label: "Transport", match: (n) => n === "TRANSPORT" },
+  ];
+  const scoreGroups = groupDefs.map((g) => {
+    const items = GMP_SECTIONS.filter((s) => g.match(s.section)).flatMap((s) => s.items);
+    const max = items.reduce((sum, i) => sum + i.maxScore, 0);
+    const obtained = items.reduce((sum, i) => sum + (parseFloat(scores[i.sr]?.obtained || "0") || 0), 0);
+    return { label: g.label, max, obtained, percent: max > 0 ? ((obtained / max) * 100).toFixed(1) : "0" };
+  });
+  const RATING_BANDS = [
+    { range: "Above 85%", status: "Excellent", grade: "A" },
+    { range: "70-85%", status: "Average — Improvement needed", grade: "B" },
+    { range: "Below 70%", status: "Poor — Urgent attention needed", grade: "C" },
+  ];
+  const obtainedGrade = parseFloat(percentage) >= 85 ? "A" : parseFloat(percentage) >= 70 ? "B" : "C";
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setSuccess(false);
@@ -468,7 +738,7 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
       auditee_name: auditeeName,
       scores,
       percentage: parseFloat(percentage),
-      rating,
+      rating: obtainedGrade, // rating column is VARCHAR(4) — store just the grade letter (A/B/C); full text is display-only
       capa_rows: capaRows.filter((r) => r.nonConformity).map((r) => ({ non_conformity: r.nonConformity, corrective_action: r.correctiveAction, preventive_action: r.preventiveAction, done_by: r.doneBy, verified_by: r.verifiedBy })),
     };
     try {
@@ -549,6 +819,71 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
                     </tr>
                   ))}
                 </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Scoring Card</h2>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">Section Description</th>
+                {["Maximum Score", "Score Obtained", "Result (In %)"].map((h) => (
+                  <th key={h} className="px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {scoreGroups.map((g) => (
+                <tr key={g.label} className="hover:bg-cream-100/60">
+                  <td className="px-3 py-2 text-ink-600">{g.label}</td>
+                  <td className="px-3 py-2 text-center font-semibold text-ink-500">{g.max}</td>
+                  <td className="px-3 py-2 text-center font-semibold text-ink-600">{g.obtained}</td>
+                  <td className="px-3 py-2 text-center font-semibold text-ink-600">{g.percent}%</td>
+                </tr>
+              ))}
+              <tr className="bg-cream-100/70 font-bold">
+                <td className="px-3 py-2 text-ink-700">Total Score</td>
+                <td className="px-3 py-2 text-center text-ink-700">{totalMax}</td>
+                <td className="px-3 py-2 text-center text-ink-700">{totalObt}</td>
+                <td className="px-3 py-2 text-center text-ink-700">{percentage}%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Audit Rating Chart</h2>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70 border-b border-cream-300">
+              <tr>
+                {["% Score", "Status", "Rating", "Obtained Rating"].map((h) => (
+                  <th key={h} className="px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {RATING_BANDS.map((b, idx) => (
+                <tr key={b.grade} className={b.grade === obtainedGrade ? "bg-brand-50/60" : "hover:bg-cream-100/60"}>
+                  <td className="px-3 py-2 text-center text-ink-600">{b.range}</td>
+                  <td className="px-3 py-2 text-center text-ink-600">{b.status}</td>
+                  <td className="px-3 py-2 text-center font-bold text-ink-600">{b.grade}</td>
+                  {idx === 0 && (
+                    <td rowSpan={RATING_BANDS.length} className="px-3 py-2 text-center align-middle border-l border-cream-300">
+                      <span className="text-2xl font-bold text-brand-600">{obtainedGrade}</span>
+                    </td>
+                  )}
+                </tr>
               ))}
             </tbody>
           </table>

@@ -4,6 +4,33 @@ import {
   getPhysicalParams,
 } from "@/lib/constant";
 import { getSignaturePath, resolveSignatoryName } from "@/lib/signatures";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+
+/** IPQC print header block — varies per plant (document no., issue/revision dates). */
+interface IPQCHeader {
+  issueDate: string;
+  issueNo: string;
+  revisionDate: string;
+  revisionNo: string;
+  documentNo: string;
+}
+
+const IPQC_HEADERS: Record<string, IPQCHeader> = {
+  A185: {
+    issueDate: "04/08/2021",
+    issueNo: "03",
+    revisionDate: "02/02/2026",
+    revisionNo: "02",
+    documentNo: "CFPLB.C7.F.11a",
+  },
+  W202: {
+    issueDate: "01/11/2017",
+    issueNo: "03",
+    revisionDate: "01/10/2025",
+    revisionNo: "02",
+    documentNo: "CFPLA.C6.F.18",
+  },
+};
 
 interface Article {
   floor?: string;
@@ -151,6 +178,7 @@ function buildPageHtml(
   floorArticles: Article[],
   record: PrintRecord,
   logoUrl: string,
+  header: IPQCHeader,
 ): string {
   let bodyTableRows = "";
   for (let ai = 0; ai < floorArticles.length; ai++) {
@@ -167,21 +195,21 @@ function buildPageHtml(
         <td class="logo" rowspan="4"><img src="${logoUrl}" alt="Candor Foods" /></td>
         <td class="co co-name" colspan="7" rowspan="2">CANDOR FOODS PRIVATE LIMITED</td>
         <td class="il" colspan="2">Issue Date:</td>
-        <td class="iv">01/11/2017</td>
+        <td class="iv">${esc(header.issueDate)}</td>
       </tr>
       <tr class="hdr-row">
         <td class="il" colspan="2">Issue No:</td>
-        <td class="iv">03</td>
+        <td class="iv">${esc(header.issueNo)}</td>
       </tr>
       <tr class="hdr-row">
         <td class="co co-fmt" colspan="7">Format:&nbsp; In-process quality check record</td>
         <td class="il" colspan="2">Revision Date:</td>
-        <td class="iv">01/10/2025</td>
+        <td class="iv">${esc(header.revisionDate)}</td>
       </tr>
       <tr class="hdr-row">
-        <td class="co co-doc" colspan="7">Document No: CFPLA.C6.F.18</td>
+        <td class="co co-doc" colspan="7">Document No: ${esc(header.documentNo)}</td>
         <td class="il" colspan="2">Revision No.:</td>
-        <td class="iv">02</td>
+        <td class="iv">${esc(header.revisionNo)}</td>
       </tr>
       <tr class="info-row">
         <td colspan="11">
@@ -216,6 +244,7 @@ function buildPageHtml(
 function buildHtml(record: PrintRecord): string {
   const logoUrl = window.location.origin + "/candor-logo.jpg";
   const stampUrl = window.location.origin + "/controlled-copy-stamp.png";
+  const header = IPQC_HEADERS[getStoredWarehouse()] ?? IPQC_HEADERS.W202;
 
   const allArticles: Article[] = record.articles?.length
     ? record.articles
@@ -245,7 +274,7 @@ function buildHtml(record: PrintRecord): string {
   const pages = floorGroups.map(([floorName, floorArticles], idx) => {
     const isLast = idx === floorGroups.length - 1;
     return `<div class="print-page" style="page-break-after:${isLast ? "auto" : "always"};break-after:${isLast ? "auto" : "page"};">
-      ${buildPageHtml(floorName, floorArticles, record, logoUrl)}
+      ${buildPageHtml(floorName, floorArticles, record, logoUrl, header)}
     </div>`;
   }).join("\n");
 

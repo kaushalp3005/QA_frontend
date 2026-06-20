@@ -5,6 +5,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import SignatureCell from "@/components/ui/SignatureCell";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+
+/** Print header block — varies per plant (document no., issue/revision dates). */
+const HEADERS: Record<string, { issueDate: string; issueNo: string; revisionDate: string; revisionNo: string; documentNo: string }> = {
+  A185: {
+    issueDate: "02/01/2024",
+    issueNo: "02",
+    revisionDate: "02/02/2026",
+    revisionNo: "01",
+    documentNo: "CFPLB.C4.F.25",
+  },
+  W202: {
+    issueDate: "08/02/2023",
+    issueNo: "03",
+    revisionDate: "01/10/2025",
+    revisionNo: "02",
+    documentNo: "CFPLA.C4.F.22",
+  },
+};
 
 const TOOLS = ["SIEVES", "SCOOPS", "Scissors/Knife", "SS BOWLS", "SS GLASS", "HAND MAGNET", "Gloves"];
 const PARAMETERS = [
@@ -74,6 +93,8 @@ export default function ProductionToolIssuancePrintPage() {
     blocks.push({ date: "", data: {}, remark: "", checked_by: "", verified_by: "" });
   }
 
+  const header = HEADERS[getStoredWarehouse()] ?? HEADERS.W202;
+
   return (
     <div className="min-h-screen bg-gray-300 print:bg-white">
       <div className="print:hidden sticky top-0 z-20 bg-white shadow-md px-5 py-3 flex items-center justify-between">
@@ -111,23 +132,23 @@ export default function ProductionToolIssuancePrintPage() {
               </td>
               <td style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>CANDOR FOODS PRIVATE LIMITED</td>
               <td style={tdHead}>Issue Date:</td>
-              <td style={tdHead}>08/02/2023</td>
+              <td style={tdHead}>{header.issueDate}</td>
             </tr>
             <tr>
               <td rowSpan={2} style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>
                 Format: Production Tools Issuance and Integrity Check Record
               </td>
               <td style={tdHead}>Issue No:</td>
-              <td style={{ ...tdHead, fontWeight: "bold" }}>03</td>
+              <td style={{ ...tdHead, fontWeight: "bold" }}>{header.issueNo}</td>
             </tr>
             <tr>
               <td style={tdHead}>Revision Date:</td>
-              <td style={{ ...tdHead, fontWeight: "bold" }}>01/10/2025</td>
+              <td style={{ ...tdHead, fontWeight: "bold" }}>{header.revisionDate}</td>
             </tr>
             <tr>
-              <td style={{ ...tdHead, textAlign: "center" }}>Document No.: CFPLA.C4.F.22</td>
+              <td style={{ ...tdHead, textAlign: "center" }}>Document No.: {header.documentNo}</td>
               <td style={tdHead}>Revision No.:</td>
-              <td style={tdHead}>02</td>
+              <td style={tdHead}>{header.revisionNo}</td>
             </tr>
           </tbody>
         </table>

@@ -16,6 +16,7 @@ export const PRINTABLE_SLUGS = new Set<string>([
   "dailycleaningchecklist",
   "equipmentcleaningsanitation",
   "preproductioninspection",
+  "weighingscalecalibration",
 ])
 
 export const DOC_FORMS: Record<string, DocFormConfig> = {

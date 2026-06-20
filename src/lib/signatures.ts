@@ -34,12 +34,13 @@ export const VERIFIED_BY_OPTIONS: SignatureOption[] = [
  * Sarvesh Davande / Swapnil Mahajan are A185 staff. Each appears only in its own plant.
  */
 export const CHECKED_BY_OPTIONS: SignatureOption[] = [
+  { name: 'Pooja Parkar',     signature: '/signatures/pooja-parkar.png',    role: 'Quality Manager' }, // QC head → all documents, both plants
   { name: 'Pooja Mhalim',     signature: '/signatures/pooja-mhalim.png',    role: 'Quality Control Executive', warehouses: ['W202'] },
   { name: 'Shraddha Jadhav',  signature: '/signatures/shraddha-jadhav.png', role: 'Quality Control Executive', warehouses: ['W202'] },
   { name: 'Pankaj Gosavi',    signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Sarvesh Davande',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Swapnil Mahajan',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
-  { name: 'Tejashri Jadhav',  signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Tejashri Jadhav',  signature: '/signatures/tejashri-jadhav.png', role: 'Quality Control Executive' },
   { name: 'Other',            signature: null },
 ]
 
@@ -54,7 +55,7 @@ export const QC_VERIFIED_BY_OPTIONS: SignatureOption[] = [
   { name: 'Pankaj Gosavi',    signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Sarvesh Davande',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Swapnil Mahajan',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
-  { name: 'Tejashri Jadhav',  signature: null,                              role: 'Quality Control Executive' },
+  { name: 'Tejashri Jadhav',  signature: '/signatures/tejashri-jadhav.png', role: 'Quality Control Executive' },
   { name: 'Other',            signature: null },
 ]
 

@@ -1,4 +1,8 @@
 'use client'
-import DocViewPage from '@/components/documentations/DocViewPage'
+import DocEditWrapper from '@/components/documentations/DocEditWrapper'
 import { DOC_FORMS } from '@/config/doc-forms'
-export default function Page() { return <DocViewPage config={DOC_FORMS['weighingscalecalibration']} /> }
+import { WeighingScaleCalibrationForm } from '@/components/forms/WeighingScaleCalibrationForm'
+
+export default function Page() {
+  return <DocEditWrapper config={DOC_FORMS['weighingscalecalibration']} FormComponent={WeighingScaleCalibrationForm} />
+}

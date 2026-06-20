@@ -6,6 +6,7 @@ import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import SignatureCell from "@/components/ui/SignatureCell";
 import { normalizeDCC, DCC_DAYS, type NormalizedDCC } from "@/lib/dailyCleaning";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 const DAYS = Array.from({ length: DCC_DAYS }, (_, i) => i + 1);
 
@@ -46,7 +47,15 @@ export default function DailyCleaningChecklistPrintPage() {
 
   const floors = data?.floors || [];
   const title = data?.title || "Daily Cleaning checklist";
-  const docNo = data?.documentNo || "CFPLA.C4.F.54";
+
+  // A185 prints its own plant-specific header (CFPLB code); other plants keep
+  // the record-stored values with the existing fallbacks.
+  const isA185 = getStoredWarehouse() === "A185";
+  const docNo = isA185 ? "CFPLB.C4.F.49" : data?.documentNo || "CFPLA.C4.F.54";
+  const issueDate = isA185 ? "04/08/2021" : data?.issueDate || "01/11/2017";
+  const issueNo = isA185 ? "04" : data?.issueNo || "04";
+  const revDate = isA185 ? "02/02/2026" : data?.revDate || "13/12/2025";
+  const revNo = isA185 ? "03" : data?.revNo || "03";
 
   return (
     <div className="min-h-screen bg-gray-300 print:bg-white">
@@ -88,23 +97,23 @@ export default function DailyCleaningChecklistPrintPage() {
                 </td>
                 <td colSpan={2} style={{ ...tdHead, fontWeight: "bold" }}>CANDOR FOODS PRIVATE LIMITED</td>
                 <td style={tdHead}>Issue Date</td>
-                <td style={tdHead}>{data?.issueDate || "01/11/2017"}</td>
+                <td style={tdHead}>{issueDate}</td>
               </tr>
               <tr>
                 <td style={{ ...tdHead, width: "120px" }}>Document Name:</td>
                 <td style={{ ...tdHead, fontWeight: "bold" }}>{title}</td>
                 <td style={tdHead}>Issue No</td>
-                <td style={tdHead}>{data?.issueNo || "04"}</td>
+                <td style={tdHead}>{issueNo}</td>
               </tr>
               <tr>
                 <td rowSpan={2} style={{ ...tdHead }}>Document Number:</td>
                 <td rowSpan={2} style={{ ...tdHead }}>{docNo}</td>
                 <td style={tdHead}>Rev. Date</td>
-                <td style={tdHead}>{data?.revDate || "13/12/2025"}</td>
+                <td style={tdHead}>{revDate}</td>
               </tr>
               <tr>
                 <td style={tdHead}>Rev. No</td>
-                <td style={tdHead}>{data?.revNo || "03"}</td>
+                <td style={tdHead}>{revNo}</td>
               </tr>
             </tbody>
           </table>

@@ -90,6 +90,10 @@ export default function DailyCleaningTypeForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
 
+  // "Terrace" is a W202-only area; other plants keep the base list.
+  const areaOptions =
+    getStoredWarehouse() === "W202" ? [...AREA_OPTIONS, "Terrace"] : AREA_OPTIONS;
+
   const updateFloor = (idx: number, updater: (f: DCCFloor) => DCCFloor) =>
     setFloors((prev) => prev.map((f, i) => (i === idx ? updater(f) : f)));
 
@@ -275,17 +279,17 @@ export default function DailyCleaningTypeForm({
         <div className="px-4 pt-4 max-w-md">
           <label className="label-base">Area (Floor Name) <span className="text-danger-600">*</span></label>
           <select
-            value={AREA_OPTIONS.includes(floor.area) ? floor.area : floor.area === "" ? "" : "__other__"}
+            value={areaOptions.includes(floor.area) ? floor.area : floor.area === "" ? "" : "__other__"}
             onChange={(e) => setArea(e.target.value === "__other__" ? " " : e.target.value)}
             className="input-base"
           >
             <option value="">Select area…</option>
-            {AREA_OPTIONS.map((o) => (
+            {areaOptions.map((o) => (
               <option key={o} value={o}>{o}</option>
             ))}
             <option value="__other__">Other…</option>
           </select>
-          {!AREA_OPTIONS.includes(floor.area) && floor.area !== "" && (
+          {!areaOptions.includes(floor.area) && floor.area !== "" && (
             <input
               type="text"
               value={floor.area}

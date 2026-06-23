@@ -1,5 +1,7 @@
 // frontend/src/lib/api/documentations.ts
 
+import { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 function getUserEmail(): string | null {
@@ -28,15 +30,21 @@ async function request<T = any>(url: string, options: RequestInit = {}): Promise
 }
 
 export const docsApi = {
+  // Stamp the active warehouse onto every new record so it is stored in the
+  // `warehouse` column (caller can override by passing `warehouse` explicitly).
+  // The backend drops the key for tables that have no warehouse column.
   create: (formType: string, data: Record<string, any>) =>
     request<{ success: boolean; data: Record<string, any> }>(
       `${API_BASE}/api/docs/${formType}`,
-      { method: 'POST', body: JSON.stringify(data) }
+      { method: 'POST', body: JSON.stringify({ warehouse: getStoredWarehouse(), ...data }) }
     ),
 
+  // Filter the listing to the active warehouse by default. Callers can override
+  // (e.g. pass `warehouse: null` to list across all plants).
   list: (formType: string, params: Record<string, any> = {}) => {
+    const merged = { warehouse: getStoredWarehouse(), ...params }
     const qs = new URLSearchParams(
-      Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== ''))
+      Object.fromEntries(Object.entries(merged).filter(([, v]) => v != null && v !== ''))
     ).toString()
     return request<{
       success: boolean

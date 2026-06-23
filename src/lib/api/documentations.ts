@@ -42,7 +42,7 @@ export const docsApi = {
   // Filter the listing to the active warehouse by default. Callers can override
   // (e.g. pass `warehouse: null` to list across all plants).
   list: (formType: string, params: Record<string, any> = {}) => {
-    const merged = { warehouse: getStoredWarehouse(), ...params }
+    const merged: Record<string, any> = { warehouse: getStoredWarehouse(), ...params }
     const qs = new URLSearchParams(
       Object.fromEntries(Object.entries(merged).filter(([, v]) => v != null && v !== ''))
     ).toString()

@@ -123,17 +123,19 @@ const INITIAL_SECTIONS: AreaSection[] = [
   },
 ];
 
-// The first section ("Production Floor (General)") holds the 16 general points.
-// Those same points must also appear at the top of every other floor's checklist.
+// The first entry ("Production Floor (General)") holds the 16 general points.
+// Those same points appear at the top of every floor's checklist, but the
+// standalone "Production Floor (General)" tab itself is not shown.
 const GENERAL_ITEMS: CheckItem[] = INITIAL_SECTIONS[0].items;
 
-// Prepend the 16 general points to every floor area (except the General section
-// itself, which already is those points), renumbering Sr. sequentially.
-const SECTIONS_WITH_GENERAL: AreaSection[] = INITIAL_SECTIONS.map((s, idx) => {
-  if (idx === 0) return s;
-  const merged = [...GENERAL_ITEMS, ...s.items];
-  return { ...s, items: merged.map((it, i) => ({ ...it, sr: i + 1 })) };
-});
+// Drop the standalone General section, then prepend the 16 general points to
+// every remaining floor area, renumbering Sr. sequentially.
+const SECTIONS_WITH_GENERAL: AreaSection[] = INITIAL_SECTIONS
+  .filter((_, idx) => idx !== 0)
+  .map((s) => {
+    const merged = [...GENERAL_ITEMS, ...s.items];
+    return { ...s, items: merged.map((it, i) => ({ ...it, sr: i + 1 })) };
+  });
 
 const withDefaults: AreaSection[] = SECTIONS_WITH_GENERAL.map((s) => ({
   ...s,

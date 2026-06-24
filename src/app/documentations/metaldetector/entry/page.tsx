@@ -342,6 +342,13 @@ export default function MetalDetectorEntryPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // A time may be used only once per record — block a duplicate row time.
+    if (records.some(r => r.time === formData.time)) {
+      alert(`An entry with time ${to12Hour(formData.time)} already exists in this record. Please pick a different time.`)
+      return
+    }
+
     setIsSavingEntry(true)
 
     try {

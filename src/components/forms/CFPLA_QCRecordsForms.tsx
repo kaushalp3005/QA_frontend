@@ -1,8 +1,44 @@
 "use client";
 import { Fragment, useState } from "react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import {
+  CHECKED_BY_OPTIONS,
+  QC_VERIFIED_BY_OPTIONS,
+  filterSignaturesByWarehouse,
+  type SignatureOption,
+} from "@/lib/signatures";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+/** Compact per-day signatory dropdown, warehouse-filtered like the other docs. */
+function CompactSignSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: SignatureOption[];
+}) {
+  const visible = filterSignaturesByWarehouse(options, getStoredWarehouse());
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full text-[10px] px-0.5 py-0.5 border border-cream-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+      title={value || "Select"}
+    >
+      <option value="">—</option>
+      {visible
+        .filter((o) => o.name !== "Other")
+        .map((o) => (
+          <option key={o.name} value={o.name}>
+            {o.name}
+          </option>
+        ))}
+    </select>
+  );
+}
 
 // F.17 - Temperature & Humidity Record
 interface TemperatureHumidityProps {
@@ -15,25 +51,55 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
   const [month, setMonth] = useState(initialData?.month || "");
   const [area, setArea] = useState(initialData?.area || "");
   const days = 31;
-  const [grid, setGrid] = useState<Record<number, { temp: string; humidity: string }[]>>(() => {
-    if (initialData?.grid) return initialData.grid;
-    const init: Record<number, { temp: string; humidity: string }[]> = {};
-    for (let d = 1; d <= days; d++) init[d] = [{ temp: "", humidity: "" }, { temp: "", humidity: "" }, { temp: "", humidity: "" }];
-    return init;
-  });
+
+  // Parse the stored `readings` array back into the editable grid + per-day signs.
+  const parsed = (() => {
+    const grid: Record<number, { temp: string; humidity: string }[]> = {};
+    const check: Record<number, string> = {};
+    const verify: Record<number, string> = {};
+    for (let d = 1; d <= days; d++) {
+      grid[d] = [{ temp: "", humidity: "" }, { temp: "", humidity: "" }, { temp: "", humidity: "" }];
+    }
+    const readings = Array.isArray(initialData?.readings) ? initialData!.readings : [];
+    for (const r of readings) {
+      const d = Number(r.day);
+      if (!d || d < 1 || d > days) continue;
+      grid[d] = [
+        { temp: r.start_temp ?? "", humidity: r.start_humidity ?? "" },
+        { temp: r.mid_temp ?? "", humidity: r.mid_humidity ?? "" },
+        { temp: r.end_temp ?? "", humidity: r.end_humidity ?? "" },
+      ];
+      check[d] = r.checked_by ?? "";
+      verify[d] = r.verified_by ?? "";
+    }
+    return { grid, check, verify };
+  })();
+
+  const [grid, setGrid] = useState<Record<number, { temp: string; humidity: string }[]>>(parsed.grid);
   const updateCell = (day: number, idx: number, field: "temp" | "humidity", value: string) =>
     setGrid((p) => ({ ...p, [day]: p[day].map((r, i) => (i === idx ? { ...r, [field]: value } : r)) }));
-  const [checkedBy, setCheckedBy] = useState(initialData?.checked_by || "");
-  const [verifiedBy, setVerifiedBy] = useState(initialData?.verified_by || "");
+  // Per-day Checked By / Verified By signatures (keyed by day number).
+  const [signCheck, setSignCheck] = useState<Record<number, string>>(parsed.check);
+  const [signVerify, setSignVerify] = useState<Record<number, string>>(parsed.verify);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const handleSubmit = async () => {
     setSubmitting(true);
     setSuccess(false);
+    const readings = Array.from({ length: days }, (_, i) => {
+      const d = i + 1;
+      const [s, m, e] = grid[d];
+      return {
+        day: d,
+        start_temp: s.temp, mid_temp: m.temp, end_temp: e.temp,
+        start_humidity: s.humidity, mid_humidity: m.humidity, end_humidity: e.humidity,
+        checked_by: signCheck[d] || "", verified_by: signVerify[d] || "",
+      };
+    });
     const payload: Record<string, any> = {
       warehouse: getStoredWarehouse() || null,
-      month, area, grid, checked_by: checkedBy, verified_by: verifiedBy,
+      month, area, readings,
     };
     try {
       if (onSubmit) {
@@ -107,27 +173,38 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
                   </tr>
                 </Fragment>
               ))}
+              {/* Per-day Checked By / Verified By signatory dropdowns */}
+              <tr className="bg-cream-100/40">
+                <td className="px-2 py-1 sticky left-0 bg-cream-100 z-10 font-semibold text-ink-500 text-xs">Checked By</td>
+                {Array.from({ length: days }, (_, d) => (
+                  <td key={d + 1} className="px-0.5 py-0.5 border-l border-cream-300">
+                    <CompactSignSelect
+                      value={signCheck[d + 1] || ""}
+                      onChange={(v) => setSignCheck((p) => ({ ...p, [d + 1]: v }))}
+                      options={CHECKED_BY_OPTIONS}
+                    />
+                  </td>
+                ))}
+              </tr>
+              <tr className="bg-cream-100/40">
+                <td className="px-2 py-1 sticky left-0 bg-cream-100 z-10 font-semibold text-ink-500 text-xs">Verified By</td>
+                {Array.from({ length: days }, (_, d) => (
+                  <td key={d + 1} className="px-0.5 py-0.5 border-l border-cream-300">
+                    <CompactSignSelect
+                      value={signVerify[d + 1] || ""}
+                      onChange={(v) => setSignVerify((p) => ({ ...p, [d + 1]: v }))}
+                      options={QC_VERIFIED_BY_OPTIONS}
+                    />
+                  </td>
+                ))}
+              </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <section className="surface-card p-4 sm:p-5">
-        <h2 className="text-sm font-bold text-ink-600 mb-3">Approvals</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="label-base">Checked By</label>
-            <input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">Verified By</label>
-            <input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" />
-          </div>
-        </div>
-      </section>
-
       <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <p className="text-xs text-ink-400">Frequency: Start, Mid and End of shift</p>
+        <p className="text-xs text-ink-400">Frequency: Start, Mid and End of shift · Set Checked By / Verified By per day in the grid above.</p>
         <div className="flex items-center gap-3">
           {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
           <button onClick={handleSubmit} disabled={submitting} className="btn-primary">

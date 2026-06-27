@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, LayoutTemplate, Search, X, Play } from 'lucide-react'
+import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, LayoutTemplate, Search, X, Play, ChevronRight } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { docsApi, isDocAdmin } from '@/lib/api/documentations'
@@ -20,7 +20,9 @@ export default function ProductWeightCheckListPage() {
   const [total, setTotal] = useState(0)
   const [warehouse, setWarehouse] = useState<string>('')
   const [newLayout, setNewLayout] = useState(false)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const admin = isDocAdmin()
+  const toggleDate = (d: string) => setExpanded((p) => ({ ...p, [d]: !p[d] }))
 
   const fetchRecords = async () => {
     setLoading(true)
@@ -59,6 +61,10 @@ export default function ProductWeightCheckListPage() {
   const printUrl = (id: number) =>
     `/documentations/productweightcheck/print?id=${id}${newLayout ? '&newLayout=1' : ''}`
 
+  // Combined print for a whole date — entries oldest-first (id ascending).
+  const printAllUrl = (ids: number[]) =>
+    `/documentations/productweightcheck/print?ids=${ids.join(',')}${newLayout ? '&newLayout=1' : ''}`
+
   const formatValue = (val: any): string => {
     if (val == null || val === '') return '—'
     if (typeof val === 'object') return JSON.stringify(val).slice(0, 50) + '...'
@@ -74,6 +80,19 @@ export default function ProductWeightCheckListPage() {
           .some((v) => (v ?? '').toString().toLowerCase().includes(query))
       )
     : records
+
+  // Group entries by check_date → one date = one (expandable) row.
+  const groupMap = new Map<string, Record<string, any>[]>()
+  for (const rec of filtered) {
+    const key = rec.check_date || '—'
+    if (!groupMap.has(key)) groupMap.set(key, [])
+    groupMap.get(key)!.push(rec)
+  }
+  const groups = Array.from(groupMap.entries()).map(([date, recs]) => ({
+    date,
+    recs,
+    ids: [...recs].sort((a, b) => (a.id ?? 0) - (b.id ?? 0)).map((r) => r.id), // oldest first
+  }))
 
   return (
     <DashboardLayout>
@@ -212,65 +231,103 @@ export default function ProductWeightCheckListPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-cream-300 bg-cream-100/70">
-                    <th className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">#</th>
-                    {config.listColumns.map((col) => (
-                      <th key={col} className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">
-                        {col.replace(/_/g, ' ')}
-                      </th>
-                    ))}
+                    <th className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400 w-10"></th>
+                    <th className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">Check Date</th>
+                    <th className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">Entries</th>
+                    <th className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">Products</th>
                     <th className="px-4 py-3 text-right font-semibold text-[11px] tracking-wider uppercase text-ink-400">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cream-300">
-                  {filtered.map((rec, i) => (
-                    <tr key={rec.id} className="hover:bg-cream-100/60 transition-colors">
-                      <td className="px-4 py-3 text-ink-400 font-medium">{(page - 1) * 50 + i + 1}</td>
-                      {config.listColumns.map((col) => (
-                        <td key={col} className="px-4 py-3 text-ink-600">{formatValue(rec[col])}</td>
-                      ))}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}`)}
-                            className="action-btn-3d action-btn-blue"
-                            title="View"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => router.push(`/documentations/${config.routeSlug}/create?id=${rec.id}`)}
-                            className="action-btn-3d action-btn-orange"
-                            title="Continue (resume in the create form)"
-                          >
-                            <Play className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}/edit`)}
-                            className="action-btn-3d action-btn-amber"
-                            title="Edit"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => router.push(printUrl(rec.id))}
-                            className={`action-btn-3d ${newLayout ? 'action-btn-purple' : 'action-btn-green'}`}
-                            title={newLayout ? 'Print (New Layout)' : 'Print'}
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
-                          {admin && (
-                            <button
-                              onClick={() => handleDelete(rec.id)}
-                              className="action-btn-3d action-btn-red"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {groups.map((g) => {
+                    const open = !!expanded[g.date]
+                    const products = g.recs.map((r) => r.product_name).filter(Boolean)
+                    const productSummary =
+                      products.slice(0, 3).join(', ') + (products.length > 3 ? `, +${products.length - 3} more` : '')
+                    return (
+                      <Fragment key={g.date}>
+                        {/* Date group header — click to expand */}
+                        <tr
+                          className="hover:bg-cream-100/60 transition-colors cursor-pointer bg-cream-50/40"
+                          onClick={() => toggleDate(g.date)}
+                        >
+                          <td className="px-4 py-3 text-ink-400">
+                            <ChevronRight className={`w-4 h-4 transition-transform ${open ? 'rotate-90' : ''}`} />
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-ink-600">{g.date}</td>
+                          <td className="px-4 py-3 text-ink-500">{g.recs.length} entr{g.recs.length > 1 ? 'ies' : 'y'}</td>
+                          <td className="px-4 py-3 text-ink-500 max-w-xs truncate">{productSummary || '—'}</td>
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => router.push(printAllUrl(g.ids))}
+                                className={`action-btn-3d ${newLayout ? 'action-btn-purple' : 'action-btn-green'}`}
+                                title={`Print all ${g.recs.length} entries${newLayout ? ' (New Layout)' : ''}`}
+                              >
+                                <Printer className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {/* Individual entries for this date */}
+                        {open && g.recs.map((rec, i) => (
+                          <tr key={rec.id} className="hover:bg-cream-100/40 transition-colors">
+                            <td className="px-4 py-2.5 text-right text-xs text-ink-300">{i + 1}</td>
+                            <td className="px-4 py-2.5"></td>
+                            <td className="px-4 py-2.5 text-ink-600" colSpan={2}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{formatValue(rec.product_name)}</span>
+                                <span className="text-xs text-ink-400">
+                                  Batch {formatValue(rec.batch_no)} · {formatValue(rec.customer)} · {formatValue(rec.location)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}`)}
+                                  className="action-btn-3d action-btn-blue"
+                                  title="View"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => router.push(`/documentations/${config.routeSlug}/create?id=${rec.id}`)}
+                                  className="action-btn-3d action-btn-orange"
+                                  title="Continue (resume in the create form)"
+                                >
+                                  <Play className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}/edit`)}
+                                  className="action-btn-3d action-btn-amber"
+                                  title="Edit"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => router.push(printUrl(rec.id))}
+                                  className={`action-btn-3d ${newLayout ? 'action-btn-purple' : 'action-btn-green'}`}
+                                  title={newLayout ? 'Print (New Layout)' : 'Print'}
+                                >
+                                  <Printer className="w-4 h-4" />
+                                </button>
+                                {admin && (
+                                  <button
+                                    onClick={() => handleDelete(rec.id)}
+                                    className="action-btn-3d action-btn-red"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

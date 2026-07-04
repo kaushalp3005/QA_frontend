@@ -344,7 +344,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
         <div className="hidden lg:block w-44 shrink-0 sticky top-4 self-start">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">Items</p>
-            <ol className="space-y-0.5">
+            <ol className="space-y-0.5 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
               {articles.map((art, idx) => (
                 <li key={idx}>
                   <button

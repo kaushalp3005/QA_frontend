@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Scale, Plus, X, ChevronDown, ChevronUp, Trash2, Package, Loader2, CheckCircle2, Save, Check } from "lucide-react";
+import { Scale, Plus, X, Copy, Trash2, Package, Loader2, CheckCircle2, Save, Check } from "lucide-react";
 import Time12Picker from "@/components/Time12Picker";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { docsApi } from "@/lib/api/documentations";
@@ -194,8 +194,26 @@ export default function ProductWeightSealCheckRecord() {
     });
   };
 
-  const toggleCollapse = (entryId: string) => {
-    setProducts(prev => prev.map(p => p.entryId === entryId ? { ...p, collapsed: !p.collapsed } : p));
+  // Duplicate an existing product into a fresh, unsaved entry at the end of the list.
+  const recreateProduct = (entryId: string) => {
+    const newIdx = products.length;
+    setProducts(prev => {
+      const src = prev.find(p => p.entryId === entryId);
+      if (!src) return prev;
+      const clone: ProductEntry = {
+        ...src,
+        entryId: String(++_entryCounter),
+        savedId: null,   // fresh copy — not yet in the DB
+        saving: false,
+        dirty: false,
+        collapsed: false,
+        rows: src.rows.map(r => ({ ...r })),
+      };
+      return [...prev, clone];
+    });
+    setTimeout(() => {
+      document.getElementById(`product-${newIdx}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   const updateEntry = (entryId: string, updates: Partial<ProductEntry>) => {
@@ -386,8 +404,45 @@ export default function ProductWeightSealCheckRecord() {
           ? "Continuing a saved product — edit any field and tap Update to store the change."
           : "Each product saves on its own. Tap Save on a product, then leave anytime and resume later via Continue on the records list."}
       </div>
+
+      <div className="flex gap-4 items-start">
+        {/* ── Left product sidebar ─────────────────────── */}
+        <aside className="hidden lg:block w-44 shrink-0 sticky top-4 self-start">
+          <div className="surface-card p-3">
+            <p className="text-[10px] font-bold text-ink-400 uppercase tracking-widest mb-2 px-1">Products</p>
+            <ol className="space-y-0.5 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
+              {products.map((product, idx) => (
+                <li key={product.entryId}>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById(`product-${idx}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs hover:bg-brand-50 transition-colors group text-left"
+                  >
+                    <span className="w-5 h-5 rounded-md bg-brand-100 flex items-center justify-center text-[10px] font-bold text-brand-600 shrink-0 group-hover:bg-brand-200">
+                      {idx + 1}
+                    </span>
+                    <span className="text-ink-500 truncate group-hover:text-brand-600 leading-tight">
+                      {product.productName || `Product ${idx + 1}`}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => recreateProduct(product.entryId)}
+                    title="Duplicate this product as a new entry at the end"
+                    className="ml-7 mb-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50 transition-colors"
+                  >
+                    <Copy className="w-3 h-3" /> Recreate
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </aside>
+
+        {/* ── Main content ─────────────────────────────── */}
+        <div className="flex-1 min-w-0 space-y-5">
       {products.map((product, productIdx) => (
-        <div key={product.entryId} className="border border-cream-300 rounded-xl overflow-hidden">
+        <div key={product.entryId} id={`product-${productIdx}`} className="border border-cream-300 rounded-xl overflow-hidden scroll-mt-4">
           {/* Product block header */}
           <div className="flex items-center justify-between px-4 py-3 bg-cream-50 border-b border-cream-300">
             <div className="flex items-center gap-2 min-w-0">
@@ -432,19 +487,10 @@ export default function ProductWeightSealCheckRecord() {
                   <Trash2 className="w-3.5 h-3.5" /> {product.savedId ? "Delete" : "Remove"}
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => toggleCollapse(product.entryId)}
-                className="inline-flex items-center gap-1 text-xs text-ink-500 hover:bg-cream-200 px-2 py-1 rounded"
-              >
-                {product.collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                {product.collapsed ? "Expand" : "Collapse"}
-              </button>
             </div>
           </div>
 
-          {!product.collapsed && (
-            <div className="p-4 space-y-5">
+          <div className="p-4 space-y-5">
               {/* Batch Information */}
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400 mb-2">Batch Information</p>
@@ -593,8 +639,7 @@ export default function ProductWeightSealCheckRecord() {
                 <label className="label-base">Remarks</label>
                 <textarea value={product.remarks} onChange={(e) => updateEntry(product.entryId, { remarks: e.target.value })} rows={2} className="input-base" placeholder="Optional remarks for this product..." />
               </div>
-            </div>
-          )}
+          </div>
         </div>
       ))}
 
@@ -639,6 +684,8 @@ export default function ProductWeightSealCheckRecord() {
               ? `Save All ${products.length} & Finish`
               : "Save & Finish"}
           </button>
+        </div>
+      </div>
         </div>
       </div>
       </>

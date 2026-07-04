@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 // ===================== F.13 — New Product Verification =====================
@@ -178,6 +179,7 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
   const storageCondition = pl.storageCondition, setStorageCondition = (v: string) => patchPilot({ storageCondition: v });
   const haccpImpact = pl.haccpImpact, setHaccpImpact = (v: string) => patchPilot({ haccpImpact: v });
   const crossContamination = pl.crossContamination, setCrossContamination = (v: string) => patchPilot({ crossContamination: v });
+  const router = useRouter();
   const [supervisorName, setSupervisorName] = useState(initialData?.supervisor_name || ""); const [productionManagerName, setProductionManagerName] = useState(initialData?.production_manager_name || "");
   const [approvedByName, setApprovedByName] = useState(initialData?.approved_by_name || ""); const [customerRepName, setCustomerRepName] = useState(initialData?.customer_rep_name || "");
   const [submitting, setSubmitting] = useState(false);
@@ -236,6 +238,7 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
         const { docsApi } = await import("@/lib/api/documentations");
         await docsApi.create("new-product-verification", payload);
         setSuccess(true);
+        router.push("/documentations/new-product-verification");
       }
     } catch (e: any) {
       alert(e.message || "Submit failed");

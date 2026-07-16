@@ -196,11 +196,14 @@ export async function getComplaintById(id: string | number, company: string): Pr
  * Get complaint by complaint_id (string format like CCNFS-2025-11-002)
  */
 export async function getComplaintByComplaintId(complaintId: string, company: string): Promise<ComplaintResponse> {
-  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/by-complaint-id/${complaintId}?company=${company}`, {
+  const token = localStorage.getItem('access_token')
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/by-complaint-id/${encodeURIComponent(complaintId)}?company=${company}&_t=${Date.now()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
     },
+    cache: 'no-store'
   })
 
   const result = await response.json()
@@ -317,6 +320,63 @@ export async function deleteSampleVideo(
 
   if (!result.success) {
     throw new Error(result.message || 'Failed to delete video')
+  }
+
+  return result
+}
+
+export interface CategoryTrendMonth {
+  month: string // 'YYYY-MM'
+  total: number
+  categories: Record<string, number>
+}
+
+export interface ComplaintSubcategoryCount {
+  key: string
+  label: string
+  count: number
+}
+
+export interface CategoryTrendResponse {
+  success: boolean
+  data: {
+    fromDate: string
+    toDate: string
+    categories: string[]
+    trend: CategoryTrendMonth[]
+    subcategories: ComplaintSubcategoryCount[]
+    totalComplaints: number
+  }
+}
+
+/**
+ * Get item-category-wise monthly complaint trend, plus a complaint subcategory
+ * breakdown, for a date range. Omit fromDate/toDate for the trailing 6 months.
+ */
+export async function getComplaintCategoryTrend(params: {
+  company: string
+  fromDate?: string
+  toDate?: string
+}): Promise<CategoryTrendResponse> {
+  const queryParams = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      queryParams.append(key, value.toString())
+    }
+  })
+
+  const response = await fetch(`${COMPLAINTS_BASE_URL}/complaints/category-trend?${queryParams.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  const result = await response.json()
+
+  if (!response.ok || !result.success) {
+    throw new Error(result.detail || result.message || 'Failed to fetch complaint category trend')
   }
 
   return result

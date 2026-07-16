@@ -8,6 +8,7 @@ Save the following images into this folder with these **exact filenames**:
 | `shraddha-jadhav.png` | Shraddha Jadhav's signature | Analysed-by signature |
 | `pooja-parkar.png` | Pooja Parkar's signature | Verified-by signature (Quality Manager) |
 | `pooja-mhalim.png` | Pooja Mhalim's signature | Analysed-by signature |
+| `tejashri-jadhav.png` | Tejashri Jadhav's signature | Checked By / Verified By signature (QC documentation forms) |
 
-These are referenced by `/signatures/<filename>` in the COA print page.
+These are referenced by `/signatures/<filename>` in the COA print page and the QC documentation print pages.
 PNG with transparent background works best.

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ArrowLeft, Check, Loader2, X } from 'lucide-react'
+import { ArrowLeft, Check, Loader2, X, Copy, Pencil } from 'lucide-react'
 import WarehouseSelector, { getStoredWarehouse, WarehouseCode } from '@/components/ui/WarehouseSelector'
 import SignaturePicker from '@/components/ui/SignaturePicker'
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from '@/lib/signatures'
@@ -217,6 +217,8 @@ export default function MetalDetectorEntryPage() {
 
   const [formData, setFormData] = useState<MetalDetectorFormData>(getDefaultFormData)
   const [records, setRecords] = useState<MetalDetectorFormData[]>([])
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)  // row being edited (null = add mode)
+  const formCardRef = useRef<HTMLDivElement>(null)
   const [currentRecordId, setCurrentRecordId] = useState<number | null>(null)
   const [batchId, setBatchId] = useState<string>('')
   const [isSavingEntry, setIsSavingEntry] = useState(false)
@@ -340,16 +342,96 @@ export default function MetalDetectorEntryPage() {
     }
   }
 
+  // Map the local camelCase form into the backend's snake_case entry fields (used for PUT update).
+  const toEntryPayload = (fd: MetalDetectorFormData) => ({
+    entry_date: fd.date,
+    entry_time: fd.time,
+    identification_no: fd.identificationNo,
+    location: fd.location,
+    machine_details: fd.machineDetails,
+    customer_name: fd.customerName,
+    product_name: fd.productName,
+    batch_lot_no: fd.batchLotNo,
+    sensitivity_fe: fd.sensitivityFE,
+    sensitivity_nfe: fd.sensitivityNFE,
+    sensitivity_ss: fd.sensitivitySS,
+    sensitivity_fe_checked: fd.sensitivityFEChecked,
+    sensitivity_nfe_checked: fd.sensitivityNFEChecked,
+    sensitivity_ss_checked: fd.sensitivitySSChecked,
+    corrective_action_on_detector: fd.correctiveActionOnDetector,
+    corrective_action_on_product: fd.correctiveActionOnProduct,
+    calibrated_by: fd.calibratedBy,
+    verified_by: fd.verifiedBy,
+    remarks: fd.remarks,
+  })
+
+  const scrollToForm = () => formCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  // Copy a saved row's values into the form as a brand-new entry (date/time reset to now,
+  // since the same time can't repeat for one detector). User tweaks & taps "Add Row".
+  // Any carried id/dbEntryId is harmless: add-mode saves via POST (backend ignores extras)
+  // and is overwritten with the fresh ids once the new entry is saved.
+  const handleRecreateEntry = (index: number) => {
+    setEditingIndex(null)
+    setFormData({
+      ...records[index],
+      id: undefined,
+      dbEntryId: undefined,
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toTimeString().slice(0, 5),
+    })
+    scrollToForm()
+  }
+
+  // Load a saved row into the form for in-place editing (keeps its date/time).
+  // The DB target is resolved from editingIndex → records[editingIndex].dbEntryId on submit.
+  const handleEditEntry = (index: number) => {
+    setFormData({ ...records[index] })
+    setEditingIndex(index)
+    scrollToForm()
+  }
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null)
+    setFormData(getDefaultFormData())
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // A time may be used only once per record — block a duplicate row time.
-    if (records.some(r => r.time === formData.time)) {
-      alert(`An entry with time ${to12Hour(formData.time)} already exists in this record. Please pick a different time.`)
+    // A time may be used only once per Identification No — different detectors can share a time.
+    // Skip the row currently being edited so it doesn't clash with itself.
+    if (records.some((r, i) => i !== editingIndex && r.time === formData.time && r.identificationNo === formData.identificationNo)) {
+      alert(`An entry with time ${to12Hour(formData.time)} already exists for this Identification No. Please pick a different time.`)
       return
     }
 
     setIsSavingEntry(true)
+
+    // ── Edit mode: update the existing DB entry in place ──
+    if (editingIndex !== null) {
+      const target = records[editingIndex]
+      try {
+        const response = await fetch(`${API_BASE}/metaldetector/entry/${target.dbEntryId}?warehouse=${selectedWarehouse}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(toEntryPayload(formData)),
+        })
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}))
+          throw new Error(errData.detail || `Failed to update entry: ${response.statusText}`)
+        }
+        setRecords(prev => prev.map((r, i) => (i === editingIndex ? { ...formData, id: r.id, dbEntryId: r.dbEntryId } : r)))
+        setEditingIndex(null)
+        setFormData(getDefaultFormData())
+      } catch (error: any) {
+        console.error('Error updating entry:', error)
+        alert(error.message || 'Failed to update entry. Please try again.')
+      } finally {
+        setIsSavingEntry(false)
+      }
+      return
+    }
 
     try {
       const response = await fetch(`${API_BASE}/metaldetector/entry?warehouse=${selectedWarehouse}`, {
@@ -456,6 +538,7 @@ export default function MetalDetectorEntryPage() {
     if (confirm('Are you sure you want to clear all form data and records? This action cannot be undone.')) {
       setFormData(getDefaultFormData())
       setRecords([])
+      setEditingIndex(null)
       setCurrentRecordId(null)
       setBatchId('')
     }
@@ -536,7 +619,12 @@ export default function MetalDetectorEntryPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm sm:shadow-lg border border-gray-200">
+        <div
+          ref={formCardRef}
+          className={`bg-white rounded-xl shadow-sm sm:shadow-lg border scroll-mt-16 transition-shadow ${
+            editingIndex !== null ? 'border-amber-400 ring-2 ring-amber-300' : 'border-gray-200'
+          }`}
+        >
           <div className="bg-gradient-to-r from-brand-500 to-brand-600 px-4 sm:px-6 py-3 sm:py-4 rounded-t-xl">
             <h3 className="text-base sm:text-xl font-bold text-white leading-tight">
               CCP Calibration & Verification Record
@@ -553,6 +641,21 @@ export default function MetalDetectorEntryPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="px-3 sm:px-5 py-3 sm:py-4 space-y-4">
+            {editingIndex !== null && (
+              <div className="flex items-center justify-between gap-2 -mt-1 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5">
+                  <Pencil className="w-3.5 h-3.5 flex-shrink-0" />
+                  Editing entry #{editingIndex + 1} — update the fields and tap “Update Row”.
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="text-xs font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2 flex-shrink-0"
+                >
+                  Cancel edit
+                </button>
+              </div>
+            )}
             {/* Detector Selection */}
             <div className="space-y-3">
               <div>
@@ -886,18 +989,26 @@ export default function MetalDetectorEntryPage() {
             <div className="sticky bottom-0 z-10 flex gap-3 pt-3 pb-2 bg-white border-t border-gray-200 shadow-[0_-6px_16px_-8px_rgba(0,0,0,0.18)]">
               <button
                 type="button"
-                onClick={() => router.push('/documentations/metaldetector')}
+                onClick={editingIndex !== null ? handleCancelEdit : () => router.push('/documentations/metaldetector')}
                 className="flex-1 sm:flex-none px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors"
               >
-                Cancel
+                {editingIndex !== null ? 'Cancel Edit' : 'Cancel'}
               </button>
               <button
                 type="submit"
                 disabled={isSavingEntry}
-                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg shadow-sm text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 active:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg shadow-sm text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                  editingIndex !== null
+                    ? 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700'
+                    : 'bg-brand-500 hover:bg-brand-600 active:bg-brand-700'
+                }`}
               >
                 {isSavingEntry && <Loader2 className="w-4 h-4 animate-spin" />}
-                {isSavingEntry ? 'Saving...' : '+ Add Row'}
+                {isSavingEntry
+                  ? 'Saving...'
+                  : editingIndex !== null
+                  ? 'Update Row'
+                  : '+ Add Row'}
               </button>
             </div>
           </form>
@@ -917,18 +1028,11 @@ export default function MetalDetectorEntryPage() {
             {/* Mobile card view */}
             <div className="sm:hidden divide-y divide-gray-100">
               {records.map((record, index) => (
-                <div key={record.id || index} className="px-4 py-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900">{record.identificationNo}</span>
-                      <span className="text-xs text-gray-500">{to12Hour(record.time)}</span>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteEntry(index)}
-                      className="text-xs text-red-500 active:text-red-700 px-2 py-1"
-                    >
-                      Delete
-                    </button>
+                <div key={record.id || index} className={`px-4 py-3 space-y-2 ${editingIndex === index ? 'bg-amber-50' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-400">#{index + 1}</span>
+                    <span className="text-sm font-semibold text-gray-900">{record.identificationNo}</span>
+                    <span className="text-xs text-gray-500">{to12Hour(record.time)}</span>
                   </div>
                   <div className="text-sm text-gray-700">
                     {record.customerName} &middot; {record.productName}
@@ -948,6 +1052,28 @@ export default function MetalDetectorEntryPage() {
                   <div className="text-xs text-gray-500">
                     By: {record.calibratedBy} &middot; Verified: {record.verifiedBy}
                   </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    {isAuthorized && (
+                      <button
+                        onClick={() => handleEditEntry(index)}
+                        className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium text-blue-600 bg-blue-50 active:bg-blue-100 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" /> Edit
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleRecreateEntry(index)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium text-brand-600 bg-brand-50 active:bg-brand-100 transition-colors"
+                    >
+                      <Copy className="w-3.5 h-3.5" /> Recreate
+                    </button>
+                    <button
+                      onClick={() => handleDeleteEntry(index)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium text-red-600 bg-red-50 active:bg-red-100 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -966,12 +1092,12 @@ export default function MetalDetectorEntryPage() {
                       <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sensitivities</th>
                       <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calibrated</th>
                       <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified</th>
-                      <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                      <th className="px-2 py-1.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {records.map((record, index) => (
-                      <tr key={record.id || index} className="hover:bg-gray-50">
+                      <tr key={record.id || index} className={editingIndex === index ? 'bg-amber-50' : 'hover:bg-gray-50'}>
                         <td className="px-2 py-1.5 text-sm text-gray-900">{to12Hour(record.time)}</td>
                         <td className="px-2 py-1.5 text-sm font-medium text-gray-900">{record.identificationNo}</td>
                         <td className="px-2 py-1.5 text-sm text-gray-900">{record.customerName}</td>
@@ -995,13 +1121,32 @@ export default function MetalDetectorEntryPage() {
                         </td>
                         <td className="px-2 py-1.5 text-sm text-gray-900">{record.calibratedBy}</td>
                         <td className="px-2 py-1.5 text-sm text-gray-900">{record.verifiedBy}</td>
-                        <td className="px-2 py-1.5 text-sm">
-                          <button
-                            onClick={() => handleDeleteEntry(index)}
-                            className="text-red-600 hover:text-red-800 text-sm"
-                          >
-                            Delete
-                          </button>
+                        <td className="px-2 py-1.5 text-sm whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            {isAuthorized && (
+                              <button
+                                onClick={() => handleEditEntry(index)}
+                                title="Edit this entry"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                              >
+                                <Pencil className="w-3.5 h-3.5" /> Edit
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleRecreateEntry(index)}
+                              title="Recreate: copy this entry into the form"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-brand-600 hover:bg-brand-50 transition-colors"
+                            >
+                              <Copy className="w-3.5 h-3.5" /> Recreate
+                            </button>
+                            <button
+                              onClick={() => handleDeleteEntry(index)}
+                              title="Delete this entry"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" /> Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

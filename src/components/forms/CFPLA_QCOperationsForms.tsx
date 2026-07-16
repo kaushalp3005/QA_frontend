@@ -308,7 +308,11 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit }: Traceabili
 // ===================== F.32 — Lux Monitoring Record =====================
 interface LuxRow { id: number; location: string; tableNo: string; r1: string; r2: string; r3: string; r4: string; r5: string; correctiveAction: string; }
 const eLux = (id: number, loc: string): LuxRow => ({ id, location: loc, tableNo: "", r1: "", r2: "", r3: "", r4: "", r5: "", correctiveAction: "" });
-const LUX_LOCATIONS = ["Lower Basement", "", "", "", "", "", "", "", "", "First Floor Mezzanine", "", "", "", "", "", ""];
+// Source: 32) CFPLA.C4.F.32 Lux Monitoring Record.docx
+const LUX_LOCATIONS = [
+  "Lower Basement", "Upper Basement", "Lab", "RM Inspection", "RM Dock", "RM Store", "Printing Area",
+  "First Floor", "First Floor Mezzanine", "Second Floor", "Second Floor Mezzanine", "Terrace",
+];
 
 interface LuxMonitoringRecordProps {
   initialData?: Record<string, any>;

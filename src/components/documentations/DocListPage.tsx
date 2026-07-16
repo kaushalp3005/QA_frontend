@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, Search, X } from 'lucide-react'
+import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, Copy, Search, X } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { docsApi, isDocAdmin } from '@/lib/api/documentations'
-import { PRINTABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
+import { PRINTABLE_SLUGS, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 
 interface Props {
   config: DocFormConfig
@@ -23,6 +23,7 @@ export default function DocListPage({ config }: Props) {
   const [warehouse, setWarehouse] = useState<string>('')
   const admin = isDocAdmin()
   const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
+  const showDuplicate = DUPLICATABLE_SLUGS.has(config.routeSlug)
 
   const fetchRecords = async () => {
     setLoading(true)
@@ -91,7 +92,9 @@ export default function DocListPage({ config }: Props) {
             </div>
             <div className="min-w-0">
               <h1 className="text-lg sm:text-xl font-bold text-ink-600 tracking-tight leading-tight truncate">
-                {config.label}
+                {config.titlePrefixByWarehouse?.[warehouse]
+                  ? `${config.titlePrefixByWarehouse[warehouse]} ${config.label}`
+                  : config.label}
               </h1>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="inline-flex items-center rounded-full bg-brand-50 text-brand-600 text-[11px] font-semibold px-2 py-0.5">
@@ -235,6 +238,16 @@ export default function DocListPage({ config }: Props) {
                               aria-label="Print"
                             >
                               <Printer className="w-4 h-4" />
+                            </button>
+                          )}
+                          {showDuplicate && (
+                            <button
+                              onClick={() => router.push(`/documentations/${config.routeSlug}/create?duplicateFrom=${rec.id}`)}
+                              className="action-btn-3d action-btn-purple"
+                              title="Duplicate (recreate as new record)"
+                              aria-label="Duplicate"
+                            >
+                              <Copy className="w-4 h-4" />
                             </button>
                           )}
                           {admin && (

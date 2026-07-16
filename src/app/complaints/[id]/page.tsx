@@ -21,7 +21,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDateShort, formatDateTime } from '@/lib/date-utils'
 import { useCompany } from '@/contexts/CompanyContext'
 import { usePermissions } from '@/hooks/usePermissions'
-import { getComplaintById, type ComplaintResponse } from '@/lib/api/complaints'
+import { getComplaintById, getComplaintByComplaintId, type ComplaintResponse } from '@/lib/api/complaints'
 import { isAuthenticated } from '@/lib/api/auth'
 import { toast } from 'react-hot-toast'
 
@@ -65,8 +65,15 @@ export default function ComplaintViewPage() {
   const fetchComplaintData = async () => {
     try {
       setLoading(true)
-      const data = await getComplaintById(complaintId, currentCompany)
-      
+      // The route param may be a numeric PK (in-app links) or a string complaint
+      // code like "CCNFS-2025-11-002" (e.g. links shared from notification emails).
+      // Any non-digit means it's a complaint code → use the by-complaint-id endpoint,
+      // otherwise the backend's int-typed /complaints/{id} route rejects it with a 422.
+      const isComplaintCode = /\D/.test(complaintId)
+      const data = isComplaintCode
+        ? await getComplaintByComplaintId(complaintId, currentCompany)
+        : await getComplaintById(complaintId, currentCompany)
+
       // Remove duplicate images using Set
       if (data.proofImages && Array.isArray(data.proofImages)) {
         const originalCount = data.proofImages.length
@@ -164,7 +171,7 @@ export default function ComplaintViewPage() {
           </div>
           {canEdit('complaints') && (
             <Link
-              href={`/complaints/edit/${complaintId}`}
+              href={`/complaints/edit/${complaint.id}`}
               className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
             >
               <Edit className="h-4 w-4 mr-2" />

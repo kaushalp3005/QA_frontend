@@ -11,6 +11,7 @@ import { useCompany } from '@/contexts/CompanyContext'
 import { usePermissions } from '@/hooks/usePermissions'
 import PageHeader from '@/components/ui/PageHeader'
 import { Spinner, Skeleton } from '@/components/ui/Loader'
+import ComplaintCategoryTrend from '@/components/complaint/ComplaintCategoryTrend'
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -190,6 +191,8 @@ export default function ComplaintsPage() {
             ) : null
           }
         />
+
+        <ComplaintCategoryTrend />
 
         {/* Complaints Table */}
         <div className="surface-card overflow-hidden animate-fade-in-up">

@@ -32,7 +32,7 @@ function fmt(date: string) {
   return `${d}/${m}/${y}`;
 }
 
-function PageHeader() {
+function PageHeader({ docNo, revisionDate }: { docNo: string; revisionDate: string }) {
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
       <tbody>
@@ -53,10 +53,10 @@ function PageHeader() {
         </tr>
         <tr>
           <td rowSpan={2} style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>
-            Document No: CFPLA.C6.F.07
+            Document No: {docNo}
           </td>
           <td style={tdHead}>Revision Date:</td>
-          <td style={tdHead}>13/12/2025</td>
+          <td style={tdHead}>{revisionDate}</td>
         </tr>
         <tr>
           <td style={tdHead}>Revision No.:</td>
@@ -118,6 +118,11 @@ export default function PreProductionInspectionPrintPage() {
   const firstSection = sections[0];
   const restSections = sections.slice(1);
 
+  // A185 records print under the CFPLB.C6.F.47 format; all others keep CFPLA.C6.F.07.
+  const isA185 = record?.warehouse === "A185";
+  const docNo = isA185 ? "CFPLB.C6.F.47" : "CFPLA.C6.F.07";
+  const revisionDate = isA185 ? "02/02/2026" : "13/12/2025";
+
   return (
     <div className="min-h-screen bg-gray-300 print:bg-white">
       <div className="print:hidden sticky top-0 z-20 bg-white shadow-md px-5 py-3 flex items-center justify-between">
@@ -151,7 +156,7 @@ export default function PreProductionInspectionPrintPage() {
             flexDirection: "column",
           }}
         >
-          <PageHeader />
+          <PageHeader docNo={docNo} revisionDate={revisionDate} />
           <div style={{ marginTop: "10px", marginBottom: "6px", display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "bold" }}>
             <span>Date - <span style={{ fontWeight: "normal" }}>{record?.inspection_date ? fmt(record.inspection_date) : ""}</span></span>
           </div>
@@ -219,7 +224,7 @@ export default function PreProductionInspectionPrintPage() {
             pageBreakBefore: "always",
           }}
         >
-          <PageHeader />
+          <PageHeader docNo={docNo} revisionDate={revisionDate} />
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px", marginTop: "10px" }}>
             <thead>
               <tr>

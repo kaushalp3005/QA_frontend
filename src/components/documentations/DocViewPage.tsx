@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Printer } from 'lucide-react'
+import { Printer, Copy } from 'lucide-react'
 import { docsApi, isDocAdmin } from '@/lib/api/documentations'
-import { PRINTABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
+import { PRINTABLE_SLUGS, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 import SignatureCell from '@/components/ui/SignatureCell'
 
 const SIGNATURE_FIELD_KEYS = new Set([
@@ -39,6 +39,7 @@ export default function DocViewPage({ config }: Props) {
   const [nextId, setNextId] = useState<number | null>(null)
   const admin = isDocAdmin()
   const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
+  const showDuplicate = DUPLICATABLE_SLUGS.has(config.routeSlug)
 
   useEffect(() => {
     if (!id) return
@@ -182,7 +183,16 @@ export default function DocViewPage({ config }: Props) {
                 <Printer className="w-4 h-4" /> Print
               </button>
             )}
-            <button onClick={() => router.push(`/documentations/${config.routeSlug}/${id}/edit`)} className={`px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 ${showPrint ? '' : 'ml-2'}`}>Edit</button>
+            {showDuplicate && (
+              <button
+                onClick={() => router.push(`/documentations/${config.routeSlug}/create?duplicateFrom=${id}`)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 ${showPrint ? '' : 'ml-2'}`}
+                title="Duplicate this record as a new entry"
+              >
+                <Copy className="w-4 h-4" /> Duplicate
+              </button>
+            )}
+            <button onClick={() => router.push(`/documentations/${config.routeSlug}/${id}/edit`)} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 ml-2">Edit</button>
             {admin && <button onClick={handleDelete} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700">Delete</button>}
           </div>
         </div>

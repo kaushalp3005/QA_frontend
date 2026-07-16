@@ -140,21 +140,21 @@ export default function CCPRoastingMonitoring() {
     setSuccess(false);
     const payload: Record<string, any> = {
       warehouse: getStoredWarehouse() || null,
-      entries: entries.map((e) => ({
+      // Flat shape matching the `rows` JSONB column (and existing sample data) —
+      // NOT nested, so the generic backend column-filter actually persists it.
+      rows: entries.map((e) => ({
         date: e.date, product_name: e.productName, customer: e.customer,
-        set_temperature: e.setTemperature, quantity: e.quantity,
-        roasting_stage: e.roastingStage, duration: e.duration,
+        set_temp: e.setTemperature, quantity: e.quantity,
+        roasting_stage: e.roastingStage, duration_min: e.duration,
         in_time: e.inTime, out_time: e.outTime,
+        start_time: e.monitoringPoints.startObsTime,
+        start_temp: e.monitoringPoints.startObsTemp,
+        mid_time: e.monitoringPoints.middleObsTime,
+        mid_temp: e.monitoringPoints.middleObsTemp,
+        end_time: e.monitoringPoints.endObsTime,
+        end_temp: e.monitoringPoints.endObsTemp,
         operator_sign: e.operatorSign, corrective_action: e.correctiveAction,
         qc_verification: e.qcVerification,
-        monitoring_points: {
-          start_obs_time: e.monitoringPoints.startObsTime,
-          start_obs_temp: e.monitoringPoints.startObsTemp,
-          middle_obs_time: e.monitoringPoints.middleObsTime,
-          middle_obs_temp: e.monitoringPoints.middleObsTemp,
-          end_obs_time: e.monitoringPoints.endObsTime,
-          end_obs_temp: e.monitoringPoints.endObsTemp,
-        },
       })),
     };
     try {

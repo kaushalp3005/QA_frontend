@@ -33,23 +33,24 @@ const emptyEntry = (): RoastingEntry => ({
   monitoringPoints: { startObsTime: "", startObsTemp: "", middleObsTime: "", middleObsTemp: "", endObsTime: "", endObsTemp: "" },
 });
 
+// Reads the flat shape stored in the `rows` JSONB column.
 function normalizeEntries(raw: any[]): RoastingEntry[] {
   if (!Array.isArray(raw) || raw.length === 0) return [emptyEntry(), emptyEntry(), emptyEntry()];
   return raw.map((e: any, i: number) => ({
     id: i + 1,
     date: e.date || "", productName: e.product_name || "", customer: e.customer || "",
-    setTemperature: e.set_temperature || "", quantity: e.quantity || "",
-    roastingStage: e.roasting_stage || "", duration: e.duration || "",
+    setTemperature: e.set_temp || "", quantity: e.quantity || "",
+    roastingStage: e.roasting_stage || "", duration: e.duration_min || "",
     inTime: e.in_time || "", outTime: e.out_time || "",
     operatorSign: e.operator_sign || "", correctiveAction: e.corrective_action || "No",
     qcVerification: e.qc_verification || "",
     monitoringPoints: {
-      startObsTime:  e.monitoring_points?.start_obs_time  || "",
-      startObsTemp:  e.monitoring_points?.start_obs_temp  || "",
-      middleObsTime: e.monitoring_points?.middle_obs_time || "",
-      middleObsTemp: e.monitoring_points?.middle_obs_temp || "",
-      endObsTime:    e.monitoring_points?.end_obs_time    || "",
-      endObsTemp:    e.monitoring_points?.end_obs_temp    || "",
+      startObsTime:  e.start_time || "",
+      startObsTemp:  e.start_temp || "",
+      middleObsTime: e.mid_time   || "",
+      middleObsTemp: e.mid_temp   || "",
+      endObsTime:    e.end_time   || "",
+      endObsTemp:    e.end_temp   || "",
     },
   }));
 }
@@ -73,7 +74,7 @@ export default function RoastingTemperatureEditPage() {
 
   useEffect(() => {
     docsApi.get("roastingtemperature", recordId)
-      .then((res) => setEntries(normalizeEntries(res.data?.entries || [])))
+      .then((res) => setEntries(normalizeEntries(res.data?.rows || [])))
       .catch(() => setLoadError("Failed to load record."))
       .finally(() => setLoadingData(false));
   }, [recordId]);
@@ -113,21 +114,19 @@ export default function RoastingTemperatureEditPage() {
     try {
       await docsApi.update("roastingtemperature", recordId, {
         warehouse: getStoredWarehouse() || null,
-        entries: entries.map((e) => ({
+        rows: entries.map((e) => ({
           date: e.date, product_name: e.productName, customer: e.customer,
-          set_temperature: e.setTemperature, quantity: e.quantity,
-          roasting_stage: e.roastingStage, duration: e.duration,
+          set_temp: e.setTemperature, quantity: e.quantity,
+          roasting_stage: e.roastingStage, duration_min: e.duration,
           in_time: e.inTime, out_time: e.outTime,
+          start_time: e.monitoringPoints.startObsTime,
+          start_temp: e.monitoringPoints.startObsTemp,
+          mid_time: e.monitoringPoints.middleObsTime,
+          mid_temp: e.monitoringPoints.middleObsTemp,
+          end_time: e.monitoringPoints.endObsTime,
+          end_temp: e.monitoringPoints.endObsTemp,
           operator_sign: e.operatorSign, corrective_action: e.correctiveAction,
           qc_verification: e.qcVerification,
-          monitoring_points: {
-            start_obs_time: e.monitoringPoints.startObsTime,
-            start_obs_temp: e.monitoringPoints.startObsTemp,
-            middle_obs_time: e.monitoringPoints.middleObsTime,
-            middle_obs_temp: e.monitoringPoints.middleObsTemp,
-            end_obs_time: e.monitoringPoints.endObsTime,
-            end_obs_temp: e.monitoringPoints.endObsTemp,
-          },
         })),
       });
       router.push("/documentations/roastingtemperature");

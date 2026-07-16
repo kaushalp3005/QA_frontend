@@ -8,6 +8,8 @@ export interface DocFormConfig {
   listColumns: string[]
   routeSlug: string
   printable?: boolean
+  /** Warehouse-specific text prefixed in front of `label` (e.g. A185 → "Tray Roaster"). */
+  titlePrefixByWarehouse?: Record<string, string>
 }
 
 export const PRINTABLE_SLUGS = new Set<string>([
@@ -18,6 +20,15 @@ export const PRINTABLE_SLUGS = new Set<string>([
   "preproductioninspection",
   "weighingscalecalibration",
   "new-product-verification",
+  "roastingtemperature",
+  "lux-monitoring",
+])
+
+// Forms whose create page supports pre-filling from an existing record
+// (?duplicateFrom=<id>), so a full entry can be "recreated" as a new record
+// instead of retyping every field.
+export const DUPLICATABLE_SLUGS = new Set<string>([
+  "lux-monitoring",
 ])
 
 export const DOC_FORMS: Record<string, DocFormConfig> = {
@@ -29,7 +40,7 @@ export const DOC_FORMS: Record<string, DocFormConfig> = {
   preproductioninspection:   { formType: "preproductioninspection",   routeSlug: "preproductioninspection",   label: "Pre-Production Inspection",        docNo: "CFPLA.C6.F.07",  dateField: "inspection_date", listColumns: ["inspection_date", "warehouse", "created_at"] },
   lineclearancerecord:       { formType: "lineclearancerecord",       routeSlug: "lineclearancerecord",       label: "Line Clearance Record",            docNo: "CFPLA.C5.F.44",  dateField: null,              listColumns: ["area", "warehouse", "created_at"] },
   personalhygienecheckup:    { formType: "personalhygienecheckup",    routeSlug: "personalhygienecheckup",    label: "Personal Hygiene & Health Checkup",docNo: "CFPLA.C7.F.39",  dateField: "check_date",      listColumns: ["check_date", "area", "checked_by", "warehouse"] },
-  roastingtemperature:       { formType: "roastingtemperature",       routeSlug: "roastingtemperature",       label: "Roasting Temperature & Time",      docNo: "CFPLA.C2.F.42",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
+  roastingtemperature:       { formType: "roastingtemperature",       routeSlug: "roastingtemperature",       label: "Roasting Temperature & Time",      docNo: "CFPLA.C2.F.42",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"], titlePrefixByWarehouse: { A185: "Tray Roaster" } },
   weighingscalecalibration:  { formType: "weighingscalecalibration",  routeSlug: "weighingscalecalibration",  label: "Weighing Scale Calibration",       docNo: "CFPLA.C6.F.41",  dateField: "inspection_date", listColumns: ["inspection_date", "calibrated_by", "verified_by", "warehouse"] },
   "water-analysis":          { formType: "water-analysis",            routeSlug: "water-analysis",            label: "Water Analysis Record",            docNo: "CFPLA.C4.F.04",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   "incident-report":         { formType: "incident-report",           routeSlug: "incident-report",           label: "Food Safety Incident Report",      docNo: "CFPLA.C5.F.05",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },

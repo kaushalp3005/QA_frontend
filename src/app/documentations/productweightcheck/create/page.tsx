@@ -254,10 +254,11 @@ export default function ProductWeightSealCheckRecord() {
     }));
   };
 
-  const autofillColumn = (entryId: string, field: "packingMaterialWeight" | "netWeight" | "observedGrossWeight" | "checkedBy" | "verifiedBy") => {
+  const autofillColumn = (entryId: string, field: "packingMaterialWeight" | "netWeight" | "observedGrossWeight" | "n2Percent" | "checkedBy" | "verifiedBy") => {
     setProducts(prev => prev.map(p => {
       if (p.entryId !== entryId) return p;
-      const firstFilled = p.rows.find(r => r[field] !== "");
+      // Skip "" and the "-" placeholder (N₂ % defaults to "-") when picking the source value.
+      const firstFilled = p.rows.find(r => r[field] !== "" && r[field] !== "-");
       if (!firstFilled) return p;
       const val = firstFilled[field];
       return {
@@ -276,7 +277,7 @@ export default function ProductWeightSealCheckRecord() {
     }));
   };
 
-  const fillAllBtn = (entryId: string, field: "packingMaterialWeight" | "netWeight" | "observedGrossWeight" | "checkedBy" | "verifiedBy") => (
+  const fillAllBtn = (entryId: string, field: "packingMaterialWeight" | "netWeight" | "observedGrossWeight" | "n2Percent" | "checkedBy" | "verifiedBy") => (
     <button
       type="button"
       onClick={() => autofillColumn(entryId, field)}
@@ -575,7 +576,9 @@ export default function ProductWeightSealCheckRecord() {
                         </th>
                         <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Deviation</th>
                         <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">Seal/Drop Test</th>
-                        <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">N₂ %</th>
+                        <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">
+                          <div className="flex flex-col items-center gap-1"><span>N₂ %</span>{fillAllBtn(product.entryId, "n2Percent")}</div>
+                        </th>
                         <th className="px-2 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-ink-400">
                           <div className="flex flex-col items-center gap-1"><span>Checked By</span>{fillAllBtn(product.entryId, "checkedBy")}</div>
                         </th>

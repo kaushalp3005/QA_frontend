@@ -142,11 +142,111 @@ const withDefaults: AreaSection[] = SECTIONS_WITH_GENERAL.map((s) => ({
   items: s.items.map((i) => ({ ...i, status: "OK" as Status })),
 }));
 
+// ── A185 variant (CFPLB.C6.F.47) ────────────────────────────────────────────
+// A185 uses a different checklist. Like W202, the "General" checkpoints are not
+// a standalone tab — they are prepended to the top of every area's checklist
+// (Packing area, Production floor). The General entry below is only the source
+// of those shared points and is dropped as a standalone section.
+const A185_INITIAL_SECTIONS: AreaSection[] = [
+  {
+    area: "General",
+    lineStatus: "", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    items: [
+      { sr: 1, particular: "Waste/Trash Area", checkpoint: "Waste bins are empty and clean at the dedicated area.", status: "", correctiveAction: "" },
+      { sr: 2, particular: "Production Floor/Ceilings/walls", checkpoint: "The area is clean and debris-free. Floors, walls, windows, coving, cable trays, and ceilings are clean and free from dust and cobwebs. Dry and wet waste materials are properly contained and removed from the processing area.", status: "", correctiveAction: "" },
+      { sr: 3, particular: "Hygiene Filler Equipment", checkpoint: "Equipment soap solution, hand wash solution and sanitizer bottles are in place, clean, and filled with solutions, with proper labels.", status: "", correctiveAction: "" },
+      { sr: 4, particular: "Hand wash station", checkpoint: "The washbasin, foot-operated taps, and hand dryer are clean & in working condition. No leakage is found. Cleaning tanks are clean & without any remnants of material.", status: "", correctiveAction: "" },
+      { sr: 5, particular: "Pest Control", checkpoint: "No pest activity observed; roadboxes are in place and intact, free from rodents & droppings on floor or equipment or products stored on pallets, cable tray, and fly catchers are operational. Check for tube light & glue pad integrity.", status: "", correctiveAction: "" },
+      { sr: 6, particular: "Personal Hygiene", checkpoint: "Uniforms are clean, hairnets are worn properly, and there is no unauthorized jewelry. Workers' nails aren't grown, no bandages and gloves are worn while handling the food.", status: "", correctiveAction: "" },
+      { sr: 7, particular: "Weighing Scales", checkpoint: "Calibrate scales for accuracy; check cleaning of all surfaces of scales and stands.", status: "", correctiveAction: "" },
+      { sr: 8, particular: "SS Bowl/Sieves/SS Tray/Bottom", checkpoint: "No remnants of the previous material. Visual observation of clean, dry, and chemical-odor-free. Check sieve integrity.", status: "", correctiveAction: "" },
+      { sr: 9, particular: "Light intensity", checkpoint: "Before starting production, check the intensity of the lights on the tables and floor. All tubes are in working condition.", status: "", correctiveAction: "" },
+      { sr: 10, particular: "Packaging material", checkpoint: "Printed packaging and labels from the previous production have been removed from the line before changing to the next production. Is the batch coding as per the legal requirement.", status: "", correctiveAction: "" },
+      { sr: 11, particular: "Glass, brittle acrylic, and fiber material", checkpoint: "Check all the glass, brittle, acrylic, and fibrous material on the floor and production line. They should be properly numbered and without any damage or cracks.", status: "", correctiveAction: "" },
+      { sr: 12, particular: "Metallic pens", checkpoint: "Only metallic pens are used by all personnel working in the production area.", status: "", correctiveAction: "" },
+      { sr: 13, particular: "Pallets/Crates", checkpoint: "Pallets and crates are clean as per frequency. Free from product residue, pests & cobwebs.", status: "", correctiveAction: "" },
+      { sr: 14, particular: "Temporary repairs and nuts bolts", checkpoint: "Free from any temporary repairs and lose metallic nuts and tolls.", status: "", correctiveAction: "" },
+    ],
+  },
+  {
+    area: "Packing area",
+    lineStatus: "", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    items: [
+      { sr: 1, particular: "Feeding hopper", checkpoint: "The feeding hopper, conveyor belt and bucket conveyor are well cleaned with no accumulation of previous product, free from dust, cobwebs, pests and chemical residue.", status: "", correctiveAction: "" },
+      { sr: 2, particular: "Weighing belt", checkpoint: "Belt clean, no damage or material buildup. Belt running centrally, no misalignment. Weight display clear and stable. Cables intact, properly secured. Surrounding area clean and dust-free.", status: "", correctiveAction: "" },
+      { sr: 3, particular: "Destoner", checkpoint: "Clean, no product or dust buildup. Screen intact, clean, no blockage. Smooth vibration, no abnormal noise. Surrounding area clean and dust-free.", status: "", correctiveAction: "" },
+      { sr: 4, particular: "Vibro-sifter", checkpoint: "Clean, no product buildup. Proper mesh, no tears or blockage. Proper vibration, stable operation. Product discharged smoothly. No leakage or dust escape. Surrounding area clean and dust-free.", status: "", correctiveAction: "" },
+      { sr: 5, particular: "Sealing machine & N2 flush", checkpoint: "Clean, no residue or dust. Heating consistent, no fluctuation. Set temperature correctly and stable. Seal strong, no leakage. Guards fitted and intact and Surrounding area clean and dust-free. N2 flush is working properly.", status: "", correctiveAction: "" },
+      { sr: 6, particular: "FFS Machine", checkpoint: "Clean, no product dust or residue. Film aligned, no wrinkles or tears. Forming collar properly fixed, no damage. Sealing jaws must be cleaned, aligned and with no damage. Heat and temperature control settled correctly. No jamming, pouches stacked properly, no blockage. Surrounding area clean and tidy. N2 flush is working properly.", status: "", correctiveAction: "" },
+      { sr: 7, particular: "PFS Machine", checkpoint: "Clean, no product residue or dust. Pouches feeding smoothly, no misalignment. Sealing jaws must be clean, aligned, no damage. Accurate filling, no spillage. Heat and temperature control settled correctly. No jamming, pouches stacked properly, no blockage. Surrounding area clean and tidy. N2 flush is working properly.", status: "", correctiveAction: "" },
+      { sr: 8, particular: "FSS hoppers and weighing units", checkpoint: "Clean, no product residue. No damage, cracks, or leakage. Opening and closing smoothly. Load cells are cleaned and mounted properly. Weight stable and accurate. Display clear, keys functioning. Surrounding area clean and tidy.", status: "", correctiveAction: "" },
+      { sr: 9, particular: "Conveyor belt", checkpoint: "Clean, no cuts or damage. Running centrally, no misalignment. Intact, effective cleaning. No product build up or residue, Surrounding area clean and tidy.", status: "", correctiveAction: "" },
+      { sr: 10, particular: "Bucket elevator", checkpoint: "The elevator and surrounding area are clean. Buckets intact, firmly fixed. No damage. Closed, clean, no loose wiring.", status: "", correctiveAction: "" },
+      { sr: 11, particular: "Sorting tables", checkpoint: "Ensure tables are clean and sanitized. Check that table-mounted tube coverings are clean and dust-free. Check the cleaning of switchboards and stools/chairs and tube lights' integrity.", status: "", correctiveAction: "" },
+      { sr: 12, particular: "Metal detector", checkpoint: "Verification of the metal detector is done before the start of production / as per the frequency of verification.", status: "", correctiveAction: "" },
+      { sr: 13, particular: "Printing machine", checkpoint: "Clean, no ink spills, no packaging material waste. Guards fitted and intact. Smooth feeding, no jams.", status: "", correctiveAction: "" },
+    ],
+  },
+  {
+    area: "Production floor",
+    lineStatus: "", timeOfInspection: "", timeOfVerification: "", checkedBy: "", verifiedBy: "",
+    items: [
+      { sr: 1, particular: "Diverter Chute", checkpoint: "Clean, no material buildup. No damage, cracks, or leakage. Diverter flap moves freely, no obstruction. Covers are fitted and intact. Surrounding area clean and tidy. Conveyor belts good in condition & cleaned.", status: "", correctiveAction: "" },
+      { sr: 2, particular: "Pre Roaster", checkpoint: "Clean, no product residue. No foreign material. Heaters functioning properly. Smooth feeding, no choking, free flow, surrounding area clean and safe.", status: "", correctiveAction: "" },
+      { sr: 3, particular: "Salinity Tanks", checkpoint: "Clean, no residue of previous product. No leakage and damage, surrounding area clean and tidy. Below nozzle opening are cleaned & drained properly.", status: "", correctiveAction: "" },
+      { sr: 4, particular: "Ribbon blender", checkpoint: "Clean, no product residue, no damage or leakage, shaft intact, free movement. Lid and cover properly closed. Surrounding area clean and safe. The side gasket is cleaned from product residue & flakes free.", status: "", correctiveAction: "" },
+      { sr: 5, particular: "Magnet", checkpoint: "Magnets are cleaned & without any metal contamination & placed at place.", status: "", correctiveAction: "" },
+      { sr: 6, particular: "Powder Hopper", checkpoint: "Clean, no powder residue. No cracks and leakage found. Seals & gaskets are intact, no leakage. The surrounding area is clean and tidy. No water accumulation.", status: "", correctiveAction: "" },
+      { sr: 7, particular: "Gate Outlets", checkpoint: "Clean, no material buildup. No damage, cracks. No leakage found. Surrounding area clean and safe. No cobwebs or infestation.", status: "", correctiveAction: "" },
+      { sr: 8, particular: "Pan coaters", checkpoint: "Clean, no product or coating residue, smooth rotation, without any damage, surrounding area clean and safe. No water accumulation.", status: "", correctiveAction: "" },
+      { sr: 9, particular: "Small/Big syrup tanks", checkpoint: "Clean, no residue of previous product. No leakage and damage, surrounding area clean and tidy. Below nozzle opening are cleaned & drained properly.", status: "", correctiveAction: "" },
+      { sr: 10, particular: "Puffer", checkpoint: "Clean, no dust or material buildup, nozzle / outlet are clear, no blockage. Surrounding area clean and safe. Control panel, switches and display board are working correctly.", status: "", correctiveAction: "" },
+      { sr: 11, particular: "Cooling tumbler", checkpoint: "Clean, no product residue, no damage, air cooling working properly, temperature control is set correctly and stable. Surrounding area clean and safe.", status: "", correctiveAction: "" },
+      { sr: 12, particular: "Sludge Tank", checkpoint: "Clean, no residue of previous product. No leakage and damage, surrounding area clean and tidy. Below nozzle opening are cleaned & drained properly.", status: "", correctiveAction: "" },
+      { sr: 13, particular: "Roaster & tray", checkpoint: "Clean, no leftover residue, no cracks and damage, fits properly in the roaster. Tray discharge is easy removal without sticking. The surrounding area is clean and safe.", status: "", correctiveAction: "" },
+      { sr: 14, particular: "Seasoning Drum", checkpoint: "Clean, no residue or old seasoning, no cracks and damage. Smooth rotation, intact, no leakage, the surrounding area is clean and safe.", status: "", correctiveAction: "" },
+      { sr: 15, particular: "Cable way & Electric Panels", checkpoint: "No cuts, wear, or damage, intact, no leakage, no blockage, surrounding area clean and safe. Electric panels are free from product debris, cobwebs, water accumulation & pest infestation.", status: "", correctiveAction: "" },
+      { sr: 16, particular: "Valves and Union joins of tanks", checkpoint: "Clean, no syrup residue or clogging, no damage, cracks, or leakage. Valves open/close smoothly. No dripping or seepage. Surrounding area clean and dry.", status: "", correctiveAction: "" },
+      { sr: 17, particular: "All Pipe connections", checkpoint: "All the residue is well drained & the pipe is free from debris, mold growth & infestation. Cleaned & properly joined with no leakage signs.", status: "", correctiveAction: "" },
+      { sr: 18, particular: "Gaskets", checkpoint: "Check that all gaskets of machines are in good condition without any damage.", status: "", correctiveAction: "" },
+      { sr: 19, particular: "Below Platforms, trays & tires of the equipments", checkpoint: "Cleaned free from product, water accumulation & infestation.", status: "", correctiveAction: "" },
+      { sr: 20, particular: "Conveyor belt", checkpoint: "Clean, no cuts or damage. Running centrally, no misalignment. Intact, effective cleaning. No product build up or residue, surrounding area clean and tidy.", status: "", correctiveAction: "" },
+      { sr: 21, particular: "Bucket elevator", checkpoint: "The elevator and surrounding area are clean. Buckets intact, firmly fixed. No damage. Closed, clean, no loose wiring.", status: "", correctiveAction: "" },
+    ],
+  },
+];
+
+// The first A185 entry ("General") holds the shared points. Drop that standalone
+// section, then prepend the 14 general points to every remaining area, renumbering
+// Sr. sequentially — same pattern as W202's SECTIONS_WITH_GENERAL.
+const A185_GENERAL_ITEMS: CheckItem[] = A185_INITIAL_SECTIONS[0].items;
+const A185_SECTIONS_WITH_GENERAL: AreaSection[] = A185_INITIAL_SECTIONS
+  .filter((_, idx) => idx !== 0)
+  .map((s) => {
+    const merged = [...A185_GENERAL_ITEMS, ...s.items];
+    return { ...s, items: merged.map((it, i) => ({ ...it, sr: i + 1 })) };
+  });
+
+const A185_WITH_DEFAULTS: AreaSection[] = A185_SECTIONS_WITH_GENERAL.map((s) => ({
+  ...s,
+  items: s.items.map((i) => ({ ...i, status: "OK" as Status })),
+}));
+
+export type PreProductionVariant = "W202" | "A185";
+
+// Default checklist template for a fresh (create) form, per warehouse variant.
+function defaultSectionsForVariant(variant: PreProductionVariant): AreaSection[] {
+  return variant === "A185" ? A185_WITH_DEFAULTS : withDefaults;
+}
+
 // Build editable section state from a saved record, falling back to the
 // default checklist. Tolerant of both camelCase and snake_case keys.
-function sectionsFromInitial(initialData?: Record<string, any>): AreaSection[] {
+function sectionsFromInitial(
+  initialData?: Record<string, any>,
+  variant: PreProductionVariant = "W202",
+): AreaSection[] {
   const incoming = initialData?.sections;
-  if (!Array.isArray(incoming) || incoming.length === 0) return withDefaults;
+  if (!Array.isArray(incoming) || incoming.length === 0) return defaultSectionsForVariant(variant);
   return incoming.map((s: any) => ({
     area: s.area ?? "",
     lineStatus: s.lineStatus ?? s.line_status ?? "Ready",
@@ -170,16 +270,20 @@ interface PreProductionInspectionFormProps {
   initialData?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => Promise<void>;
   isEdit?: boolean;
+  // Which checklist to use for a fresh form. A185 → CFPLB.C6.F.47 template.
+  // When editing, the saved sections drive the layout regardless of this.
+  variant?: PreProductionVariant;
 }
 
 export default function PreProductionInspectionForm({
   initialData,
   onSubmit,
   isEdit,
+  variant = "W202",
 }: PreProductionInspectionFormProps = {}) {
   const router = useRouter();
   const [date, setDate] = useState((initialData?.inspection_date || "").slice(0, 10));
-  const [sections, setSections] = useState<AreaSection[]>(() => sectionsFromInitial(initialData));
+  const [sections, setSections] = useState<AreaSection[]>(() => sectionsFromInitial(initialData, variant));
   const [activeSection, setActiveSection] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);

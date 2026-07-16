@@ -6,31 +6,77 @@ import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import SignatureCell from "@/components/ui/SignatureCell";
+import {
+  W202_FLOOR_EQUIPMENT, A185_FLOOR_EQUIPMENT, A185_OVERALL_EQUIPMENT, A185_OVERALL_KEY, MONTH_LABELS,
+} from "@/config/equipmentCleaningFloors";
 
 type BAStatus = "✓" | "✕" | "";
 
 const FORM_TYPE = "equipmentcleaningsanitation";
 
 // Floor display order — matches the create/edit FLOOR_EQUIPMENT ordering.
-const FLOOR_ORDER = [
-  "Lower Basement", "Upper Basement", "First Floor", "First Floor Mezz",
-  "Second Floor", "Terrace Floor", "Other / All",
-];
-const floorRank = (area?: string) => {
-  const i = FLOOR_ORDER.indexOf((area || "").trim());
-  return i === -1 ? FLOOR_ORDER.length : i;
-};
+const W202_PRINT_FLOORS = Object.keys(W202_FLOOR_EQUIPMENT).filter((f) => f !== "Other / All");
+const A185_PRINT_FLOORS = Object.keys(A185_FLOOR_EQUIPMENT);
 
 // A record's month: explicit `month`, else derived from grid.record_date.
 const monthOf = (r: any): string =>
   (r?.month || (r?.grid?.record_date ? String(r.grid.record_date).slice(0, 7) : "") || "").trim();
 
+/** Plant-specific header table, shared by the daily floor sheets and the Overall sheet. */
+function DocHeader({ isA185 }: { isA185: boolean }) {
+  const formatLabel = isA185 ? "Equipment Cleaning Record" : "Equipment Cleaning & Sanitation Record";
+  const docNo = isA185 ? "CFPLB.C4.F.68" : "CFPLA.C4.F.19";
+  const issueDate = isA185 ? "04/08/2021" : "01/11/2017";
+  const issueNo = isA185 ? "05" : "04";
+  const revDate = isA185 ? "02/02/2026" : "01/10/2025";
+  const revNo = isA185 ? "04" : "03";
+
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+      <tbody>
+        <tr>
+          <td rowSpan={4} style={{ ...tdHead, width: "120px", textAlign: "center" }}>
+            <img src="/candor-logo.jpg" alt="Candor" style={{ width: "75px" }} />
+          </td>
+          <td style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>CANDOR FOODS PRIVATE LIMITED</td>
+          <td style={tdHead}>Issue Date:</td>
+          <td style={tdHead}>{issueDate}</td>
+        </tr>
+        <tr>
+          <td rowSpan={2} style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>
+            Format : {formatLabel}
+          </td>
+          <td style={tdHead}>Issue No:</td>
+          <td style={tdHead}>{issueNo}</td>
+        </tr>
+        <tr>
+          <td style={tdHead}>Revision Date:</td>
+          <td style={tdHead}>{revDate}</td>
+        </tr>
+        <tr>
+          <td style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>Document No: {docNo}</td>
+          <td style={tdHead}>Revision No.:</td>
+          <td style={tdHead}>{revNo}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
 /** One printed page = one floor's record (header + grid + obs/corrective + footer). */
 function FloorSheet({ record }: { record: Record<string, any> }) {
+  // A185 prints its own plant-specific header + floor/equipment set; other
+  // plants keep the existing generic set.
+  const isA185 = (record?.warehouse || getStoredWarehouse()) === "A185";
+  const FLOOR_EQUIPMENT = isA185 ? A185_FLOOR_EQUIPMENT : W202_FLOOR_EQUIPMENT;
+
   const gridObj = record?.grid || {};
   const cells: Record<string, Record<number | string, { B: BAStatus; A: BAStatus }>> = gridObj.cells || {};
   const daySigs: Record<string, { checkedBy?: string; verifiedBy?: string }> = gridObj.daySigs || {};
-  const equipmentList = Object.keys(cells);
+  // Floor-wise: show only this floor's equipment. Fall back to all cells if the
+  // area isn't a known floor (keeps legacy single-record printing working).
+  const floorEquipment = (FLOOR_EQUIPMENT as Record<string, string[]>)[(record?.area || "").trim()];
+  const equipmentList = floorEquipment && floorEquipment.length ? floorEquipment : Object.keys(cells);
   const selectedDates: number[] = Array.isArray(gridObj.selectedDates)
     ? gridObj.selectedDates
     : Array.from({ length: 31 }, (_, i) => i + 1);
@@ -48,34 +94,7 @@ function FloorSheet({ record }: { record: Record<string, any> }) {
       }}
     >
       {/* Header (repeats on every floor page) */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
-        <tbody>
-          <tr>
-            <td rowSpan={4} style={{ ...tdHead, width: "120px", textAlign: "center" }}>
-              <img src="/candor-logo.jpg" alt="Candor" style={{ width: "75px" }} />
-            </td>
-            <td style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>CANDOR FOODS PRIVATE LIMITED</td>
-            <td style={tdHead}>Issue Date:</td>
-            <td style={tdHead}>01/11/2017</td>
-          </tr>
-          <tr>
-            <td rowSpan={2} style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>
-              Format : Equipment Cleaning &amp; Sanitation Record
-            </td>
-            <td style={tdHead}>Issue No:</td>
-            <td style={tdHead}>04</td>
-          </tr>
-          <tr>
-            <td style={tdHead}>Revision Date:</td>
-            <td style={tdHead}>01/10/2025</td>
-          </tr>
-          <tr>
-            <td style={{ ...tdHead, fontWeight: "bold", textAlign: "center" }}>Document No: CFPLA.C4.F.19</td>
-            <td style={tdHead}>Revision No.:</td>
-            <td style={tdHead}>03</td>
-          </tr>
-        </tbody>
-      </table>
+      <DocHeader isA185={isA185} />
 
       <div style={{ marginTop: "8px", marginBottom: "4px", fontSize: "11px", fontWeight: "bold" }}>
         Month: <span style={{ fontWeight: "normal" }}>{record?.month || ""}</span>
@@ -169,6 +188,101 @@ function FloorSheet({ record }: { record: Record<string, any> }) {
   );
 }
 
+/** A185-only page: equipment NOT in daily use, checked monthly (Jan–Dec). */
+function OverallSheet({ record }: { record: Record<string, any> }) {
+  const overall = record?.grid?.overall || {};
+  const cells: Record<string, Record<number | string, BAStatus>> = overall.cells || {};
+  const sigs: Record<string | number, { checkedBy?: string; verifiedBy?: string }> = overall.sigs || {};
+
+  return (
+    <div
+      className="bg-white mx-auto my-6 print:my-0 print:shadow-none print:w-full ecs-sheet"
+      style={{
+        width: "297mm",
+        maxWidth: "100%",
+        fontFamily: "'Calibri', 'Arial', sans-serif",
+        color: "#000",
+        boxShadow: "0 2px 20px rgba(0,0,0,.15)",
+        padding: "8mm",
+      }}
+    >
+      <DocHeader isA185 />
+
+      <div style={{ marginTop: "8px", marginBottom: "4px", fontSize: "11px", fontWeight: "bold" }}>
+        Year: <span style={{ fontWeight: "normal" }}>{overall.year || ""}</span>
+        <span style={{ marginLeft: "30px", fontStyle: "italic", fontWeight: "normal", fontSize: "10px" }}>
+          Wet cleaning method (dry cleaning with compressed air, rinsing with water, cleaning with water and liquid soap, Rinsing With: Water: Sanitation With: 70% IPA)
+        </span>
+      </div>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9px" }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, width: "30px" }}>Sr. No</th>
+            <th style={{ ...th, width: "200px", textAlign: "left", paddingLeft: "4px" }}>Equipment (Not In Use)</th>
+            {MONTH_LABELS.map((m) => (
+              <th key={m} style={th}>{m}</th>
+            ))}
+          </tr>
+          <tr>
+            <th style={{ ...th, textAlign: "left", paddingLeft: "4px" }} colSpan={2 + MONTH_LABELS.length}>
+              Frequency: Monthly — shrink wrap after cleaning
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {A185_OVERALL_EQUIPMENT.map((eq, idx) => (
+            <tr key={eq}>
+              <td style={td}>{idx + 1}</td>
+              <td style={{ ...td, textAlign: "left", paddingLeft: "4px", fontWeight: "bold" }}>{eq}</td>
+              {MONTH_LABELS.map((_, mi) => {
+                const month = mi + 1;
+                const status = cells[eq]?.[month] ?? cells[eq]?.[String(month)] ?? "";
+                return <td key={`${eq}-${month}`} style={td}>{status}</td>;
+              })}
+            </tr>
+          ))}
+          <tr>
+            <td colSpan={2} style={{ ...td, textAlign: "left", paddingLeft: "4px", fontWeight: "bold" }}>Checked By</td>
+            {MONTH_LABELS.map((_, mi) => (
+              <td key={`chk-${mi}`} style={{ ...td, padding: "1px", fontSize: "7px" }}>
+                <SignatureCell name={sigs[mi + 1]?.checkedBy || sigs[String(mi + 1)]?.checkedBy} maxHeight={18} maxWidth={34} showName={false} />
+              </td>
+            ))}
+          </tr>
+          <tr>
+            <td colSpan={2} style={{ ...td, textAlign: "left", paddingLeft: "4px", fontWeight: "bold" }}>Verified By</td>
+            {MONTH_LABELS.map((_, mi) => (
+              <td key={`ver-${mi}`} style={{ ...td, padding: "1px", fontSize: "7px" }}>
+                <SignatureCell name={sigs[mi + 1]?.verifiedBy || sigs[String(mi + 1)]?.verifiedBy} maxHeight={18} maxWidth={34} showName={false} />
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+
+      <div style={{ marginTop: "12px" }}>
+        <div style={box}>
+          <div style={boxLabel}>Observations</div>
+          <div style={boxBody}>{record?.observations || ""}</div>
+        </div>
+        <div style={{ ...box, marginTop: "8px" }}>
+          <div style={boxLabel}>Corrective Actions</div>
+          <div style={boxBody}>{record?.corrective_action || ""}</div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", fontWeight: "bold" }}>
+        <span>Prepared By: FST</span>
+        <div style={{ border: "2px solid #6b46c1", color: "#6b46c1", padding: "3px 12px", fontSize: "10px", textAlign: "center", lineHeight: 1.2 }}>
+          CONTROLLED<br />COPY
+        </div>
+        <span>Approved By: FSTL</span>
+      </div>
+    </div>
+  );
+}
+
 export default function EquipmentCleaningPrintPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -185,6 +299,9 @@ export default function EquipmentCleaningPrintPage() {
         const clicked = (await docsApi.get(FORM_TYPE, Number(recordId))).data;
         const month = monthOf(clicked);
         const warehouse = clicked?.warehouse || getStoredWarehouse();
+        const isA185 = warehouse === "A185";
+        const PRINT_FLOORS = isA185 ? A185_PRINT_FLOORS : W202_PRINT_FLOORS;
+        const FLOOR_EQUIPMENT = isA185 ? A185_FLOOR_EQUIPMENT : W202_FLOOR_EQUIPMENT;
 
         // 2) All records for that warehouse, narrowed to the same month.
         const list = await docsApi.list(FORM_TYPE, { per_page: 500, ...(warehouse ? { warehouse } : {}) });
@@ -192,15 +309,100 @@ export default function EquipmentCleaningPrintPage() {
           (r) => monthOf(r) === month && (warehouse ? (r.warehouse || "") === warehouse : true)
         );
 
-        // 3) Always include the clicked record; fetch each floor's full grid.
+        // 3) Always include the clicked record; fetch each record's full grid.
         const ids = Array.from(new Set<number>([Number(recordId), ...sameMonth.map((r) => Number(r.id))]));
-        const full = await Promise.all(ids.map((id) => docsApi.get(FORM_TYPE, id).then((r) => r.data).catch(() => null)));
+        const full = (await Promise.all(
+          ids.map((id) => docsApi.get(FORM_TYPE, id).then((r) => r.data).catch(() => null))
+        )).filter(Boolean) as Record<string, any>[];
 
-        // 4) One page per floor, ordered by floor.
-        const sheets = full
-          .filter(Boolean)
-          .sort((a: any, b: any) => floorRank(a.area) - floorRank(b.area) || String(a.area || "").localeCompare(String(b.area || "")));
-        setRecords(sheets as Record<string, any>[]);
+        // 4) Build a per-floor cell + signature map. Handles both the new
+        //    per-floor shape (grid.cellsByFloor) and the legacy flat shape
+        //    (grid.cells), where the one grid is split across floors by equipment.
+        const cellsByFloor: Record<string, Record<string, any>> = {};
+        const daySigsByFloor: Record<string, Record<string, any>> = {};
+        let selectedDates: number[] = [];
+        const observationsParts: string[] = [];
+        const correctiveParts: string[] = [];
+        // A185's "Overall" (equipment not in use) section — annual, not monthly.
+        let overallYear = "";
+        const overallCells: Record<string, Record<string, any>> = {};
+        const overallSigs: Record<string, any> = {};
+        const ensureFloor = (f: string) => {
+          if (!cellsByFloor[f]) cellsByFloor[f] = {};
+          if (!daySigsByFloor[f]) daySigsByFloor[f] = {};
+        };
+
+        for (const rec of full) {
+          const g = rec?.grid || {};
+          if (Array.isArray(g.selectedDates) && g.selectedDates.length > selectedDates.length) selectedDates = g.selectedDates;
+          if (rec?.observations) observationsParts.push(rec.observations);
+          if (rec?.corrective_action) correctiveParts.push(rec.corrective_action);
+
+          if (g.cellsByFloor && typeof g.cellsByFloor === "object") {
+            for (const [f, eqMap] of Object.entries(g.cellsByFloor)) {
+              ensureFloor(f);
+              for (const [eq, days] of Object.entries((eqMap as Record<string, any>) || {})) {
+                cellsByFloor[f][eq] = { ...(cellsByFloor[f][eq] || {}), ...(days as Record<string, any>) };
+              }
+            }
+            for (const [f, dayMap] of Object.entries(g.daySigsByFloor || {})) {
+              ensureFloor(f);
+              for (const [day, sig] of Object.entries((dayMap as Record<string, any>) || {})) {
+                daySigsByFloor[f][day] = { ...(daySigsByFloor[f][day] || {}), ...(sig as Record<string, any>) };
+              }
+            }
+          } else {
+            // Legacy flat grid → distribute across each physical floor by equipment.
+            const flatCells = g.cells || {};
+            const flatSigs = g.daySigs || {};
+            for (const f of PRINT_FLOORS) {
+              ensureFloor(f);
+              for (const eq of FLOOR_EQUIPMENT[f]) {
+                if (flatCells[eq]) cellsByFloor[f][eq] = { ...(cellsByFloor[f][eq] || {}), ...flatCells[eq] };
+              }
+              for (const [day, sig] of Object.entries(flatSigs)) {
+                daySigsByFloor[f][day] = { ...(daySigsByFloor[f][day] || {}), ...(sig as Record<string, any>) };
+              }
+            }
+          }
+
+          if (g.overall && typeof g.overall === "object") {
+            if (g.overall.year) overallYear = g.overall.year;
+            for (const [eq, months] of Object.entries(g.overall.cells || {})) {
+              overallCells[eq] = { ...(overallCells[eq] || {}), ...(months as Record<string, any>) };
+            }
+            for (const [month2, sig] of Object.entries(g.overall.sigs || {})) {
+              overallSigs[month2] = { ...(overallSigs[month2] || {}), ...(sig as Record<string, any>) };
+            }
+          }
+        }
+        if (selectedDates.length === 0) selectedDates = Array.from({ length: 31 }, (_, i) => i + 1);
+
+        // 5) One synthesized page per physical floor, each with its own data.
+        const floorSheets: Record<string, any>[] = PRINT_FLOORS.map((floor) => ({
+          id: `${recordId}-${floor}`,
+          kind: "floor",
+          month,
+          area: floor,
+          warehouse,
+          observations: observationsParts.join(" | "),
+          corrective_action: correctiveParts.join(" | "),
+          grid: { cells: cellsByFloor[floor] || {}, daySigs: daySigsByFloor[floor] || {}, selectedDates },
+        }));
+
+        // 6) A185 also gets one "Overall" page for equipment not in daily use.
+        if (isA185) {
+          floorSheets.push({
+            id: `${recordId}-${A185_OVERALL_KEY}`,
+            kind: "overall",
+            warehouse,
+            observations: observationsParts.join(" | "),
+            corrective_action: correctiveParts.join(" | "),
+            grid: { overall: { year: overallYear, cells: overallCells, sigs: overallSigs } },
+          });
+        }
+
+        setRecords(floorSheets);
       } catch (e) {
         console.error("Failed to load records:", e);
       } finally {
@@ -233,7 +435,7 @@ export default function EquipmentCleaningPrintPage() {
           </button>
           <span className="text-sm text-gray-500">
             {records.length > 0
-              ? `${records[0]?.month || ""} · ${records.length} floor${records.length !== 1 ? "s" : ""}`
+              ? `${records[0]?.month || ""} · ${records.length} page${records.length !== 1 ? "s" : ""}`
               : "No records"}
           </span>
         </div>
@@ -250,7 +452,7 @@ export default function EquipmentCleaningPrintPage() {
       ) : (
         records.map((rec, idx) => (
           <div key={rec.id ?? idx} style={idx < records.length - 1 ? { pageBreakAfter: "always" } : undefined}>
-            <FloorSheet record={rec} />
+            {rec.kind === "overall" ? <OverallSheet record={rec} /> : <FloorSheet record={rec} />}
           </div>
         ))
       )}

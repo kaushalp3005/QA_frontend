@@ -64,7 +64,7 @@ export default function RoastingTemperaturePrintPage() {
     );
   }
 
-  const rows: any[] = Array.isArray(record?.rows) ? record!.rows : [];
+  const rows: any[] = Array.isArray(record?.entries) ? record!.entries : [];
   const blankRows = Math.max(0, MIN_ROWS - rows.length);
 
   // A185 prints its own plant-specific header (CFPLB code); other plants keep
@@ -188,17 +188,17 @@ export default function RoastingTemperaturePrintPage() {
                   <td style={td}>{fmtDate(r.date)}</td>
                   <td style={{ ...td, textAlign: "left", paddingLeft: "4px", fontWeight: "bold" }}>{show(r.product_name)}</td>
                   <td style={{ ...td, textAlign: "left", paddingLeft: "4px" }}>{show(r.customer)}</td>
-                  <td style={td}>{show(r.set_temp)}</td>
+                  <td style={td}>{show(r.set_temperature)}</td>
                   <td style={td}>{show(r.quantity)}</td>
                   <td style={td}>{show(r.roasting_stage)}</td>
-                  <td style={td}>{show(r.duration_min)}</td>
+                  <td style={td}>{show(r.duration)}</td>
                   <td style={td}>{to12Hour(r.in_time)}</td>
-                  <td style={td}>{to12Hour(r.start_time)}</td>
-                  <td style={td}>{show(r.start_temp)}</td>
-                  <td style={td}>{to12Hour(r.mid_time)}</td>
-                  <td style={td}>{show(r.mid_temp)}</td>
-                  <td style={td}>{to12Hour(r.end_time)}</td>
-                  <td style={td}>{show(r.end_temp)}</td>
+                  <td style={td}>{to12Hour(r.monitoring_points?.start_obs_time)}</td>
+                  <td style={td}>{show(r.monitoring_points?.start_obs_temp)}</td>
+                  <td style={td}>{to12Hour(r.monitoring_points?.middle_obs_time)}</td>
+                  <td style={td}>{show(r.monitoring_points?.middle_obs_temp)}</td>
+                  <td style={td}>{to12Hour(r.monitoring_points?.end_obs_time)}</td>
+                  <td style={td}>{show(r.monitoring_points?.end_obs_temp)}</td>
                   <td style={td}>{to12Hour(r.out_time)}</td>
                   <td style={{ ...td, padding: "1px" }}>
                     <SignatureCell name={r.operator_sign} maxHeight={18} maxWidth={54} showName={false} />

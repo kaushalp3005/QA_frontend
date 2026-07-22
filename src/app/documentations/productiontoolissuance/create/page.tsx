@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Wrench, Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Wrench, Plus, X, Loader2 } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 import SignaturePicker from "@/components/ui/SignaturePicker";
@@ -39,9 +39,34 @@ const createBlock = (id: number): EntryBlock => ({
 
 export default function ProductionToolsIssuanceRecord() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const duplicateFrom = searchParams.get("duplicateFrom");
   const [blocks, setBlocks] = useState<EntryBlock[]>([createBlock(1)]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadingRecord, setLoadingRecord] = useState(!!duplicateFrom);
+
+  useEffect(() => {
+    if (!duplicateFrom) return;
+    setLoadingRecord(true);
+    docsApi.get("productiontoolissuance", Number(duplicateFrom))
+      .then((res) => {
+        const d = res.data;
+        const matrix = Array.isArray(d?.tool_matrix) && d.tool_matrix.length > 0
+          ? d.tool_matrix
+          : [{ date: d?.check_date, data: undefined, remark: d?.remark, checked_by: d?.checked_by, verified_by: d?.verified_by }];
+        setBlocks(matrix.map((tm: any, i: number) => ({
+          id: i + 1,
+          date: tm.date || currentDate(),
+          data: tm.data && Object.keys(tm.data).length > 0 ? tm.data : createBlock(i + 1).data,
+          remark: tm.remark || "Ok",
+          checkedBy: tm.checked_by || "",
+          verifiedBy: tm.verified_by || "",
+        })));
+      })
+      .catch((e) => console.error("Failed to load record to duplicate:", e))
+      .finally(() => setLoadingRecord(false));
+  }, [duplicateFrom]);
 
   const addBlock = () => setBlocks((prev) => [...prev, createBlock(prev.length + 1)]);
 
@@ -89,13 +114,23 @@ export default function ProductionToolsIssuanceRecord() {
     if (blocks.length > 1) setBlocks((prev) => prev.filter((b) => b.id !== blockId));
   };
 
+  if (loadingRecord) {
+    return (
+      <DocFormShell title="Production Tools Issuance" docNo="CFPLA.C4.F.22" icon={Wrench}>
+        <div className="surface-card p-8 flex items-center justify-center gap-2 text-sm text-ink-500">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading record to duplicate…
+        </div>
+      </DocFormShell>
+    );
+  }
+
   return (
     <DocFormShell
       title="Production Tools Issuance"
       docNo="CFPLA.C4.F.22"
       subtitle="Issue 03 · Rev 02 · 01/10/2025"
       icon={Wrench}
-      note="Frequency: At the start and end of the day"
+      note={duplicateFrom ? `Duplicating record #${duplicateFrom} — adjust the fields as needed, then Submit to save as a new record.` : "Frequency: At the start and end of the day"}
     >
       {blocks.map((block, idx) => (
         <DocSection

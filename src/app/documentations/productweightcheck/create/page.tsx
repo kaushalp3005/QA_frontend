@@ -125,6 +125,7 @@ export default function ProductWeightSealCheckRecord() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const continueId = searchParams.get("id"); // resume a saved product (Continue)
+  const duplicateFrom = searchParams.get("duplicateFrom"); // clone a saved product as a new, unsaved entry
   const [products, setProducts] = useState<ProductEntry[]>(() => [newEntry()]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -148,6 +149,16 @@ export default function ProductWeightSealCheckRecord() {
         .finally(() => { hydrated.current = true; setLoadingRecord(false); });
       return;
     }
+    // Duplicate mode: load a saved product's data as a fresh, unsaved entry —
+    // savedId is forced to null so Save/Submit creates a new record.
+    if (duplicateFrom) {
+      setLoadingRecord(true);
+      docsApi.get("productweightcheck", Number(duplicateFrom))
+        .then((res) => { if (res?.data) setProducts([{ ...recordToEntry(res.data), savedId: null, dirty: true }]); })
+        .catch((e) => setSubmitError(e?.message || "Failed to load record to duplicate"))
+        .finally(() => { hydrated.current = true; setLoadingRecord(false); });
+      return;
+    }
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
@@ -165,14 +176,14 @@ export default function ProductWeightSealCheckRecord() {
       localStorage.removeItem(DRAFT_KEY);
     }
     hydrated.current = true;
-  }, [continueId]);
+  }, [continueId, duplicateFrom]);
 
   useEffect(() => {
-    if (!hydrated.current || continueId) return; // don't draft-cache the Continue session
+    if (!hydrated.current || continueId || duplicateFrom) return; // don't draft-cache the Continue/Duplicate session
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), data: { products } }));
     } catch {}
-  }, [products, continueId]);
+  }, [products, continueId, duplicateFrom]);
 
   const addProduct = () => setProducts(prev => [...prev, newEntry()]);
 
@@ -395,7 +406,7 @@ export default function ProductWeightSealCheckRecord() {
     >
       {loadingRecord ? (
         <div className="surface-card p-8 flex items-center justify-center gap-2 text-sm text-ink-500">
-          <Loader2 className="w-5 h-5 animate-spin" /> Loading saved record…
+          <Loader2 className="w-5 h-5 animate-spin" /> {duplicateFrom ? "Loading record to duplicate…" : "Loading saved record…"}
         </div>
       ) : (
       <>
@@ -403,6 +414,8 @@ export default function ProductWeightSealCheckRecord() {
         <Save className="w-3.5 h-3.5 shrink-0" />
         {continueId
           ? "Continuing a saved product — edit any field and tap Update to store the change."
+          : duplicateFrom
+          ? `Duplicating record #${duplicateFrom} — adjust the fields as needed, then Save to store it as a new record.`
           : "Each product saves on its own. Tap Save on a product, then leave anytime and resume later via Continue on the records list."}
       </div>
 

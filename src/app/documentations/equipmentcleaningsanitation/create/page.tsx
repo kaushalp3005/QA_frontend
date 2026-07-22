@@ -1,7 +1,7 @@
 "use client";
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Brush, Undo2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Brush, Undo2, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
@@ -39,6 +39,8 @@ type OverallGrid = Record<string, Record<number, BAStatus>>;
 
 export default function EquipmentCleaningSanitationRecord() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const duplicateFrom = searchParams.get("duplicateFrom");
   // A185 uses its own floor set (Production / Packing / Mezzanine + Overall)
   // from CFPLB.C4.F.68; every other plant keeps the generic CFPLA.C4.F.19 set.
   const isA185 = getStoredWarehouse() === "A185";
@@ -67,6 +69,34 @@ export default function EquipmentCleaningSanitationRecord() {
   const [overallGrid, setOverallGrid] = useState<OverallGrid>({});
   const [overallSigs, setOverallSigs] = useState<Record<number, RowSig>>({});
   const isOverall = floor === A185_OVERALL_KEY;
+  const [loadingRecord, setLoadingRecord] = useState(!!duplicateFrom);
+
+  // Duplicate mode: load a saved record's grid data as a fresh, unsaved entry.
+  // recordId is deliberately left null so Save creates a new record.
+  useEffect(() => {
+    if (!duplicateFrom) return;
+    setLoadingRecord(true);
+    docsApi.get(FORM_TYPE, Number(duplicateFrom))
+      .then((res) => {
+        const d = res.data;
+        const g = d?.grid || {};
+        setRecordDate(g.record_date || "");
+        setObservations(d?.observations || "");
+        setCorrectiveActions(d?.corrective_action || "");
+        if (Array.isArray(g.selectedDates) && g.selectedDates.length > 0) setSelectedDates(g.selectedDates);
+        setGridByFloor(g.cellsByFloor || {});
+        setDaySigsByFloor(g.daySigsByFloor || {});
+        const floorKeys = Object.keys(g.cellsByFloor || {});
+        if (floorKeys.length > 0) setFloor(floorKeys[0]);
+        if (isA185 && g.overall) {
+          setOverallYear(g.overall.year || String(new Date().getFullYear()));
+          setOverallGrid(g.overall.cells || {});
+          setOverallSigs(g.overall.sigs || {});
+        }
+      })
+      .catch((e) => console.error("Failed to load record to duplicate:", e))
+      .finally(() => setLoadingRecord(false));
+  }, [duplicateFrom, isA185]);
 
   // The active floor's grid + signatures (empty until the floor is first touched).
   const grid: Grid = gridByFloor[floor] || {};
@@ -196,6 +226,16 @@ export default function EquipmentCleaningSanitationRecord() {
     }
   };
 
+  if (loadingRecord) {
+    return (
+      <DocFormShell title="Equipment Cleaning & Sanitation" docNo={isA185 ? "CFPLB.C4.F.68" : "CFPLA.C4.F.19"} icon={Brush} width="full">
+        <div className="surface-card p-8 flex items-center justify-center gap-2 text-sm text-ink-500">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading record to duplicate…
+        </div>
+      </DocFormShell>
+    );
+  }
+
   return (
     <DocFormShell
       title="Equipment Cleaning & Sanitation"
@@ -203,7 +243,7 @@ export default function EquipmentCleaningSanitationRecord() {
       subtitle={isA185 ? "Issue 05 · Rev 04 · 02/02/2026" : "Issue 05 · Rev 04 · 01/12/2025"}
       icon={Brush}
       width="full"
-      note="Frequency: Before & After Production · Dry: compressed air · Wet: lint-free wipe · Sanitization: 70% IPA"
+      note={duplicateFrom ? `Duplicating record #${duplicateFrom} — adjust as needed, then Submit to save as a new record.` : "Frequency: Before & After Production · Dry: compressed air · Wet: lint-free wipe · Sanitization: 70% IPA"}
     >
       {recordId != null && (
         <div className="surface-card p-3 border-l-4 border-warning-500 bg-warning-50 text-xs text-warning-800 font-medium">

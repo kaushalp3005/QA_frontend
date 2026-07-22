@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { HeartPulse, Plus, X, Loader2 } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
@@ -143,6 +143,8 @@ const cellTintClass = (tone: "danger" | "info" | "success") =>
 
 export default function PersonalHygieneHealthCheckup() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const duplicateFrom = searchParams.get("duplicateFrom");
   const [date, setDate] = useState("");
   const [area, setArea] = useState("");
   const [checkedBy, setCheckedBy] = useState("");
@@ -151,13 +153,55 @@ export default function PersonalHygieneHealthCheckup() {
   const [rows, setRows] = useState<HygieneRow[]>(Array.from({ length: 10 }, emptyRow));
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadingRecord, setLoadingRecord] = useState(!!duplicateFrom);
+  // Set right before setArea() from loaded duplicate data so the area-effect
+  // below doesn't immediately clobber the loaded rows with the floor default roster.
+  const skipAreaAutoFillRef = useRef(false);
 
   useEffect(() => {
     if (!area) return;
+    if (skipAreaAutoFillRef.current) { skipAreaAutoFillRef.current = false; return; }
     const workers = FLOOR_WORKERS[area];
     if (!workers) return;
     setRows(workers.map((name) => buildRowForName(name)));
   }, [area]);
+
+  useEffect(() => {
+    if (!duplicateFrom) return;
+    setLoadingRecord(true);
+    docsApi.get("personalhygienecheckup", Number(duplicateFrom))
+      .then((res) => {
+        const d = res.data;
+        setDate(d?.check_date || "");
+        skipAreaAutoFillRef.current = true;
+        setArea(d?.area || "");
+        setCheckedBy(d?.checked_by || "");
+        setVerifiedBy(d?.verified_by || "");
+        setObservation(d?.observation || "");
+        if (Array.isArray(d?.rows) && d.rows.length > 0) {
+          setRows(d.rows.map((r: any) => ({
+            id: Date.now() + Math.random(),
+            srNo: "",
+            name: r.name || "",
+            selected: true,
+            respiratory: r.respiratory || "",
+            skinDisease: r.skin_disease || "",
+            wounds: r.wounds || "",
+            earNoseThroat: r.ear_nose_throat || "",
+            gowning: r.gowning || "",
+            handHygiene: r.hand_hygiene || "",
+            nails: r.nails || "",
+            cleanShaven: r.clean_shaven || "",
+            hairPins: r.hair_pins || "",
+            tobacco: r.tobacco || "",
+            employeeSign: r.employee_sign || "",
+            correctiveAction: r.corrective_action || "",
+          })));
+        }
+      })
+      .catch((e) => console.error("Failed to load record to duplicate:", e))
+      .finally(() => setLoadingRecord(false));
+  }, [duplicateFrom]);
 
   const handleSubmit = async () => {
     if (submitting) return;
@@ -235,13 +279,24 @@ export default function PersonalHygieneHealthCheckup() {
 
   const failCount = (field: keyof HygieneRow) => rows.filter((r) => r.selected && r[field] === "✕").length;
 
+  if (loadingRecord) {
+    return (
+      <DocFormShell title="Personal Hygiene & Health Checkup" docNo="CFPLA.C7.F.39" icon={HeartPulse} width="full">
+        <div className="surface-card p-8 flex items-center justify-center gap-2 text-sm text-ink-500">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading record to duplicate…
+        </div>
+      </DocFormShell>
+    );
+  }
+
   return (
     <DocFormShell
       title="Personal Hygiene & Health Checkup"
       docNo="CFPLA.C7.F.39"
-      subtitle="Frequency: Daily"
+      subtitle={duplicateFrom ? `Duplicating record #${duplicateFrom}` : "Frequency: Daily"}
       icon={HeartPulse}
       width="full"
+      note={duplicateFrom ? "Adjust the fields as needed, then Submit to save as a new record." : undefined}
     >
       <DocSection title="Period & Area">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

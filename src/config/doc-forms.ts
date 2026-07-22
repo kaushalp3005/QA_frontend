@@ -29,6 +29,15 @@ export const PRINTABLE_SLUGS = new Set<string>([
 // instead of retyping every field.
 export const DUPLICATABLE_SLUGS = new Set<string>([
   "lux-monitoring",
+  "productweightcheck",
+  "productiontoolissuance",
+  "dailycleaningchecklist",
+  "equipmentcleaningsanitation",
+  "preproductioninspection",
+  "lineclearancerecord",
+  "personalhygienecheckup",
+  "roastingtemperature",
+  "weighingscalecalibration",
 ])
 
 export const DOC_FORMS: Record<string, DocFormConfig> = {

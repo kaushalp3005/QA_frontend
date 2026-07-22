@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 /** Pure helper — add minutes to a "HH:MM" string, returns "HH:MM". */
 function addMins(hhmm: string, mins: number): string {
@@ -10,8 +10,8 @@ function addMins(hhmm: string, mins: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(((total % 60) + 60) % 60).padStart(2, "0")}`;
 }
 
-import { useRouter } from "next/navigation";
-import { Flame, Plus, X, AlertTriangle, Clock, Thermometer } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Flame, Plus, X, AlertTriangle, Clock, Thermometer, Loader2 } from "lucide-react";
 import Time12Picker from "@/components/Time12Picker";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
@@ -82,9 +82,49 @@ const STAGE_BADGE = [
 
 export default function CCPRoastingMonitoring() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const duplicateFrom = searchParams.get("duplicateFrom");
   const [entries, setEntries] = useState<RoastingEntry[]>([emptyEntry(), emptyEntry(), emptyEntry()]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [loadingRecord, setLoadingRecord] = useState(!!duplicateFrom);
+
+  useEffect(() => {
+    if (!duplicateFrom) return;
+    setLoadingRecord(true);
+    docsApi.get("roastingtemperature", Number(duplicateFrom))
+      .then((res) => {
+        const rows = res.data?.entries;
+        if (Array.isArray(rows) && rows.length > 0) {
+          setEntries(rows.map((r: any) => ({
+            id: Date.now() + Math.random(),
+            srNo: "",
+            date: r.date || "",
+            productName: r.product_name || "",
+            customer: r.customer || "",
+            setTemperature: r.set_temperature || "",
+            quantity: r.quantity || "",
+            roastingStage: r.roasting_stage || "",
+            duration: r.duration || "",
+            inTime: r.in_time || "",
+            outTime: r.out_time || "",
+            operatorSign: r.operator_sign || "",
+            correctiveAction: r.corrective_action || "No",
+            qcVerification: r.qc_verification || "",
+            monitoringPoints: {
+              startObsTime: r.monitoring_points?.start_obs_time || "",
+              startObsTemp: r.monitoring_points?.start_obs_temp || "",
+              middleObsTime: r.monitoring_points?.middle_obs_time || "",
+              middleObsTemp: r.monitoring_points?.middle_obs_temp || "",
+              endObsTime: r.monitoring_points?.end_obs_time || "",
+              endObsTemp: r.monitoring_points?.end_obs_temp || "",
+            },
+          })));
+        }
+      })
+      .catch((e) => console.error("Failed to load record to duplicate:", e))
+      .finally(() => setLoadingRecord(false));
+  }, [duplicateFrom]);
 
   const addRow = () => setEntries((e) => [...e, emptyEntry()]);
   const removeRow = (id: number) => setEntries((e) => e.filter((r) => r.id !== id));
@@ -140,19 +180,22 @@ export default function CCPRoastingMonitoring() {
     setSuccess(false);
     const payload: Record<string, any> = {
       warehouse: getStoredWarehouse() || null,
-      // Flat shape matching the `rows` JSONB column (and existing sample data) —
-      // NOT nested, so the generic backend column-filter actually persists it.
-      rows: entries.map((e) => ({
+      // The DB column is `entries` (jsonb), with monitoring points nested under
+      // `monitoring_points` — must match exactly, or the generic backend's
+      // column-name filter silently drops the whole field (see create_record()).
+      entries: entries.map((e) => ({
         date: e.date, product_name: e.productName, customer: e.customer,
-        set_temp: e.setTemperature, quantity: e.quantity,
-        roasting_stage: e.roastingStage, duration_min: e.duration,
+        set_temperature: e.setTemperature, quantity: e.quantity,
+        roasting_stage: e.roastingStage, duration: e.duration,
         in_time: e.inTime, out_time: e.outTime,
-        start_time: e.monitoringPoints.startObsTime,
-        start_temp: e.monitoringPoints.startObsTemp,
-        mid_time: e.monitoringPoints.middleObsTime,
-        mid_temp: e.monitoringPoints.middleObsTemp,
-        end_time: e.monitoringPoints.endObsTime,
-        end_temp: e.monitoringPoints.endObsTemp,
+        monitoring_points: {
+          start_obs_time: e.monitoringPoints.startObsTime,
+          start_obs_temp: e.monitoringPoints.startObsTemp,
+          middle_obs_time: e.monitoringPoints.middleObsTime,
+          middle_obs_temp: e.monitoringPoints.middleObsTemp,
+          end_obs_time: e.monitoringPoints.endObsTime,
+          end_obs_temp: e.monitoringPoints.endObsTemp,
+        },
         operator_sign: e.operatorSign, corrective_action: e.correctiveAction,
         qc_verification: e.qcVerification,
       })),
@@ -167,6 +210,16 @@ export default function CCPRoastingMonitoring() {
     }
   };
 
+  if (loadingRecord) {
+    return (
+      <DocFormShell title="CCP Roasting Temperature & Time" docNo="CFPLA.C2.F.42" icon={Flame} width="full">
+        <div className="surface-card p-8 flex items-center justify-center gap-2 text-sm text-ink-500">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading record to duplicate…
+        </div>
+      </DocFormShell>
+    );
+  }
+
   return (
     <DocFormShell
       title="CCP Roasting Temperature & Time"
@@ -174,6 +227,7 @@ export default function CCPRoastingMonitoring() {
       subtitle="Issue 04 · Rev 03 · 01/10/2025"
       icon={Flame}
       width="full"
+      note={duplicateFrom ? `Duplicating record #${duplicateFrom} — adjust the fields as needed, then Submit to save as a new record.` : undefined}
     >
       {/* CCP Warning Banner */}
       <div className="surface-card p-3 border-l-4 border-warning-500 bg-warning-50/60 flex items-start gap-2.5">

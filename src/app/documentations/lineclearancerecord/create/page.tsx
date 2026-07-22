@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { GitBranch, Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { GitBranch, Plus, X, Loader2 } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 import { docsApi } from "@/lib/api/documentations";
@@ -52,12 +52,32 @@ const emptyRow = (): ChangeoverRow => ({
 
 export default function ProductChangeoverLineClearance() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const duplicateFrom = searchParams.get("duplicateFrom");
   const [floorRows, setFloorRows] = useState<Record<string, ChangeoverRow[]>>(() =>
     Object.fromEntries(FLOORS.map((f) => [f, [emptyRow(), emptyRow(), emptyRow()]]))
   );
   const [activeFloor, setActiveFloor] = useState(FLOORS[0]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadingRecord, setLoadingRecord] = useState(!!duplicateFrom);
+
+  useEffect(() => {
+    if (!duplicateFrom) return;
+    setLoadingRecord(true);
+    docsApi.get("lineclearancerecord", Number(duplicateFrom))
+      .then((res) => {
+        const d = res.data;
+        const area: string = FLOORS.includes(d?.area) ? d.area : FLOORS[0];
+        const rows: ChangeoverRow[] = Array.isArray(d?.rows) && d.rows.length > 0
+          ? d.rows.map((r: any) => ({ ...r, id: Date.now() + Math.random() }))
+          : [emptyRow(), emptyRow(), emptyRow()];
+        setFloorRows((prev) => ({ ...prev, [area]: rows }));
+        setActiveFloor(area);
+      })
+      .catch((e) => console.error("Failed to load record to duplicate:", e))
+      .finally(() => setLoadingRecord(false));
+  }, [duplicateFrom]);
 
   const rows = floorRows[activeFloor];
 
@@ -123,6 +143,16 @@ export default function ProductChangeoverLineClearance() {
     );
   };
 
+  if (loadingRecord) {
+    return (
+      <DocFormShell title="Product Changeover Line Clearance" docNo="CFPLA.C5.F.44" icon={GitBranch} width="full">
+        <div className="surface-card p-8 flex items-center justify-center gap-2 text-sm text-ink-500">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading record to duplicate…
+        </div>
+      </DocFormShell>
+    );
+  }
+
   return (
     <DocFormShell
       title="Product Changeover Line Clearance"
@@ -130,7 +160,7 @@ export default function ProductChangeoverLineClearance() {
       subtitle="Issue 04 · Rev 03 · 01/10/2025"
       icon={GitBranch}
       width="full"
-      note="Frequency: After every product change."
+      note={duplicateFrom ? `Duplicating record #${duplicateFrom} — adjust the fields as needed, then Submit to save as a new record.` : "Frequency: After every product change."}
     >
       <div className="surface-card p-2 overflow-x-auto">
         <div className="flex flex-wrap gap-1">

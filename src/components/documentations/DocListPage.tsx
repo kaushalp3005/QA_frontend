@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, Copy, Search, X } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
-import { docsApi, isDocAdmin } from '@/lib/api/documentations'
+import { docsApi, isDocAdminFor } from '@/lib/api/documentations'
 import { PRINTABLE_SLUGS, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 
 interface Props {
@@ -21,7 +21,10 @@ export default function DocListPage({ config }: Props) {
   const [totalPages, setTotalPages] = useState(0)
   const [total, setTotal] = useState(0)
   const [warehouse, setWarehouse] = useState<string>('')
-  const admin = isDocAdmin()
+  const hasWarehouseCol = config.listColumns.includes('warehouse')
+  // Every row on screen belongs to the currently selected warehouse (the list
+  // is server-filtered to it below), so one admin check covers the whole page.
+  const admin = isDocAdminFor(hasWarehouseCol ? warehouse : undefined)
   const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
   const showDuplicate = DUPLICATABLE_SLUGS.has(config.routeSlug)
 
@@ -30,7 +33,6 @@ export default function DocListPage({ config }: Props) {
     try {
       const wh = getStoredWarehouse()
       setWarehouse(wh)
-      const hasWarehouseCol = config.listColumns.includes('warehouse')
       const res = await docsApi.list(config.formType, { page, per_page: 50, ...(hasWarehouseCol ? { warehouse: wh } : {}) })
       setRecords(res.records)
       setTotalPages(res.total_pages)

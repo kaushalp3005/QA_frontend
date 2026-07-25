@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Printer, Trash2, Loader2, Sparkles } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { docsApi, isDocAdmin } from "@/lib/api/documentations";
+import { docsApi, isDocAdminFor } from "@/lib/api/documentations";
 import { normalizeDCC, DCC_DAYS, type NormalizedDCC } from "@/lib/dailyCleaning";
 
 const DAY_LIST = Array.from({ length: DCC_DAYS }, (_, i) => i + 1);
@@ -12,13 +12,14 @@ export default function ViewDailyCleaningChecklist() {
   const params = useParams();
   const id = Number(params.id);
   const router = useRouter();
-  const admin = isDocAdmin();
 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [data, setData] = useState<NormalizedDCC | null>(null);
+  const [warehouse, setWarehouse] = useState<string | null>(null);
   const [prevId, setPrevId] = useState<number | null>(null);
   const [nextId, setNextId] = useState<number | null>(null);
+  const admin = isDocAdminFor(warehouse);
 
   useEffect(() => {
     setLoading(true);
@@ -26,6 +27,7 @@ export default function ViewDailyCleaningChecklist() {
       .get("dailycleaningchecklist", id)
       .then((res) => {
         setData(normalizeDCC(res.data));
+        setWarehouse(res.data.warehouse ?? null);
         setPrevId(res.data._prev_id ?? null);
         setNextId(res.data._next_id ?? null);
       })

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Printer, Copy } from 'lucide-react'
-import { docsApi, isDocAdmin } from '@/lib/api/documentations'
+import { docsApi, isDocAdminFor } from '@/lib/api/documentations'
 import { PRINTABLE_SLUGS, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 import SignatureCell from '@/components/ui/SignatureCell'
 
@@ -37,7 +37,7 @@ export default function DocViewPage({ config }: Props) {
   const [loading, setLoading] = useState(true)
   const [prevId, setPrevId] = useState<number | null>(null)
   const [nextId, setNextId] = useState<number | null>(null)
-  const admin = isDocAdmin()
+  const admin = isDocAdminFor(record?.warehouse)
   const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
   const showDuplicate = DUPLICATABLE_SLUGS.has(config.routeSlug)
 

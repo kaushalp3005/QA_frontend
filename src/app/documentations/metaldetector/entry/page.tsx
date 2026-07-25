@@ -10,6 +10,14 @@ import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from '@/lib/signatures'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
+// JSON headers plus the logged-in user's bearer token. The metal-detector
+// edit/delete endpoints are auth-guarded (only pooja.parkar can edit), so
+// every mutation must send Authorization or the backend replies 401.
+const authJsonHeaders = (): Record<string, string> => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
+  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+}
+
 // Convert 24hr time (HH:MM) to 12hr format (hh:mm AM/PM)
 const to12Hour = (time24: string): string => {
   if (!time24) return ''
@@ -414,7 +422,7 @@ export default function MetalDetectorEntryPage() {
       try {
         const response = await fetch(`${API_BASE}/metaldetector/entry/${target.dbEntryId}?warehouse=${selectedWarehouse}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authJsonHeaders(),
           body: JSON.stringify(toEntryPayload(formData)),
         })
         if (!response.ok) {
@@ -436,7 +444,7 @@ export default function MetalDetectorEntryPage() {
     try {
       const response = await fetch(`${API_BASE}/metaldetector/entry?warehouse=${selectedWarehouse}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authJsonHeaders(),
         body: JSON.stringify({
           record_id: currentRecordId,
           entry: formData
@@ -480,7 +488,8 @@ export default function MetalDetectorEntryPage() {
     if (record.dbEntryId) {
       try {
         const response = await fetch(`${API_BASE}/metaldetector/entry/${record.dbEntryId}?warehouse=${selectedWarehouse}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: authJsonHeaders(),
         })
         if (!response.ok) {
           alert('Failed to delete entry from database')
@@ -507,7 +516,7 @@ export default function MetalDetectorEntryPage() {
     try {
       const response = await fetch(`${API_BASE}/metaldetector/${currentRecordId}/finalize?warehouse=${selectedWarehouse}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: authJsonHeaders()
       })
 
       if (!response.ok) {
@@ -551,7 +560,7 @@ export default function MetalDetectorEntryPage() {
     try {
       const response = await fetch(`${API_BASE}/metaldetector/${currentRecordId}/cancel?warehouse=${selectedWarehouse}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: authJsonHeaders()
       })
 
       if (!response.ok) {

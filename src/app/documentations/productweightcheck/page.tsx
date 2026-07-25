@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, LayoutTemplate, Search, X, Play, ChevronRight } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
-import { docsApi, isDocAdmin } from '@/lib/api/documentations'
+import { docsApi, isDocAdminFor } from '@/lib/api/documentations'
 import { DOC_FORMS } from '@/config/doc-forms'
 
 const config = DOC_FORMS['productweightcheck']
@@ -21,7 +21,6 @@ export default function ProductWeightCheckListPage() {
   const [warehouse, setWarehouse] = useState<string>('')
   const [newLayout, setNewLayout] = useState(false)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const admin = isDocAdmin()
   const toggleDate = (d: string) => setExpanded((p) => ({ ...p, [d]: !p[d] }))
 
   const fetchRecords = async () => {
@@ -312,7 +311,7 @@ export default function ProductWeightCheckListPage() {
                                 >
                                   <Printer className="w-4 h-4" />
                                 </button>
-                                {admin && (
+                                {isDocAdminFor(rec.warehouse) && (
                                   <button
                                     onClick={() => handleDelete(rec.id)}
                                     className="action-btn-3d action-btn-red"

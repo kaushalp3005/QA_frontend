@@ -30,16 +30,18 @@ export const VERIFIED_BY_OPTIONS: SignatureOption[] = [
 
 /**
  * QC documentation forms — "Checked By" preset list (operators / QC executives).
- * Pooja Mhalim / Shraddha Jadhav are W202 staff; Pankaj Gosavi /
- * Sarvesh Davande / Swapnil Mahajan are A185 staff. Each appears only in its own plant.
+ * Pooja Mhalim / Shraddha Jadhav are W202 staff; Pankaj Gosavi / Sarvesh Davande /
+ * Swapnil Mahajan / Prajakta / Dhanashree are A185 staff. Each appears only in its own plant.
  */
 export const CHECKED_BY_OPTIONS: SignatureOption[] = [
   { name: 'Pooja Parkar',     signature: '/signatures/pooja-parkar.png',    role: 'Quality Manager' }, // QC head → all documents, both plants
   { name: 'Pooja Mhalim',     signature: '/signatures/pooja-mhalim.png',    role: 'Quality Control Executive', warehouses: ['W202'] },
   { name: 'Shraddha Jadhav',  signature: '/signatures/shraddha-jadhav.png', role: 'Quality Control Executive', warehouses: ['W202'] },
   { name: 'Pankaj Gosavi',    signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
-  { name: 'Sarvesh Davande',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
-  { name: 'Swapnil Mahajan',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Sarvesh Davande',  signature: '/signatures/sarvesh-davande.png', role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Swapnil Mahajan',  signature: '/signatures/swapnil-mahajan.png', role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Prajakta',         signature: '/signatures/prajakta.png',        role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Dhanashree',       signature: '/signatures/dhanashree.png',      role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Tejashri Jadhav',  signature: '/signatures/tejashri-jadhav.png', role: 'Quality Control Executive' },
   { name: 'Other',            signature: null },
 ]
@@ -53,8 +55,10 @@ export const QC_VERIFIED_BY_OPTIONS: SignatureOption[] = [
   { name: 'Shraddha Jadhav',  signature: '/signatures/shraddha-jadhav.png', role: 'Quality Control Executive', warehouses: ['W202'] },
   { name: 'Pooja Mhalim',     signature: '/signatures/pooja-mhalim.png',    role: 'Quality Control Executive', warehouses: ['W202'] },
   { name: 'Pankaj Gosavi',    signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
-  { name: 'Sarvesh Davande',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
-  { name: 'Swapnil Mahajan',  signature: null,                              role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Sarvesh Davande',  signature: '/signatures/sarvesh-davande.png', role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Swapnil Mahajan',  signature: '/signatures/swapnil-mahajan.png', role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Prajakta',         signature: '/signatures/prajakta.png',        role: 'Quality Control Executive', warehouses: ['A185'] },
+  { name: 'Dhanashree',       signature: '/signatures/dhanashree.png',      role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Tejashri Jadhav',  signature: '/signatures/tejashri-jadhav.png', role: 'Quality Control Executive' },
   { name: 'Other',            signature: null },
 ]
@@ -114,6 +118,57 @@ const ALL_SIGNATORIES = [
   ...QC_VERIFIED_BY_OPTIONS,
 ]
 
+/** Damerau-Levenshtein edit distance (adjacent transposition counts as 1 edit,
+ *  not 2) — small strings only, used for typo-tolerant name matching below. */
+function editDistance(a: string, b: string): number {
+  const m = a.length, n = b.length
+  const d: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = 0; i <= m; i++) d[i][0] = i
+  for (let j = 0; j <= n; j++) d[0][j] = j
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      d[i][j] = Math.min(
+        d[i - 1][j] + 1,
+        d[i][j - 1] + 1,
+        d[i - 1][j - 1] + cost,
+      )
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1)
+      }
+    }
+  }
+  return d[m][n]
+}
+
+/**
+ * Fallback for a bare first name typed with no last name at all — e.g.
+ * "SARVESH", or "DHANAHSREE" (a transposed-letter typo for "Dhanashree").
+ * Real print data is full of exactly this: operators type just a first name,
+ * sometimes with a slip. Resolves ONLY when exactly one signatory's first
+ * name is the (tied-for-)closest match — an ambiguous first name (e.g.
+ * "Pooja", shared by Pooja Parkar and Pooja Mhalim) is deliberately left
+ * unresolved rather than risking attributing a QC sign-off to the wrong person.
+ */
+function matchBareFirstName(typed: string): SignatureOption | null {
+  const t = normalizeName(typed)
+  if (!t || t.includes(' ')) return null
+  const bySignatoryName = new Map<string, SignatureOption>()
+  for (const o of ALL_SIGNATORIES) {
+    if (o.signature && !bySignatoryName.has(o.name)) bySignatoryName.set(o.name, o)
+  }
+  let bestDist = Infinity
+  let bestMatches: SignatureOption[] = []
+  for (const o of bySignatoryName.values()) {
+    const first = normalizeName(o.name).split(' ')[0]
+    const dist = editDistance(t, first)
+    if (dist > 2) continue
+    if (dist < bestDist) { bestDist = dist; bestMatches = [o] }
+    else if (dist === bestDist) bestMatches.push(o)
+  }
+  return bestMatches.length === 1 ? bestMatches[0] : null
+}
+
 /** Look up signature path for a name (used on the print page) */
 export function getSignaturePath(name: string): string | null {
   if (!name) return null
@@ -122,7 +177,10 @@ export function getSignaturePath(name: string): string | null {
   if (exact) return exact.signature
   // 2. Tolerant match for abbreviated/free-typed names — only against staff
   //    that actually have a signature image, so we never false-match "Other".
-  return ALL_SIGNATORIES.find(o => o.signature && namesMatch(name, o.name))?.signature ?? null
+  const tolerant = ALL_SIGNATORIES.find(o => o.signature && namesMatch(name, o.name))
+  if (tolerant) return tolerant.signature
+  // 3. Bare-first-name fallback (see matchBareFirstName)
+  return matchBareFirstName(name)?.signature ?? null
 }
 
 /**
@@ -136,7 +194,8 @@ export function resolveSignatoryName(value: string): string {
   const exact = ALL_SIGNATORIES.find(o => o.name === value)
   if (exact) return exact.name
   const match = ALL_SIGNATORIES.find(o => o.signature && namesMatch(value, o.name))
-  return match ? match.name : value
+  if (match) return match.name
+  return matchBareFirstName(value)?.name ?? value
 }
 
 /** Look up role for a name across any option list */

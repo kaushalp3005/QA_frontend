@@ -210,7 +210,29 @@ export const fgCoaApi = {
 
 export const ADMIN_EMAIL = 'pooja.parkar@candorfoods.in'
 
+// Emails with admin-level rights (edit date/time fields, delete) scoped to a
+// single warehouse's records only — must mirror SCOPED_ADMIN_EMAILS in
+// backend/app/config/doc_registry.py. This only gates which buttons show;
+// the backend re-checks and is the actual source of truth.
+const SCOPED_ADMIN_EMAILS: Record<string, string> = {
+  'quality.a-185@candorfoods.in': 'A185',
+}
+
+/** Full admin — every record, any warehouse. */
 export function isDocAdmin(): boolean {
   const email = getUserEmail()
   return !!email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase()
+}
+
+/**
+ * Admin-level rights for one specific record: true for the full admin always,
+ * or for a scoped admin when `warehouse` matches their assigned scope. Pass
+ * the record's own `warehouse` field (or undefined for tables that don't
+ * have one — scoped admins get no elevated rights there).
+ */
+export function isDocAdminFor(warehouse?: string | null): boolean {
+  if (isDocAdmin()) return true
+  const email = getUserEmail()
+  if (!email || !warehouse) return false
+  return SCOPED_ADMIN_EMAILS[email.toLowerCase()] === warehouse
 }

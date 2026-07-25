@@ -9,6 +9,10 @@ Save the following images into this folder with these **exact filenames**:
 | `pooja-parkar.png` | Pooja Parkar's signature | Verified-by signature (Quality Manager) |
 | `pooja-mhalim.png` | Pooja Mhalim's signature | Analysed-by signature |
 | `tejashri-jadhav.png` | Tejashri Jadhav's signature | Checked By / Verified By signature (QC documentation forms) |
+| `sarvesh-davande.png` | Sarvesh Davande's signature | Checked By / Verified By signature (A185 QC documentation forms) |
+| `swapnil-mahajan.png` | Swapnil Mahajan's signature | Checked By / Verified By signature (A185 QC documentation forms) |
+| `prajakta.png` | Prajakta's signature | Checked By / Verified By signature (A185 QC documentation forms) |
+| `dhanashree.png` | Dhanashree's signature | Checked By / Verified By signature (A185 QC documentation forms) |
 
 These are referenced by `/signatures/<filename>` in the COA print page and the QC documentation print pages.
 PNG with transparent background works best.

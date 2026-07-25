@@ -676,23 +676,40 @@ interface GMPGHPInspectionProps {
 }
 
 export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGHPInspectionProps = {}) {
+  const router = useRouter();
+  // DB column is `checklist` (an array of {sr, obtained_score, remarks, ...}),
+  // not `scores` — must match exactly, or the generic backend's column-name
+  // filter silently drops the whole field (see create_record()).
   const [scores, setScores] = useState<Record<number, { obtained: string; remarks: string }>>(() => {
-    if (initialData?.scores) return initialData.scores;
-    // New record: pre-fill Obtained with each item's Max score (editable).
     const init: Record<number, { obtained: string; remarks: string }> = {};
     GMP_SECTIONS.forEach((s) => s.items.forEach((i) => { init[i.sr] = { obtained: String(i.maxScore), remarks: "" }; }));
+    if (Array.isArray(initialData?.checklist)) {
+      initialData.checklist.forEach((row: any) => {
+        const sr = Number(row.sr);
+        if (!Number.isNaN(sr) && init[sr]) {
+          init[sr] = {
+            obtained: row.obtained_score != null ? String(row.obtained_score) : init[sr].obtained,
+            remarks: row.remarks || "",
+          };
+        }
+      });
+    }
     return init;
   });
   const [auditorName, setAuditorName] = useState(initialData?.auditor_name || "");
   const [auditeeName, setAuditeeName] = useState(initialData?.auditee_name || "");
   const [auditDateTime, setAuditDateTime] = useState(initialData?.audit_datetime || "");
   const [capaRows, setCapaRows] = useState<CAPARow[]>(() => {
-    if (initialData?.capa_rows && Array.isArray(initialData.capa_rows)) {
-      return initialData.capa_rows.map((r: any, i: number) => ({ id: i + 1, nonConformity: r.non_conformity || "", correctiveAction: r.corrective_action || "", preventiveAction: r.preventive_action || "", doneBy: r.done_by || "", verifiedBy: r.verified_by || "" }));
+    if (initialData?.capa && Array.isArray(initialData.capa) && initialData.capa.length > 0) {
+      return initialData.capa.map((r: any, i: number) => ({ id: i + 1, nonConformity: r.non_conformity || "", correctiveAction: r.corrective_action || "", preventiveAction: r.preventive_action || "", doneBy: r.done_by || "", verifiedBy: r.verified_by || "" }));
     }
     return Array.from({ length: 5 }, (_, i) => ({ id: i + 1, nonConformity: "", correctiveAction: "", preventiveAction: "", doneBy: "", verifiedBy: "" }));
   });
-  const [submitting, setSubmitting] = useState(false);
+  // Create the record on the first save, then update it on every save after —
+  // so "Save Draft" can be used repeatedly and "Submit & Finish" updates the
+  // same record instead of creating a duplicate.
+  const [savedId, setSavedId] = useState<number | null>(initialData?.id ?? null);
+  const [saving, setSaving] = useState<false | "draft" | "final">(false);
   const [success, setSuccess] = useState(false);
 
   const updateScore = (sr: number, field: "obtained" | "remarks", value: string) => setScores((p) => ({ ...p, [sr]: { ...p[sr], obtained: p[sr]?.obtained || "", remarks: p[sr]?.remarks || "", [field]: value } }));
@@ -731,36 +748,84 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
   ];
   const obtainedGrade = parseFloat(percentage) >= 85 ? "A" : parseFloat(percentage) >= 70 ? "B" : "C";
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
+  const buildPayload = (status: "draft" | "submitted") => ({
+    warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+    audit_datetime: auditDateTime,
+    auditor_name: auditorName,
+    auditee_name: auditeeName,
+    checklist: allItems.map((i) => ({
+      sr: i.sr,
+      description: i.text,
+      max_score: i.maxScore,
+      obtained_score: scores[i.sr]?.obtained !== "" ? parseFloat(scores[i.sr]?.obtained ?? "0") || 0 : 0,
+      remarks: scores[i.sr]?.remarks || "",
+    })),
+    total_max: totalMax,
+    total_obtained: totalObt,
+    percentage: parseFloat(percentage),
+    rating: obtainedGrade, // rating column is VARCHAR(4) — store just the grade letter (A/B/C); full text is display-only
+    capa: capaRows.filter((r) => r.nonConformity).map((r) => ({ non_conformity: r.nonConformity, corrective_action: r.correctiveAction, preventive_action: r.preventiveAction, done_by: r.doneBy, verified_by: r.verifiedBy })),
+    status,
+  });
+
+  // Persist now: create on the first save, update afterwards. In edit mode
+  // (onSubmit supplied by DocEditWrapper) there's no separate draft state —
+  // just save the current fields to the existing record.
+  const persist = async (status: "draft" | "submitted"): Promise<number | null> => {
+    const payload = buildPayload(status);
+    if (onSubmit) {
+      await onSubmit(payload);
+      return savedId;
+    }
+    const { docsApi } = await import("@/lib/api/documentations");
+    if (savedId == null) {
+      const res = await docsApi.create("gmp-ghp-inspection", payload);
+      const id = res.data?.id as number | undefined;
+      if (typeof id === "number") setSavedId(id);
+      return id ?? null;
+    }
+    await docsApi.update("gmp-ghp-inspection", savedId, payload);
+    return savedId;
+  };
+
+  const handleSaveDraft = async () => {
+    if (saving) return;
+    setSaving("draft");
     setSuccess(false);
-    const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
-      audit_datetime: auditDateTime,
-      auditor_name: auditorName,
-      auditee_name: auditeeName,
-      scores,
-      percentage: parseFloat(percentage),
-      rating: obtainedGrade, // rating column is VARCHAR(4) — store just the grade letter (A/B/C); full text is display-only
-      capa_rows: capaRows.filter((r) => r.nonConformity).map((r) => ({ non_conformity: r.nonConformity, corrective_action: r.correctiveAction, preventive_action: r.preventiveAction, done_by: r.doneBy, verified_by: r.verifiedBy })),
-    };
     try {
-      if (onSubmit) {
-        await onSubmit(payload);
-      } else {
-        const { docsApi } = await import("@/lib/api/documentations");
-        await docsApi.create("gmp-ghp-inspection", payload);
-        setSuccess(true);
+      await persist("draft");
+      setSuccess(true);
+    } catch (e: any) {
+      alert(e.message || "Failed to save draft");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (saving) return;
+    setSaving("final");
+    setSuccess(false);
+    try {
+      await persist("submitted");
+      setSuccess(true);
+      if (!onSubmit) {
+        router.push("/documentations/gmp-ghp-inspection");
       }
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
   return (
     <div className="space-y-5">
+      {savedId != null && !isEdit && (
+        <div className="surface-card p-3 border-l-4 border-warning-500 bg-warning-50 text-xs text-warning-800 font-medium">
+          Draft <span className="font-bold">#{savedId}</span> saved. Keep filling in the checklist, then <strong>Submit &amp; Finish</strong> to finalize.
+        </div>
+      )}
       <div className={`surface-card p-4 border-l-4 ${ratingTone}`}>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
           <div className="flex items-baseline gap-3">
@@ -939,8 +1004,13 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
         </p>
         <div className="flex items-center gap-3">
           {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
-          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
-            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          {!isEdit && (
+            <button onClick={handleSaveDraft} disabled={!!saving} className="btn-outline">
+              {saving === "draft" ? "Saving..." : "Save Draft"}
+            </button>
+          )}
+          <button onClick={handleSubmit} disabled={!!saving} className="btn-primary">
+            {saving === "final" ? "Submitting..." : isEdit ? "Update" : "Submit & Finish"}
           </button>
         </div>
       </div>

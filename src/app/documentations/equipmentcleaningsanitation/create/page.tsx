@@ -49,8 +49,9 @@ export default function EquipmentCleaningSanitationRecord() {
   const FLOOR_OPTIONS = isA185 ? [...Object.keys(A185_FLOOR_EQUIPMENT), A185_OVERALL_KEY] : Object.keys(W202_FLOOR_EQUIPMENT);
 
   const [recordDate, setRecordDate] = useState("");
-  const [observations, setObservations] = useState("");
-  const [correctiveActions, setCorrectiveActions] = useState("");
+  // Notes are per-floor — each floor keeps its own Observations / Corrective
+  // Actions so switching floors no longer shows the same notes everywhere.
+  const [notesByFloor, setNotesByFloor] = useState<Record<string, { observations: string; correctiveAction: string }>>({});
   const [floor, setFloor] = useState<string>("");
   const [selectedDates, setSelectedDates] = useState<number[]>(Array.from({ length: 31 }, (_, i) => i + 1));
   const [recordId, setRecordId] = useState<number | null>(null);
@@ -81,13 +82,19 @@ export default function EquipmentCleaningSanitationRecord() {
         const d = res.data;
         const g = d?.grid || {};
         setRecordDate(g.record_date || "");
-        setObservations(d?.observations || "");
-        setCorrectiveActions(d?.corrective_action || "");
         if (Array.isArray(g.selectedDates) && g.selectedDates.length > 0) setSelectedDates(g.selectedDates);
         setGridByFloor(g.cellsByFloor || {});
         setDaySigsByFloor(g.daySigsByFloor || {});
         const floorKeys = Object.keys(g.cellsByFloor || {});
         if (floorKeys.length > 0) setFloor(floorKeys[0]);
+        // Per-floor notes; older records only carry a single shared note — seed it
+        // under the first floor so it isn't lost.
+        const loadedNotes: Record<string, { observations: string; correctiveAction: string }> =
+          g.notesByFloor && typeof g.notesByFloor === "object" ? { ...g.notesByFloor } : {};
+        if (Object.keys(loadedNotes).length === 0 && (d?.observations || d?.corrective_action)) {
+          loadedNotes[floorKeys[0] || ""] = { observations: d?.observations || "", correctiveAction: d?.corrective_action || "" };
+        }
+        setNotesByFloor(loadedNotes);
         if (isA185 && g.overall) {
           setOverallYear(g.overall.year || String(new Date().getFullYear()));
           setOverallGrid(g.overall.cells || {});
@@ -101,6 +108,13 @@ export default function EquipmentCleaningSanitationRecord() {
   // The active floor's grid + signatures (empty until the floor is first touched).
   const grid: Grid = gridByFloor[floor] || {};
   const daySigs: Record<number, RowSig> = daySigsByFloor[floor] || {};
+  // The active floor's notes.
+  const activeNotes = notesByFloor[floor] || { observations: "", correctiveAction: "" };
+  const setActiveNote = (field: "observations" | "correctiveAction", value: string) =>
+    setNotesByFloor((all) => ({
+      ...all,
+      [floor]: { observations: all[floor]?.observations || "", correctiveAction: all[floor]?.correctiveAction || "", [field]: value },
+    }));
 
   const setCurrentGrid = (updater: (prev: Grid) => Grid) =>
     setGridByFloor((all) => ({ ...all, [floor]: updater(all[floor] || {}) }));
@@ -186,14 +200,25 @@ export default function EquipmentCleaningSanitationRecord() {
     const floorsWithData = Object.keys(gridByFloor).filter((f) => f && hasData(gridByFloor[f]));
     const overallHasData = Object.values(overallGrid).some((row) => Object.values(row).some((v) => v));
     if (overallHasData) floorsWithData.push(A185_OVERALL_KEY);
+    // Top-level observations/corrective_action are kept for the DB columns and
+    // legacy consumers as a combined, floor-labelled summary of the per-floor notes.
+    const noteEntries = Object.entries(notesByFloor).filter(([, n]) => n && (n.observations?.trim() || n.correctiveAction?.trim()));
+    const combinedObservations = noteEntries
+      .filter(([, n]) => n.observations?.trim())
+      .map(([f, n]) => `${f || "All Equipment"}: ${n.observations.trim()}`)
+      .join("\n");
+    const combinedCorrective = noteEntries
+      .filter(([, n]) => n.correctiveAction?.trim())
+      .map(([f, n]) => `${f || "All Equipment"}: ${n.correctiveAction.trim()}`)
+      .join("\n");
     return {
       warehouse: getStoredWarehouse() || null,
       month: recordDate ? recordDate.slice(0, 7) : "",
       area: floorsWithData.join(", ") || floor,
-      observations,
-      corrective_action: correctiveActions,
+      observations: combinedObservations,
+      corrective_action: combinedCorrective,
       grid: {
-        selectedDates, cellsByFloor: gridByFloor, record_date: recordDate, daySigsByFloor,
+        selectedDates, cellsByFloor: gridByFloor, record_date: recordDate, daySigsByFloor, notesByFloor,
         ...(isA185 ? { overall: { year: overallYear, cells: overallGrid, sigs: overallSigs } } : {}),
       },
       status,
@@ -447,15 +472,15 @@ export default function EquipmentCleaningSanitationRecord() {
       </DocSection>
       )}
 
-      <DocSection title="Approvals & Notes">
+      <DocSection title="Approvals & Notes" description={`Notes for: ${floor || "All Equipment"} — each floor keeps its own`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="label-base">Observations</label>
-            <textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={3} className="input-base" />
+            <textarea value={activeNotes.observations} onChange={(e) => setActiveNote("observations", e.target.value)} rows={3} className="input-base" />
           </div>
           <div>
             <label className="label-base">Corrective Actions</label>
-            <textarea value={correctiveActions} onChange={(e) => setCorrectiveActions(e.target.value)} rows={3} className="input-base" />
+            <textarea value={activeNotes.correctiveAction} onChange={(e) => setActiveNote("correctiveAction", e.target.value)} rows={3} className="input-base" />
           </div>
         </div>
       </DocSection>

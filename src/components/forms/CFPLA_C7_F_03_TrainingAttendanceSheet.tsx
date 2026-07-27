@@ -37,24 +37,37 @@ interface TrainingAttendanceSheetProps {
 
 export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit }: TrainingAttendanceSheetProps = {}) {
   const [trainingDate, setTrainingDate] = useState(initialData?.training_date || "");
-  const [trainingTypes, setTrainingTypes] = useState<string[]>(initialData?.training_types || []);
-  const [startTime, setStartTime] = useState(initialData?.start_time || "");
-  const [endTime, setEndTime] = useState(initialData?.end_time || "");
+  // DB column is `training_type` (singular) — an array of strings. An "Other"
+  // entry is stored as "Other: <detail>" so the specifics survive without a
+  // dedicated column; unpack that back into the checkbox + detail text below.
+  const [trainingTypes, setTrainingTypes] = useState<string[]>(() => {
+    const raw: string[] = Array.isArray(initialData?.training_type) ? initialData.training_type : [];
+    return raw.map((t) => (t.startsWith("Other") ? "Other" : t));
+  });
+  const [otherTrainingTypeDetail, setOtherTrainingTypeDetail] = useState<string>(() => {
+    const raw: string[] = Array.isArray(initialData?.training_type) ? initialData.training_type : [];
+    const otherEntry = raw.find((t) => t.startsWith("Other:"));
+    return otherEntry ? otherEntry.slice("Other:".length).trim() : "";
+  });
+  const [startTime, setStartTime] = useState(initialData?.time_start || "");
+  const [endTime, setEndTime] = useState(initialData?.time_end || "");
   const [conductedBy, setConductedBy] = useState(initialData?.conducted_by || "");
   const [trainerQualification, setTrainerQualification] = useState(initialData?.trainer_qualification || "");
   const [venue, setVenue] = useState(initialData?.venue || "");
-  const [keyPoints, setKeyPoints] = useState(initialData?.key_points || "");
+  const [keyPoints, setKeyPoints] = useState(initialData?.key_points_covered || "");
   const [department, setDepartment] = useState(initialData?.department || "");
-  const [language, setLanguage] = useState<string[]>(initialData?.language || []);
-  const [effectivenessDays, setEffectivenessDays] = useState<"15" | "30" | "">(initialData?.effectiveness_days || "");
-  const [trainerSign, setTrainerSign] = useState(initialData?.trainer_sign || "");
-  const [fstlSign, setFstlSign] = useState(initialData?.fstl_sign || "");
+  const [language, setLanguage] = useState<string[]>(initialData?.training_language || []);
+  const [effectivenessDays, setEffectivenessDays] = useState<"15" | "30" | "">(
+    initialData?.effectiveness_after_days != null ? (String(initialData.effectiveness_after_days) as "15" | "30") : ""
+  );
+  const [trainerSign, setTrainerSign] = useState(initialData?.trainer_signature || "");
+  const [fstlSign, setFstlSign] = useState(initialData?.fstl_signature || "");
   const [effectivenessEvaluatedBy, setEffectivenessEvaluatedBy] = useState(initialData?.effectiveness_evaluated_by || "");
-  const [effectivenessDate, setEffectivenessDate] = useState(initialData?.effectiveness_date || "");
+  const [effectivenessDate, setEffectivenessDate] = useState(initialData?.dated || "");
   const [correctiveActions, setCorrectiveActions] = useState<string[]>(initialData?.corrective_actions || []);
   const [rows, setRows] = useState<AttendeeRow[]>(() => {
-    if (initialData?.rows && Array.isArray(initialData.rows)) {
-      return initialData.rows.map((r: any, i: number) => ({
+    if (initialData?.attendees && Array.isArray(initialData.attendees)) {
+      return initialData.attendees.map((r: any, i: number) => ({
         id: i + 1,
         name: r.name || "",
         designation: r.designation || "",
@@ -106,22 +119,24 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
     const payload: Record<string, any> = {
       warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
       training_date: trainingDate,
-      training_types: trainingTypes,
-      start_time: startTime,
-      end_time: endTime,
+      training_type: trainingTypes.map((t) =>
+        t === "Other" && otherTrainingTypeDetail.trim() ? `Other: ${otherTrainingTypeDetail.trim()}` : t
+      ),
+      time_start: startTime,
+      time_end: endTime,
       conducted_by: conductedBy,
       trainer_qualification: trainerQualification,
       venue,
-      key_points: keyPoints,
+      key_points_covered: keyPoints,
       department,
-      language,
-      effectiveness_days: effectivenessDays,
-      trainer_sign: trainerSign,
-      fstl_sign: fstlSign,
+      training_language: language,
+      effectiveness_after_days: effectivenessDays ? Number(effectivenessDays) : null,
+      trainer_signature: trainerSign,
+      fstl_signature: fstlSign,
       effectiveness_evaluated_by: effectivenessEvaluatedBy,
-      effectiveness_date: effectivenessDate,
+      dated: effectivenessDate,
       corrective_actions: correctiveActions,
-      rows: rows.filter((r) => r.name).map((r) => ({
+      attendees: rows.filter((r) => r.name).map((r) => ({
         name: r.name,
         designation: r.designation,
         signature: r.signature,
@@ -212,6 +227,16 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
             </label>
           ))}
         </div>
+        {trainingTypes.includes("Other") && (
+          <input
+            type="text"
+            value={otherTrainingTypeDetail}
+            onChange={(e) => setOtherTrainingTypeDetail(e.target.value)}
+            placeholder="Specify other training type…"
+            className="border border-gray-300 rounded px-3 py-2 w-full mt-2 text-sm"
+            autoFocus
+          />
+        )}
       </div>
 
       {/* Language & Effectiveness */}

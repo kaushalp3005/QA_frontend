@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import SignaturePicker from "@/components/ui/SignaturePicker";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
@@ -132,55 +133,109 @@ interface TraceabilityReportProps {
   isEdit?: boolean;
 }
 
+/** Rebuild the Yes/No map from the stored `documents_review` JSONB. Accepts the
+ *  current [{document, status}] shape and the older [{document, checked}] one. */
+function readDocChecks(src: any): Record<string, "Yes" | "No" | ""> {
+  const out: Record<string, "Yes" | "No" | ""> = {};
+  if (Array.isArray(src)) {
+    for (const r of src) {
+      if (!r || typeof r !== "object" || !r.document) continue;
+      out[r.document] = r.status === "Yes" || r.status === "No" ? r.status : r.checked ? "Yes" : "";
+    }
+  } else if (src && typeof src === "object") {
+    for (const [k, v] of Object.entries(src)) {
+      if (v === "Yes" || v === "No") out[k] = v;
+    }
+  }
+  return out;
+}
+
 export function TraceabilityReport({ initialData, onSubmit, isEdit }: TraceabilityReportProps = {}) {
+  const router = useRouter();
   const [date, setDate] = useState(initialData?.report_date || ""); const [startTime, setStartTime] = useState(initialData?.start_time || ""); const [productName, setProductName] = useState(initialData?.product_name || "");
   const [batchNumber, setBatchNumber] = useState(initialData?.batch_number || ""); const [workOrderNo, setWorkOrderNo] = useState(initialData?.work_order_no || ""); const [packingDate, setPackingDate] = useState(initialData?.packing_date || "");
   const [expiryDate, setExpiryDate] = useState(initialData?.expiry_date || ""); const [sizePacking, setSizePacking] = useState(initialData?.size_packing || ""); const [qtyProduced, setQtyProduced] = useState(initialData?.qty_produced?.toString() || "");
   const [ingredients, setIngredients] = useState<IngRow[]>(() => {
-    if (initialData?.ingredients && Array.isArray(initialData.ingredients)) {
+    if (initialData?.ingredients && Array.isArray(initialData.ingredients) && initialData.ingredients.length) {
       return initialData.ingredients.map((r: any, i: number) => ({ id: i + 1, ingredient: r.ingredient || "", lotNo: r.lot_no || "", supplier: r.supplier || "", poNo: r.po_no || "", receivedQty: r.received_qty || "", issuedQty: r.issued_qty || "", dateOfIssuance: r.date_of_issuance || "" }));
     }
     return [{ id: 1, ingredient: "", lotNo: "", supplier: "", poNo: "", receivedQty: "", issuedQty: "", dateOfIssuance: "" }];
   });
   const [packMaterials, setPackMaterials] = useState<PackRow[]>(() => {
-    if (initialData?.pack_materials && Array.isArray(initialData.pack_materials)) {
-      return initialData.pack_materials.map((r: any, i: number) => ({ id: i + 1, material: r.material || "", lotNo: r.lot_no || "", supplier: r.supplier || "", poNo: r.po_no || "", issuanceDate: r.issuance_date || "", qualityApprovalDate: r.quality_approval_date || "", inwardQty: r.inward_qty || "", usedQty: r.used_qty || "" }));
+    const src = initialData?.packing_materials;
+    if (Array.isArray(src) && src.length) {
+      return src.map((r: any, i: number) => ({ id: i + 1, material: r.material || "", lotNo: r.lot_no || "", supplier: r.supplier || "", poNo: r.po_no || "", issuanceDate: r.issuance_date || "", qualityApprovalDate: r.quality_approval_date || "", inwardQty: r.inward_qty || "", usedQty: r.used_qty || "" }));
     }
     return [{ id: 1, material: "", lotNo: "", supplier: "", poNo: "", issuanceDate: "", qualityApprovalDate: "", inwardQty: "", usedQty: "" }];
   });
-  const [docChecks, setDocChecks] = useState<Record<string, "Yes" | "No" | "">>(() => initialData?.doc_checks || {});
-  const [rmQty, setRmQty] = useState(initialData?.rm_qty?.toString() || ""); const [fgProduced, setFgProduced] = useState(initialData?.fg_produced?.toString() || ""); const [rejectionQty, setRejectionQty] = useState(initialData?.rejection_qty?.toString() || ""); const [stockBalance, setStockBalance] = useState(initialData?.stock_balance?.toString() || "");
-  const [conclusion, setConclusion] = useState(initialData?.conclusion || ""); const [preparedBy, setPreparedBy] = useState(initialData?.prepared_by || ""); const [reviewedBy, setReviewedBy] = useState(initialData?.reviewed_by || "");
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [docChecks, setDocChecks] = useState<Record<string, "Yes" | "No" | "">>(() => readDocChecks(initialData?.documents_review));
+  const [rmQty, setRmQty] = useState(initialData?.rm_quantity?.toString() || ""); const [fgProduced, setFgProduced] = useState(initialData?.total_fg_produced?.toString() || ""); const [rejectionQty, setRejectionQty] = useState(initialData?.rejection_qty?.toString() || ""); const [stockBalance, setStockBalance] = useState(initialData?.stock_balance?.toString() || "");
+  const [conclusion, setConclusion] = useState(initialData?.overall_conclusion || ""); const [preparedBy, setPreparedBy] = useState(initialData?.prepared_by || ""); const [reviewedBy, setReviewedBy] = useState(initialData?.reviewed_by || "");
+  // Id of the record this form is bound to. On the create page it is null until
+  // the first "Submit Partially", after which every save updates that same row.
+  const [recordId, setRecordId] = useState<number | null>(typeof initialData?.id === "number" ? initialData.id : null);
+  const [saving, setSaving] = useState<false | "draft" | "final">(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const addIng = () => setIngredients((p) => [...p, { id: p.length + 1, ingredient: "", lotNo: "", supplier: "", poNo: "", receivedQty: "", issuedQty: "", dateOfIssuance: "" }]);
   const addPack = () => setPackMaterials((p) => [...p, { id: p.length + 1, material: "", lotNo: "", supplier: "", poNo: "", issuanceDate: "", qualityApprovalDate: "", inwardQty: "", usedQty: "" }]);
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setSuccess(false);
-    const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse() || null,
-      report_date: date, start_time: startTime, product_name: productName, batch_number: batchNumber,
-      work_order_no: workOrderNo, packing_date: packingDate, expiry_date: expiryDate, size_packing: sizePacking,
-      qty_produced: qtyProduced ? Number(qtyProduced) : null,
-      ingredients: ingredients.filter((r) => r.ingredient).map((r) => ({ ingredient: r.ingredient, lot_no: r.lotNo, supplier: r.supplier, po_no: r.poNo, received_qty: r.receivedQty, issued_qty: r.issuedQty, date_of_issuance: r.dateOfIssuance })),
-      pack_materials: packMaterials.filter((r) => r.material).map((r) => ({ material: r.material, lot_no: r.lotNo, supplier: r.supplier, po_no: r.poNo, issuance_date: r.issuanceDate, quality_approval_date: r.qualityApprovalDate, inward_qty: r.inwardQty, used_qty: r.usedQty })),
-      doc_checks: docChecks,
-      rm_qty: rmQty ? Number(rmQty) : null, fg_produced: fgProduced ? Number(fgProduced) : null,
-      rejection_qty: rejectionQty ? Number(rejectionQty) : null, stock_balance: stockBalance ? Number(stockBalance) : null,
-      conclusion, prepared_by: preparedBy, reviewed_by: reviewedBy,
-    };
+  // Column names must match doc_traceability_report — the backend silently drops
+  // any key that is not a real column.
+  const buildPayload = (status: "draft" | "submitted"): Record<string, any> => ({
+    warehouse: getStoredWarehouse() || null,
+    report_date: date, start_time: startTime, product_name: productName, batch_number: batchNumber,
+    work_order_no: workOrderNo, packing_date: packingDate, expiry_date: expiryDate, size_packing: sizePacking,
+    qty_produced: qtyProduced ? Number(qtyProduced) : null,
+    ingredients: ingredients.filter((r) => r.ingredient).map((r) => ({ ingredient: r.ingredient, lot_no: r.lotNo, supplier: r.supplier, po_no: r.poNo, received_qty: r.receivedQty, issued_qty: r.issuedQty, date_of_issuance: r.dateOfIssuance })),
+    packing_materials: packMaterials.filter((r) => r.material).map((r) => ({ material: r.material, lot_no: r.lotNo, supplier: r.supplier, po_no: r.poNo, issuance_date: r.issuanceDate, quality_approval_date: r.qualityApprovalDate, inward_qty: r.inwardQty, used_qty: r.usedQty })),
+    documents_review: TRACE_DOCS.filter((d) => docChecks[d]).map((d) => ({ document: d, status: docChecks[d] })),
+    rm_quantity: rmQty ? Number(rmQty) : null, total_fg_produced: fgProduced ? Number(fgProduced) : null,
+    rejection_qty: rejectionQty ? Number(rejectionQty) : null, stock_balance: stockBalance ? Number(stockBalance) : null,
+    overall_conclusion: conclusion, prepared_by: preparedBy, reviewed_by: reviewedBy,
+    status,
+  });
+
+  const handleSave = async (status: "draft" | "submitted") => {
+    setSaving(status === "draft" ? "draft" : "final");
+    setMessage(null);
     try {
-      if (onSubmit) { await onSubmit(payload); }
-      else { const { docsApi } = await import("@/lib/api/documentations"); await docsApi.create("traceability", payload); setSuccess(true); }
-    } catch (e: any) { alert(e.message || "Submit failed"); }
-    finally { setSubmitting(false); }
+      const payload = buildPayload(status);
+      // Edit page: the wrapper owns the update + redirect on final submit.
+      if (status === "submitted" && onSubmit) {
+        await onSubmit(payload);
+        return;
+      }
+      const { docsApi } = await import("@/lib/api/documentations");
+      let id = recordId;
+      if (id == null) {
+        const res = await docsApi.create("traceability", payload);
+        const newId = res.data?.id;
+        if (typeof newId === "number") { id = newId; setRecordId(newId); }
+      } else {
+        await docsApi.update("traceability", id, payload);
+      }
+      if (status === "submitted") {
+        setMessage({ kind: "ok", text: "Record submitted." });
+        setTimeout(() => router.push("/documentations/traceability"), 800);
+      } else {
+        setMessage({ kind: "ok", text: id != null ? `Draft saved — record #${id}.` : "Draft saved." });
+      }
+    } catch (e) {
+      setMessage({ kind: "err", text: e instanceof Error ? e.message : "Save failed." });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="space-y-5">
+      {!isEdit && recordId != null && (
+        <div className="surface-card p-3 border-l-4 border-warning-500 bg-warning-50 text-xs text-warning-800 font-medium">
+          Draft <span className="font-bold">#{recordId}</span> in progress. Keep using <strong>Submit Partially</strong> to save progress, or <strong>Submit Record</strong> to finalise.
+        </div>
+      )}
+
       <section className="surface-card overflow-hidden">
         <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
           <h2 className="text-sm font-bold text-ink-600">Production Information</h2>
@@ -264,11 +319,19 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit }: Traceabili
             <div key={i} className="flex items-center px-4 sm:px-5 py-2 gap-3 hover:bg-cream-100/60">
               <span className="w-6 text-xs text-ink-400 font-medium">{i + 1}.</span>
               <span className="flex-1 text-sm text-ink-500">{doc}</span>
-              <div className="flex gap-1.5">
+              {/* Plain buttons, not a label wrapping an `sr-only` radio: the hidden
+                  radio is absolutely positioned against the app's `fixed inset-0`
+                  shell, so focusing it made the browser scroll <main> far past the
+                  content and the page went blank. */}
+              <div className="flex gap-1.5 shrink-0" role="radiogroup" aria-label={doc}>
                 {(["Yes", "No"] as const).map((v) => (
-                  <label
+                  <button
                     key={v}
-                    className={`px-2.5 py-1 rounded-md border text-[11px] font-semibold cursor-pointer transition-colors ${
+                    type="button"
+                    role="radio"
+                    aria-checked={docChecks[doc] === v}
+                    onClick={() => setDocChecks((p) => ({ ...p, [doc]: p[doc] === v ? "" : v }))}
+                    className={`px-2.5 py-1 !min-h-0 rounded-md border text-[11px] font-semibold cursor-pointer transition-colors ${
                       docChecks[doc] === v
                         ? v === "Yes"
                           ? "bg-success-50 border-success-200 text-success-700"
@@ -276,9 +339,8 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit }: Traceabili
                         : "border-cream-300 text-ink-400 hover:bg-cream-100"
                     }`}
                   >
-                    <input type="radio" name={`doc-${i}`} className="sr-only" checked={docChecks[doc] === v} onChange={() => setDocChecks((p) => ({ ...p, [doc]: v }))} />
                     {v}
-                  </label>
+                  </button>
                 ))}
               </div>
             </div>
@@ -295,10 +357,18 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit }: Traceabili
         </div>
       </section>
 
-      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
-        {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
-        <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
-          {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+      {message && (
+        <div className={`surface-card p-3 text-sm font-medium ${message.kind === "ok" ? "border-l-4 border-success-500 text-success-800 bg-success-50" : "border-l-4 border-danger-500 text-danger-700 bg-danger-50"}`}>
+          {message.text}
+        </div>
+      )}
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3">
+        <button onClick={() => handleSave("draft")} disabled={saving !== false} className="btn-outline">
+          {saving === "draft" ? "Saving draft..." : isEdit ? "Save Draft" : "Submit Partially"}
+        </button>
+        <button onClick={() => handleSave("submitted")} disabled={saving !== false} className="btn-primary">
+          {saving === "final" ? "Submitting..." : isEdit ? "Update" : "Submit Record"}
         </button>
       </div>
     </div>

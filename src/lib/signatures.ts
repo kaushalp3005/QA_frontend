@@ -29,6 +29,26 @@ export const VERIFIED_BY_OPTIONS: SignatureOption[] = [
 ]
 
 /**
+ * Production floor staff — "Checked By (Production Incharge)" on the
+ * Pre-Production Inspection Checklist. None have a signature image yet, so
+ * their name prints as plain text; "Other" reveals a free-text input.
+ */
+export const PRODUCTION_INCHARGE_OPTIONS: SignatureOption[] = [
+  { name: 'Roshan',     signature: null, role: 'Production Incharge' },
+  { name: 'Harsh',      signature: null, role: 'Production Incharge' },
+  { name: 'Vidya',      signature: null, role: 'Production Incharge' },
+  { name: 'Abhishek',   signature: null, role: 'Production Incharge' },
+  { name: 'Shakira',    signature: null, role: 'Production Incharge' },
+  { name: 'Soham',      signature: null, role: 'Production Incharge' },
+  { name: 'Shabana A.', signature: null, role: 'Production Incharge' },
+  { name: 'Shabana S.', signature: null, role: 'Production Incharge' },
+  { name: 'Namrata N.', signature: null, role: 'Production Incharge' },
+  { name: 'Madhuri',    signature: null, role: 'Production Incharge' },
+  { name: 'Santosh',    signature: null, role: 'Production Incharge' },
+  { name: 'Other',      signature: null },
+]
+
+/**
  * QC documentation forms — "Checked By" preset list (operators / QC executives).
  * Pooja Mhalim / Shraddha Jadhav are W202 staff; Pankaj Gosavi / Sarvesh Davande /
  * Swapnil Mahajan / Prajakta / Dhanashree are A185 staff. Each appears only in its own plant.

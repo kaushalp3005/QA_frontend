@@ -572,14 +572,33 @@ export function DeepCleaningRecord({ initialData, onSubmit, isEdit }: DocFormPro
 }
 
 // ===================== F.57 — Non Conforming Product Report =====================
+// META label -> real DB column (the table has one column per field, not a
+// single JSON blob) — used to flatten `fields` into the create/update payload
+// and to unflatten a saved record back into `fields` for editing.
+const NCP_META_TO_DB: Record<string, string> = {
+  "Non Conformity No.": "non_conformity_no",
+  "Supplier": "supplier",
+  "Broker": "broker",
+  "Others": "others",
+  "Detected By": "detected_by",
+  "Invoice/Challan/GRN/PO No./Batch No": "invoice_ref",
+  "R.C. No.": "rc_no",
+  "Reason for Non Conformity": "reason",
+  "Food Safety Issue": "food_safety_issue",
+  "Description": "description",
+  "Documented By": "documented_by",
+};
+
 export function NonConformingProductReport({ initialData, onSubmit, isEdit }: DocFormProps = {}) {
   const [fields, setFields] = useState<Record<string, string>>(() => {
-    if (initialData?.fields && typeof initialData.fields === "object") {
-      const init: Record<string, string> = {};
-      Object.entries(initialData.fields).forEach(([k, v]) => { init[k] = String(v || ""); });
-      return init;
+    const init: Record<string, string> = {};
+    if (initialData) {
+      Object.entries(NCP_META_TO_DB).forEach(([label, col]) => { init[label] = String(initialData[col] || ""); });
+      init["details"] = String(initialData.disposition_details || "");
+      init["authorizedPerson"] = String(initialData.authorized_person || "");
+      init["receivedBy"] = String(initialData.received_by || "");
     }
-    return {};
+    return init;
   });
   const [disposition, setDisposition] = useState<string[]>(() => {
     if (initialData?.disposition && Array.isArray(initialData.disposition)) return initialData.disposition;
@@ -597,8 +616,12 @@ export function NonConformingProductReport({ initialData, onSubmit, isEdit }: Do
     setSuccess(false);
     const payload: Record<string, any> = {
       warehouse: getStoredWarehouse() || null,
-      fields, disposition,
+      disposition,
+      disposition_details: fields["details"] || "",
+      authorized_person: fields["authorizedPerson"] || "",
+      received_by: fields["receivedBy"] || "",
     };
+    Object.entries(NCP_META_TO_DB).forEach(([label, col]) => { payload[col] = fields[label] || ""; });
     try {
       if (onSubmit) { await onSubmit(payload); }
       else { const { docsApi } = await import("@/lib/api/documentations"); await docsApi.create("non-conforming-product", payload); setSuccess(true); }

@@ -97,8 +97,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </header>
 
-        {/* Page content — tighter padding on mobile */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-6 lg:px-8 py-4 sm:py-6 animate-fade-in-up">
+        {/* Page content — tighter padding on mobile.
+            `relative` is load-bearing: it makes <main> the containing block for
+            absolutely-positioned page content (e.g. `sr-only` inputs). Without
+            it those anchor to the `fixed inset-0` shell above and do not scroll
+            with the page, so focusing one makes the browser scroll that shell
+            — which has `overflow-hidden` and therefore no scrollbar to scroll
+            back with. The whole app slides off-screen until a reload. */}
+        <main className="relative flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-6 lg:px-8 py-4 sm:py-6 animate-fade-in-up">
           {children}
 
           {/* Footer — feedback / updates link */}

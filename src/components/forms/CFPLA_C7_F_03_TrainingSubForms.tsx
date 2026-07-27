@@ -24,8 +24,9 @@ interface TrainingFormProps {
 
 export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: TrainingFormProps = {}) {
   const [rows, setRows] = useState<WorkerRow[]>(() => {
-    if (initialData?.rows && Array.isArray(initialData.rows)) {
-      return initialData.rows.map((r: any, i: number) => ({
+    // DB column is `workers`, not `rows`.
+    if (initialData?.workers && Array.isArray(initialData.workers)) {
+      return initialData.workers.map((r: any, i: number) => ({
         id: i + 1,
         name: r.name || "",
         evaluationMethod: r.evaluation_method || "",
@@ -67,7 +68,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
     setSuccess(false);
     const payload: Record<string, any> = {
       warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
-      rows: rows.filter((r) => r.name).map((r) => ({
+      workers: rows.filter((r) => r.name).map((r) => ({
         name: r.name,
         evaluation_method: r.evaluationMethod,
         evaluation_scoring: r.evaluationScoring ? Number(r.evaluationScoring) : null,
@@ -260,15 +261,23 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
   const [participantName, setParticipantName] = useState(initialData?.participant_name || "");
   const [date, setDate] = useState(initialData?.feedback_date || "");
   const [trainingProgram, setTrainingProgram] = useState(initialData?.training_program || "");
-  const [modeOfTraining, setModeOfTraining] = useState<"Internal" | "External" | "Others" | "">(initialData?.mode_of_training || "");
+  // "Others" is stored as "Others: <detail>" directly in mode_of_training (a
+  // plain varchar column) so the specifics survive without a dedicated column.
+  const initialMode: string = initialData?.mode_of_training || "";
+  const [modeOfTraining, setModeOfTraining] = useState<"Internal" | "External" | "Others" | "">(
+    initialMode.startsWith("Others") ? "Others" : (initialMode as "Internal" | "External" | "")
+  );
+  const [otherModeDetail, setOtherModeDetail] = useState<string>(
+    initialMode.startsWith("Others:") ? initialMode.slice("Others:".length).trim() : ""
+  );
   const [ratings, setRatings] = useState<Record<number, { rating: number; comments: string }>>(() => {
     if (initialData?.ratings && Array.isArray(initialData.ratings)) {
       return Object.fromEntries(initialData.ratings.map((r: any, i: number) => [i, { rating: r.rating || 0, comments: r.comments || "" }]));
     }
     return Object.fromEntries(FEEDBACK_PARAMS.map((_, i) => [i, { rating: 0, comments: "" }]));
   });
-  const [improvements, setImprovements] = useState(initialData?.improvements || "");
-  const [majorLearning, setMajorLearning] = useState(initialData?.major_learning || "");
+  const [improvements, setImprovements] = useState(initialData?.improvement_suggestions || "");
+  const [majorLearning, setMajorLearning] = useState(initialData?.major_learnings || "");
   const [signature, setSignature] = useState(initialData?.signature || "");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -281,10 +290,10 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
       participant_name: participantName,
       feedback_date: date,
       training_program: trainingProgram,
-      mode_of_training: modeOfTraining,
+      mode_of_training: modeOfTraining === "Others" && otherModeDetail.trim() ? `Others: ${otherModeDetail.trim()}` : modeOfTraining,
       ratings: FEEDBACK_PARAMS.map((_, i) => ({ rating: ratings[i]?.rating || 0, comments: ratings[i]?.comments || "" })),
-      improvements,
-      major_learning: majorLearning,
+      improvement_suggestions: improvements,
+      major_learnings: majorLearning,
       signature,
     };
     try {
@@ -326,6 +335,16 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
               </label>
             ))}
           </div>
+          {modeOfTraining === "Others" && (
+            <input
+              type="text"
+              value={otherModeDetail}
+              onChange={(e) => setOtherModeDetail(e.target.value)}
+              placeholder="Specify mode of training…"
+              className="border border-gray-300 rounded px-3 py-2 w-full mt-2 text-sm"
+              autoFocus
+            />
+          )}
         </div>
       </div>
 
@@ -396,7 +415,7 @@ const emptyCardRow = (id: number): TrainingCardRow => ({ id, date: "", totalHour
 export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: TrainingFormProps = {}) {
   const [employeeName, setEmployeeName] = useState(initialData?.employee_name || "");
   const [designation, setDesignation] = useState(initialData?.designation || "");
-  const [trainingNeeds, setTrainingNeeds] = useState(initialData?.training_needs || "");
+  const [trainingNeeds, setTrainingNeeds] = useState(initialData?.training_needs_identified || "");
   const [rows, setRows] = useState<TrainingCardRow[]>(() => {
     if (initialData?.rows && Array.isArray(initialData.rows)) {
       return initialData.rows.map((r: any, i: number) => ({
@@ -425,7 +444,7 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
       warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
       employee_name: employeeName,
       designation,
-      training_needs: trainingNeeds,
+      training_needs_identified: trainingNeeds,
       rows: rows.filter((r) => r.date || r.topicsCovered).map((r) => ({
         date: r.date,
         total_hours: r.totalHours ? Number(r.totalHours) : null,

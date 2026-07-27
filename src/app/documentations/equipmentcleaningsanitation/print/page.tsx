@@ -323,6 +323,9 @@ export default function EquipmentCleaningPrintPage() {
         let selectedDates: number[] = [];
         const observationsParts: string[] = [];
         const correctiveParts: string[] = [];
+        // Per-floor notes aggregated across records. When present, each floor sheet
+        // shows only its own notes instead of the combined (legacy) blob.
+        const notesByFloorAgg: Record<string, { observations: string; correctiveAction: string }> = {};
         // A185's "Overall" (equipment not in use) section — annual, not monthly.
         let overallYear = "";
         const overallCells: Record<string, Record<string, any>> = {};
@@ -337,6 +340,16 @@ export default function EquipmentCleaningPrintPage() {
           if (Array.isArray(g.selectedDates) && g.selectedDates.length > selectedDates.length) selectedDates = g.selectedDates;
           if (rec?.observations) observationsParts.push(rec.observations);
           if (rec?.corrective_action) correctiveParts.push(rec.corrective_action);
+          if (g.notesByFloor && typeof g.notesByFloor === "object") {
+            for (const [f, n] of Object.entries(g.notesByFloor)) {
+              const note = (n as { observations?: string; correctiveAction?: string }) || {};
+              const existing = notesByFloorAgg[f] || { observations: "", correctiveAction: "" };
+              notesByFloorAgg[f] = {
+                observations: [existing.observations, note.observations].filter(Boolean).join(" | "),
+                correctiveAction: [existing.correctiveAction, note.correctiveAction].filter(Boolean).join(" | "),
+              };
+            }
+          }
 
           if (g.cellsByFloor && typeof g.cellsByFloor === "object") {
             for (const [f, eqMap] of Object.entries(g.cellsByFloor)) {
@@ -378,6 +391,14 @@ export default function EquipmentCleaningPrintPage() {
         }
         if (selectedDates.length === 0) selectedDates = Array.from({ length: 31 }, (_, i) => i + 1);
 
+        // When any record carries per-floor notes, use them; otherwise fall back
+        // to the combined blob (legacy records that only had one shared note).
+        const hasPerFloorNotes = Object.keys(notesByFloorAgg).length > 0;
+        const notesFor = (floorKey: string) => ({
+          observations: hasPerFloorNotes ? (notesByFloorAgg[floorKey]?.observations || "") : observationsParts.join(" | "),
+          corrective_action: hasPerFloorNotes ? (notesByFloorAgg[floorKey]?.correctiveAction || "") : correctiveParts.join(" | "),
+        });
+
         // 5) One synthesized page per physical floor, each with its own data.
         const floorSheets: Record<string, any>[] = PRINT_FLOORS.map((floor) => ({
           id: `${recordId}-${floor}`,
@@ -385,8 +406,7 @@ export default function EquipmentCleaningPrintPage() {
           month,
           area: floor,
           warehouse,
-          observations: observationsParts.join(" | "),
-          corrective_action: correctiveParts.join(" | "),
+          ...notesFor(floor),
           grid: { cells: cellsByFloor[floor] || {}, daySigs: daySigsByFloor[floor] || {}, selectedDates },
         }));
 
@@ -396,8 +416,7 @@ export default function EquipmentCleaningPrintPage() {
             id: `${recordId}-${A185_OVERALL_KEY}`,
             kind: "overall",
             warehouse,
-            observations: observationsParts.join(" | "),
-            corrective_action: correctiveParts.join(" | "),
+            ...notesFor(A185_OVERALL_KEY),
             grid: { overall: { year: overallYear, cells: overallCells, sigs: overallSigs } },
           });
         }

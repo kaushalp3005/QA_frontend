@@ -79,8 +79,8 @@ export default function EquipmentCleaningSanitationEditPage() {
   const FLOOR_OPTIONS = isA185 ? [...Object.keys(A185_FLOOR_EQUIPMENT), A185_OVERALL_KEY] : Object.keys(W202_FLOOR_EQUIPMENT);
 
   const [recordDate, setRecordDate] = useState("");
-  const [observations, setObservations] = useState("");
-  const [correctiveActions, setCorrectiveActions] = useState("");
+  // Notes are per-floor — each floor keeps its own Observations / Corrective Actions.
+  const [notesByFloor, setNotesByFloor] = useState<Record<string, { observations: string; correctiveAction: string }>>({});
   const [floor, setFloor] = useState("");
   const [selectedDates, setSelectedDates] = useState<number[]>(Array.from({ length: 31 }, (_, i) => i + 1));
   // Per-floor data — each floor keeps its own grid + signatures.
@@ -99,6 +99,13 @@ export default function EquipmentCleaningSanitationEditPage() {
 
   const grid: Grid = gridByFloor[floor] || {};
   const daySigs: Record<number, RowSig> = daySigsByFloor[floor] || {};
+  // The active floor's notes.
+  const activeNotes = notesByFloor[floor] || { observations: "", correctiveAction: "" };
+  const setActiveNote = (field: "observations" | "correctiveAction", value: string) =>
+    setNotesByFloor((all) => ({
+      ...all,
+      [floor]: { observations: all[floor]?.observations || "", correctiveAction: all[floor]?.correctiveAction || "", [field]: value },
+    }));
 
   const setCurrentGrid = (updater: (prev: Grid) => Grid) =>
     setGridByFloor((all) => ({ ...all, [floor]: updater(all[floor] || {}) }));
@@ -134,8 +141,6 @@ export default function EquipmentCleaningSanitationEditPage() {
         // month field: prefer d.month, fall back to slicing record_date
         const month = d.month || (d.grid?.record_date ? String(d.grid.record_date).slice(0, 7) : "");
         setRecordDate(month);
-        setObservations(d.observations || "");
-        setCorrectiveActions(d.corrective_action || "");
         if (Array.isArray(d.grid?.selectedDates)) setSelectedDates(d.grid.selectedDates);
 
         const g = d.grid || {};
@@ -165,6 +170,18 @@ export default function EquipmentCleaningSanitationEditPage() {
           setDaySigsByFloor(sigsByFloor);
           setFloor(printFloors[0]);
         }
+
+        // Per-floor notes; legacy records only carry a single shared note, so
+        // seed it under the first floor rather than losing it.
+        const firstFloor = (g.cellsByFloor && typeof g.cellsByFloor === "object")
+          ? (Object.keys(g.cellsByFloor)[0] || "")
+          : printFloors[0];
+        const loadedNotes: Record<string, { observations: string; correctiveAction: string }> =
+          g.notesByFloor && typeof g.notesByFloor === "object" ? { ...g.notesByFloor } : {};
+        if (Object.keys(loadedNotes).length === 0 && (d.observations || d.corrective_action)) {
+          loadedNotes[firstFloor] = { observations: d.observations || "", correctiveAction: d.corrective_action || "" };
+        }
+        setNotesByFloor(loadedNotes);
 
         if (g.overall && typeof g.overall === "object") {
           setOverallYear(String(g.overall.year || new Date().getFullYear()));
@@ -255,16 +272,27 @@ export default function EquipmentCleaningSanitationEditPage() {
       const floorsWithData = Object.keys(gridByFloor).filter((f) => f && hasData(gridByFloor[f]));
       const overallHasData = Object.values(overallGrid).some((row) => Object.values(row).some((v) => v));
       if (overallHasData) floorsWithData.push(A185_OVERALL_KEY);
+      // Top-level observations/corrective_action = combined, floor-labelled summary
+      // of the per-floor notes (kept for the DB columns and legacy consumers).
+      const noteEntries = Object.entries(notesByFloor).filter(([, n]) => n && (n.observations?.trim() || n.correctiveAction?.trim()));
+      const combinedObservations = noteEntries
+        .filter(([, n]) => n.observations?.trim())
+        .map(([f, n]) => `${f || "All Equipment"}: ${n.observations.trim()}`)
+        .join("\n");
+      const combinedCorrective = noteEntries
+        .filter(([, n]) => n.correctiveAction?.trim())
+        .map(([f, n]) => `${f || "All Equipment"}: ${n.correctiveAction.trim()}`)
+        .join("\n");
       await docsApi.update(FORM_TYPE, recordId, {
         // Keep the record's own warehouse — not the live selector, which may
         // have moved on to a different plant while this record was open.
         warehouse: recordWarehouse || null,
         month: recordDate,
         area: floorsWithData.join(", ") || floor,
-        observations,
-        corrective_action: correctiveActions,
+        observations: combinedObservations,
+        corrective_action: combinedCorrective,
         grid: {
-          selectedDates, cellsByFloor: gridByFloor, record_date: recordDate, daySigsByFloor,
+          selectedDates, cellsByFloor: gridByFloor, record_date: recordDate, daySigsByFloor, notesByFloor,
           ...(isA185 ? { overall: { year: overallYear, cells: overallGrid, sigs: overallSigs } } : {}),
         },
         status,
@@ -507,15 +535,15 @@ export default function EquipmentCleaningSanitationEditPage() {
       </DocSection>
       )}
 
-      <DocSection title="Approvals & Notes">
+      <DocSection title="Approvals & Notes" description={`Notes for: ${floor || "All Equipment"} — each floor keeps its own`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="label-base">Observations</label>
-            <textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={3} className="input-base" />
+            <textarea value={activeNotes.observations} onChange={(e) => setActiveNote("observations", e.target.value)} rows={3} className="input-base" />
           </div>
           <div>
             <label className="label-base">Corrective Actions</label>
-            <textarea value={correctiveActions} onChange={(e) => setCorrectiveActions(e.target.value)} rows={3} className="input-base" />
+            <textarea value={activeNotes.correctiveAction} onChange={(e) => setActiveNote("correctiveAction", e.target.value)} rows={3} className="input-base" />
           </div>
         </div>
       </DocSection>

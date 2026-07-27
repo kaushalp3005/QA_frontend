@@ -6,7 +6,7 @@ import DocSection from "@/components/documentations/DocSection";
 import SignaturePicker from "@/components/ui/SignaturePicker";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
-import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
+import { PRODUCTION_INCHARGE_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 
 type Status = "OK" | "NOT OK" | "";
 
@@ -519,7 +519,7 @@ export default function PreProductionInspectionForm({
               label="Checked By (Production Incharge)"
               value={section.checkedBy}
               onChange={(v) => updateSection(activeSection, "checkedBy", v)}
-              options={CHECKED_BY_OPTIONS}
+              options={PRODUCTION_INCHARGE_OPTIONS}
               inputCls="input-base"
               labelCls="label-base"
             />

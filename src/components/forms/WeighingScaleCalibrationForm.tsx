@@ -117,12 +117,18 @@ function getToleranceKg(capacityKg: number): number {
   return 0.050;                           // 300 kg → ±50 g
 }
 
+/** Spread across the 5 repeat readings: highest − lowest. Identical readings -> 0. */
+function computeDeviation(row: CalibrationRow): string {
+  const vals = READINGS.map((rf) => parseFloat(row[rf] as string)).filter((v) => !isNaN(v));
+  if (vals.length === 0) return "";
+  return (Math.max(...vals) - Math.min(...vals)).toFixed(3);
+}
+
 function getDeviationStatus(row: CalibrationRow): "ok" | "deviation" | "empty" {
-  const std = parseFloat(row.standardWeightUsed);
-  const avg = parseFloat(row.deviation); // deviation = average of R1–R5
+  const dev = parseFloat(row.deviation); // deviation = spread (max − min) of R1–R5
   const cap = parseFloat(row.capacityKg);
-  if (isNaN(std) || isNaN(avg) || isNaN(cap)) return "empty";
-  return Math.abs(avg - std) <= getToleranceKg(cap) ? "ok" : "deviation";
+  if (isNaN(dev) || isNaN(cap)) return "empty";
+  return dev <= getToleranceKg(cap) ? "ok" : "deviation";
 }
 
 interface Props {
@@ -197,8 +203,7 @@ export function WeighingScaleCalibrationForm({ initialData, onSubmit, isEdit }: 
           ? { ...r, reading1: value, reading2: value, reading3: value, reading4: value, reading5: value }
           : { ...r, [field]: value };
         if ((READINGS as string[]).includes(field)) {
-          const vals = READINGS.map((rf) => parseFloat(next[rf] as string)).filter((v) => !isNaN(v));
-          next = { ...next, deviation: vals.length > 0 ? (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(3) : "" };
+          next = { ...next, deviation: computeDeviation(next) };
         }
         return next;
       })
@@ -225,8 +230,7 @@ export function WeighingScaleCalibrationForm({ initialData, onSubmit, isEdit }: 
         if (!(rowInFloor(r, floor) && !r.excluded)) return r;
         let next = { ...r, [field]: val } as CalibrationRow;
         if ((READINGS as string[]).includes(field as string)) {
-          const vals = READINGS.map((rf) => parseFloat(next[rf] as string)).filter((v) => !isNaN(v));
-          next = { ...next, deviation: vals.length > 0 ? (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(3) : "" };
+          next = { ...next, deviation: computeDeviation(next) };
         }
         return next;
       });

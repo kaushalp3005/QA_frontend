@@ -38,6 +38,7 @@ export const DUPLICATABLE_SLUGS = new Set<string>([
   "personalhygienecheckup",
   "roastingtemperature",
   "weighingscalecalibration",
+  "gmp-ghp-inspection",
 ])
 
 export const DOC_FORMS: Record<string, DocFormConfig> = {

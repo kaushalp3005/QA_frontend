@@ -6,10 +6,10 @@ import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
 import {
-  AREA_OPTIONS,
   DCC_DAYS,
   buildDCCPayload,
   emptyFloor,
+  floorOptionsForWarehouse,
   type CellStatus,
   type DCCFloor,
   type DCCTabDef,
@@ -90,9 +90,13 @@ export default function DailyCleaningTypeForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
 
-  // "Terrace" is a W202-only area; other plants keep the base list.
-  const areaOptions =
-    getStoredWarehouse() === "W202" ? [...AREA_OPTIONS, "Terrace"] : AREA_OPTIONS;
+  // Floor options are plant-specific and live in FLOOR_OPTIONS_BY_WAREHOUSE
+  // (lib/dailyCleaning.ts) — plants without a fixed list fall back to AREA_OPTIONS.
+  const currentWarehouse = getStoredWarehouse();
+  const areaOptions = floorOptionsForWarehouse(currentWarehouse);
+
+  // Only the Floor checklist is filled in per-floor; the rest cover one area.
+  const multiFloor = meta.multiFloor === true;
 
   const updateFloor = (idx: number, updater: (f: DCCFloor) => DCCFloor) =>
     setFloors((prev) => prev.map((f, i) => (i === idx ? updater(f) : f)));
@@ -236,32 +240,38 @@ export default function DailyCleaningTypeForm({
         </div>
       </DocSection>
 
-      {/* Floor sub-tabs */}
-      <div className="surface-card p-2 overflow-x-auto">
-        <div className="flex items-center gap-1 min-w-max">
-          {floors.map((f, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveFloor(i)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
-                activeFloor === i ? "bg-brand-500 text-white shadow-soft" : "text-ink-500 hover:bg-cream-200"
-              }`}
-            >
-              <span>{f.area.trim() || `Floor ${i + 1}`}</span>
-            </button>
-          ))}
-          <button
-            onClick={addFloor}
-            className="px-2.5 py-1.5 text-xs font-semibold rounded-lg text-brand-600 border border-dashed border-brand-300 hover:bg-brand-50 inline-flex items-center gap-1 whitespace-nowrap"
-            title="Add another floor / area"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add Floor
-          </button>
+      {/* Floor sub-tabs — only for multi-floor sections. Still shown on a
+          single-area section if an older record somehow holds several floors,
+          so those stay reachable; just without the option to add more. */}
+      {(multiFloor || floors.length > 1) && (
+        <div className="surface-card p-2 overflow-x-auto">
+          <div className="flex items-center gap-1 min-w-max">
+            {floors.map((f, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveFloor(i)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  activeFloor === i ? "bg-brand-500 text-white shadow-soft" : "text-ink-500 hover:bg-cream-200"
+                }`}
+              >
+                <span>{f.area.trim() || `Floor ${i + 1}`}</span>
+              </button>
+            ))}
+            {multiFloor && (
+              <button
+                onClick={addFloor}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg text-brand-600 border border-dashed border-brand-300 hover:bg-brand-50 inline-flex items-center gap-1 whitespace-nowrap"
+                title="Add another floor / area"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Floor
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <DocSection
-        title={`Floor / Area ${activeFloor + 1} of ${floors.length}`}
+        title={floors.length > 1 ? `Floor / Area ${activeFloor + 1} of ${floors.length}` : "Floor / Area"}
         description={`${meta.parameters.length} parameters × ${DCC_DAYS} days`}
         bleed
         actions={
@@ -277,13 +287,13 @@ export default function DailyCleaningTypeForm({
         }
       >
         <div className="px-4 pt-4 max-w-md">
-          <label className="label-base">Area (Floor Name) <span className="text-danger-600">*</span></label>
+          <label className="label-base">Floor <span className="text-danger-600">*</span></label>
           <select
             value={areaOptions.includes(floor.area) ? floor.area : floor.area === "" ? "" : "__other__"}
             onChange={(e) => setArea(e.target.value === "__other__" ? " " : e.target.value)}
             className="input-base"
           >
-            <option value="">Select area…</option>
+            <option value="">Select floor…</option>
             {areaOptions.map((o) => (
               <option key={o} value={o}>{o}</option>
             ))}
@@ -295,7 +305,7 @@ export default function DailyCleaningTypeForm({
               value={floor.area}
               onChange={(e) => setArea(e.target.value)}
               className="input-base mt-1"
-              placeholder="Type area name…"
+              placeholder="Type floor name…"
               autoFocus
             />
           )}

@@ -17,6 +17,7 @@ interface Props {
 
 export default function DocEditWrapper({ config, FormComponent }: Props) {
   const router = useRouter()
+  const base = config.basePath ?? '/documentations'
   const params = useParams()
   const id = Number(params.id)
   const [initialData, setInitialData] = useState<Record<string, any> | null>(null)
@@ -39,7 +40,7 @@ export default function DocEditWrapper({ config, FormComponent }: Props) {
 
   const handleSubmit = async (data: Record<string, any>) => {
     await docsApi.update(config.formType, id, data)
-    router.push(`/documentations/${config.routeSlug}/${id}`)
+    router.push(`${base}/${config.routeSlug}/${id}`)
   }
 
   if (loading) {
@@ -57,7 +58,7 @@ export default function DocEditWrapper({ config, FormComponent }: Props) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push(`/documentations/${config.routeSlug}/${id}`)}
+              onClick={() => router.push(`${base}/${config.routeSlug}/${id}`)}
               className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
               title="Back to record"
             >
@@ -73,7 +74,7 @@ export default function DocEditWrapper({ config, FormComponent }: Props) {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => prevId && router.push(`/documentations/${config.routeSlug}/${prevId}/edit`)}
+              onClick={() => prevId && router.push(`${base}/${config.routeSlug}/${prevId}/edit`)}
               disabled={!prevId}
               className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               title="Edit previous record"
@@ -83,7 +84,7 @@ export default function DocEditWrapper({ config, FormComponent }: Props) {
               </svg>
             </button>
             <button
-              onClick={() => nextId && router.push(`/documentations/${config.routeSlug}/${nextId}/edit`)}
+              onClick={() => nextId && router.push(`${base}/${config.routeSlug}/${nextId}/edit`)}
               disabled={!nextId}
               className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               title="Edit next record"

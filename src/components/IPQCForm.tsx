@@ -124,7 +124,9 @@ interface Props {
   useAllSkuDropdown?: boolean;
 }
 
-const inputCls = "w-full border border-gray-300 bg-white rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition";
+// text-base below sm: iOS Safari auto-zooms the viewport when a focused input's
+// font is under 16px, which throws off the whole form on a phone.
+const inputCls = "w-full border border-gray-300 bg-white rounded-lg px-3 py-2.5 text-base sm:text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition";
 const labelCls = "block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide";
 const sectionTitleCls = "text-xs font-bold text-gray-700 uppercase tracking-widest mb-3 flex items-center gap-2";
 
@@ -376,6 +378,28 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
         {/* ── Main content ─────────────────────────── */}
         <div className="flex-1 min-w-0">
 
+      {/* Mobile stand-in for the sidebar: a horizontally scrollable chip strip
+          so multi-article entries stay navigable below lg. */}
+      {articles.length > 1 && (
+        <div className="lg:hidden -mx-4 sm:-mx-6 px-4 sm:px-6 mb-3 overflow-x-auto">
+          <div className="flex gap-2 w-max pb-1">
+            {articles.map((art, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => document.getElementById(`article-${idx}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="flex items-center gap-1.5 max-w-[60vw] px-2.5 py-1.5 rounded-full border border-gray-200 bg-white text-xs text-gray-600 active:bg-emerald-50 transition-colors"
+              >
+                <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-bold text-emerald-700 shrink-0">
+                  {idx + 1}
+                </span>
+                <span className="truncate">{art.item_description || `Article ${idx + 1}`}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Header Card ───────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5 mb-4">
         <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
@@ -414,24 +438,37 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
           <div key={artIdx} id={`article-${artIdx}`} className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4 overflow-hidden">
 
             {/* Article Header */}
-            <div className="flex items-center justify-between px-4 py-3.5 bg-gray-50 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700">
+            <div className="flex items-center justify-between gap-2 px-4 py-3.5 bg-gray-50 border-b border-gray-200">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-6 h-6 shrink-0 rounded-lg bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700">
                   {artIdx + 1}
                 </span>
-                <span className="text-sm font-semibold text-gray-800">
+                {/* Item names are long — truncate so they can't push the actions off-screen. */}
+                <span className="text-sm font-semibold text-gray-800 truncate">
                   {art.item_description || `Article ${artIdx + 1}`}
                 </span>
               </div>
-              {articles.length > 1 && (
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Recreate lives in the sidebar on desktop, which is hidden below lg —
+                    so it's surfaced here instead for small screens. */}
                 <button
                   type="button"
-                  onClick={() => setArticles((a) => a.filter((_, i) => i !== artIdx))}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-danger-600 hover:bg-danger-50 transition-colors"
+                  onClick={() => recreateArticle(artIdx)}
+                  title="Duplicate this item as a new article at the end"
+                  className="lg:hidden inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-emerald-600 active:bg-emerald-50 transition-colors"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Copy className="w-3.5 h-3.5" /> Recreate
                 </button>
-              )}
+                {articles.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setArticles((a) => a.filter((_, i) => i !== artIdx))}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-danger-600 hover:bg-danger-50 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="p-4 sm:p-5 space-y-5">
@@ -798,7 +835,8 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
               )}
 
               {/* ── Verdict + Seal + Remark ─ */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-3 pt-1">
+              {/* Three across only from lg — at sm the seal/verdict/remark trio is too cramped. */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 pt-1">
                 {/* Seal Check */}
                 <label className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${art.seal_check ? "bg-success-50 border-success-200" : "bg-danger-50 border-danger-200"}`}>
                   <input
@@ -887,7 +925,8 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
       </div>{/* end flex sidebar+main */}
 
       {/* ── Sticky Save Bar ───────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 sm:static sm:bg-transparent sm:backdrop-blur-none sm:border-0 sm:p-0">
+      {/* pb accounts for the iOS home-indicator inset so the button isn't half-covered. */}
+      <div className="fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:bg-transparent sm:backdrop-blur-none sm:border-0 sm:p-0">
         <button
           type="submit"
           disabled={loading}

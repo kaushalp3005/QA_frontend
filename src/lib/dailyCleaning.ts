@@ -29,6 +29,12 @@ export interface DCCTabDef {
   revDate: string;
   revNo: string;
   defaultArea?: string;
+  /**
+   * Whether one record of this type can hold several floors / areas. Only the
+   * Floor checklist is filled in per-floor; every other section covers a single
+   * area, so its form offers no "Add Floor".
+   */
+  multiFloor?: boolean;
   parameters: string[];
 }
 
@@ -45,6 +51,8 @@ export interface NormalizedDCC {
   floors: DCCFloor[];
 }
 
+// Fallback floor list — used by any plant that has no fixed list in
+// FLOOR_OPTIONS_BY_WAREHOUSE below.
 export const AREA_OPTIONS = [
   "First Floor",
   "Lower Basement",
@@ -53,6 +61,22 @@ export const AREA_OPTIONS = [
   "Second Floor",
   "Service Floor",
 ];
+
+// Fixed, plant-specific floor lists for the "Floor" dropdown. Add a plant here
+// to pin its floors; anything not listed falls back to AREA_OPTIONS.
+//
+// The form still offers an "Other…" free-text escape, so a floor missing from
+// this map can always be typed in — and floors saved under an older list keep
+// rendering after that list changes.
+export const FLOOR_OPTIONS_BY_WAREHOUSE: Record<string, string[]> = {
+  A185: ["Packing", "Production", "Mezzanine floor", "Section 1", "Section 2"],
+  W202: [...AREA_OPTIONS, "Terrace"],
+};
+
+/** Floor dropdown options for `warehouse`, falling back to AREA_OPTIONS. */
+export function floorOptionsForWarehouse(warehouse: string | null | undefined): string[] {
+  return (warehouse && FLOOR_OPTIONS_BY_WAREHOUSE[warehouse]) || AREA_OPTIONS;
+}
 
 // Toilet checklist shares one parameter set across the Male and Female tabs so the
 // two stay identical ("same fields"). Also reused by the legacy "toilet" def below.
@@ -72,6 +96,7 @@ export const DCC_TABS: DCCTabDef[] = [
     issueNo: "04",
     revDate: "13/12/2025",
     revNo: "03",
+    multiFloor: true,
     parameters: [
       "Floor cleaned", "Walls cleaned", "Strip Curtains Cleaned", "Gaps cleaned floor/door/machines",
       "Window / Mesh cleaned", "Racks & pallets are cleaned & dust free", "Stairs are cleaned",
@@ -147,6 +172,27 @@ export const DCC_TABS: DCCTabDef[] = [
     ],
   },
   {
+    key: "rack",
+    label: "Rack Area",
+    title: "Daily Cleaning Checklist - Rack Area",
+    // A185-only section, so it carries the CFPLB number directly rather than a
+    // CFPLA.C4.F.54x number that gets mapped. It reuses the 49e slot, freed up
+    // when Service Floor was dropped at A185.
+    documentNo: "CFPLB.C4.F.49e",
+    issueDate: "29/07/2026",
+    issueNo: "01",
+    revDate: "29/07/2026",
+    revNo: "00",
+    parameters: [
+      "Rack structure free from damage Rack", "lots identification available",
+      "Aisles free from obstruction", "No cobwebs on racks", "Rack cleaned & dust free",
+      "RM & PM segregated", "Fire exits accessible", "Empty pallets stored separately",
+      "No damaged/leaking packs", "Floor & wall clearance maintained",
+      "No overhanging/unstable stacking", "No water leakage above racks",
+      "No pest activity or droppings", "Rodent boxes cleaned",
+    ],
+  },
+  {
     key: "service",
     label: "Service Floor",
     title: "Daily Cleaning Checklist - FLOOR Service",
@@ -164,6 +210,20 @@ export const DCC_TABS: DCCTabDef[] = [
     ],
   },
 ];
+
+// Checklist types that don't exist at a given plant, hidden from the create
+// page's tab strip. getTabDef still resolves them, so any record already saved
+// under one of these keys keeps rendering in view/edit/print.
+const TABS_HIDDEN_BY_WAREHOUSE: Record<string, string[]> = {
+  A185: ["service"], // A185 has no service floor
+  W202: ["rack"],    // Rack Area is an A185-only section
+};
+
+/** Checklist type tabs offered when creating a record at `warehouse`. */
+export function tabsForWarehouse(warehouse: string): DCCTabDef[] {
+  const hidden = TABS_HIDDEN_BY_WAREHOUSE[warehouse] || [];
+  return DCC_TABS.filter((t) => !hidden.includes(t.key));
+}
 
 // Retired tab codes kept only so previously-saved records still resolve their
 // document metadata (issue/revision numbers). Not shown on the create page.

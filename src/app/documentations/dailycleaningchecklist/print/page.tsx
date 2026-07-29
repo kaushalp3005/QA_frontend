@@ -51,7 +51,12 @@ export default function DailyCleaningChecklistPrintPage() {
   // A185 prints its own plant-specific header (CFPLB code); other plants keep
   // the record-stored values with the existing fallbacks.
   const isA185 = getStoredWarehouse() === "A185";
-  const docNo = isA185 ? "CFPLB.C4.F.49" : data?.documentNo || "CFPLA.C4.F.54";
+  // Carry the section suffix so each A185 sheet keeps its own number, e.g. the
+  // Facility Periphery & Security Room section is CFPLB.C4.F.49b (matching the
+  // W202 CFPLA.C4.F.54b), Toilet → …49a, etc.
+  const w202Doc = data?.documentNo || "CFPLA.C4.F.54";
+  const sectionSuffix = (w202Doc.match(/^CFPLA\.C4\.F\.54([a-z]?)$/i)?.[1] || "");
+  const docNo = isA185 ? `CFPLB.C4.F.49${sectionSuffix}` : w202Doc;
   const issueDate = isA185 ? "04/08/2021" : data?.issueDate || "01/11/2017";
   const issueNo = isA185 ? "04" : data?.issueNo || "04";
   const revDate = isA185 ? "02/02/2026" : data?.revDate || "13/12/2025";

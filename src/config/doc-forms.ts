@@ -10,6 +10,12 @@ export interface DocFormConfig {
   printable?: boolean
   /** Warehouse-specific text prefixed in front of `label` (e.g. A185 → "Tray Roaster"). */
   titlePrefixByWarehouse?: Record<string, string>
+  /**
+   * Base path this form's pages live under. Defaults to "/documentations" —
+   * only override for forms whose Next.js routes live outside that tree
+   * (e.g. the training-* forms live under app/training/, not app/documentations/training/).
+   */
+  basePath?: string
 }
 
 export const PRINTABLE_SLUGS = new Set<string>([
@@ -82,9 +88,9 @@ export const DOC_FORMS: Record<string, DocFormConfig> = {
   "non-conforming-product":  { formType: "non-conforming-product",    routeSlug: "non-conforming-product",    label: "Non Conforming Product Report",    docNo: "CFPLA.C5.F.57",  dateField: null,              listColumns: ["non_conformity_no", "supplier", "detected_by", "warehouse"] },
   "rework-recycling":        { formType: "rework-recycling",          routeSlug: "rework-recycling",          label: "Re-Work / Re-Cycling / Re-Packing",docNo: "CFPLA.C5.F.58", dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   // ── Training (5) ──
-  "training-attendance":     { formType: "training-attendance",       routeSlug: "training/attendance-sheet",  label: "Training Attendance Sheet",        docNo: "CFPLA.C7.F.03",  dateField: "training_date",   listColumns: ["training_date", "conducted_by", "department", "warehouse"] },
-  "training-attendance-workers": { formType: "training-attendance-workers", routeSlug: "training/attendance-workers", label: "Training Attendance (Workers)", docNo: "CFPLA.C7.F.03", dateField: null,            listColumns: ["warehouse", "created_at", "created_by"] },
-  "training-reference-sheet":{ formType: "training-reference-sheet",  routeSlug: "training/reference-sheet",  label: "Reference Material Sheet",         docNo: "CFPLA.C7.F.03i", dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
-  "training-feedback":       { formType: "training-feedback",         routeSlug: "training/feedback",         label: "Trainee & Trainer Feedback",       docNo: "CFPLA.C7.F.03j", dateField: "feedback_date",   listColumns: ["feedback_date", "participant_name", "training_program", "warehouse"] },
-  "training-card":           { formType: "training-card",             routeSlug: "training/training-card",    label: "Employee Training Card",           docNo: "CFPLA.C7.F.03k", dateField: null,              listColumns: ["employee_name", "designation", "warehouse"] },
+  "training-attendance":     { formType: "training-attendance",       routeSlug: "attendance-sheet",  basePath: "/training", label: "Training Attendance Sheet",        docNo: "CFPLA.C7.F.03",  dateField: "training_date",   listColumns: ["training_date", "conducted_by", "department", "warehouse"] },
+  "training-attendance-workers": { formType: "training-attendance-workers", routeSlug: "attendance-workers", basePath: "/training", label: "Training Attendance (Workers)", docNo: "CFPLA.C7.F.03", dateField: null,            listColumns: ["warehouse", "created_at", "created_by"] },
+  "training-reference-sheet":{ formType: "training-reference-sheet",  routeSlug: "reference-sheet",  basePath: "/training", label: "Reference Material Sheet",         docNo: "CFPLA.C7.F.03i", dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
+  "training-feedback":       { formType: "training-feedback",         routeSlug: "feedback",         basePath: "/training", label: "Trainee & Trainer Feedback",       docNo: "CFPLA.C7.F.03j", dateField: "feedback_date",   listColumns: ["feedback_date", "participant_name", "training_program", "warehouse"] },
+  "training-card":           { formType: "training-card",             routeSlug: "training-card",    basePath: "/training", label: "Employee Training Card",           docNo: "CFPLA.C7.F.03k", dateField: null,              listColumns: ["employee_name", "designation", "warehouse"] },
 }

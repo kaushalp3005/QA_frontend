@@ -42,8 +42,11 @@ export default function ProductionToolsIssuanceRecord() {
   const searchParams = useSearchParams();
   const duplicateFrom = searchParams.get("duplicateFrom");
   const [blocks, setBlocks] = useState<EntryBlock[]>([createBlock(1)]);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  // Partial submit: the first save creates the record and keeps its id so more
+  // entry blocks can be added/edited and saved again before finalizing.
+  const [recordId, setRecordId] = useState<number | null>(null);
+  const [saving, setSaving] = useState<false | "draft" | "final">(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [loadingRecord, setLoadingRecord] = useState(!!duplicateFrom);
 
   useEffect(() => {
@@ -70,32 +73,50 @@ export default function ProductionToolsIssuanceRecord() {
 
   const addBlock = () => setBlocks((prev) => [...prev, createBlock(prev.length + 1)]);
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setSubmitError(null);
+  const buildPayload = (status: "draft" | "submitted") => {
+    const tool_matrix = blocks.map((b) => ({
+      date: b.date,
+      data: b.data,
+      remark: b.remark,
+      checked_by: b.checkedBy,
+      verified_by: b.verifiedBy,
+    }));
+    return {
+      check_date: blocks[0]?.date || currentDate(),
+      warehouse: getStoredWarehouse() || null,
+      remark: blocks[0]?.remark,
+      checked_by: blocks[0]?.checkedBy,
+      verified_by: blocks[0]?.verifiedBy,
+      tool_matrix,
+      status,
+    };
+  };
+
+  // Create on first save, update afterwards. "draft" (Submit Partially) stays on
+  // the page; "submitted" (Submit Record) finalizes and returns to the list.
+  const handleSave = async (status: "draft" | "submitted") => {
+    setSaving(status === "draft" ? "draft" : "final");
+    setMessage(null);
     try {
-      const tool_matrix = blocks.map((b) => ({
-        date: b.date,
-        data: b.data,
-        remark: b.remark,
-        checked_by: b.checkedBy,
-        verified_by: b.verifiedBy,
-      }));
-      const payload = {
-        check_date: blocks[0]?.date || currentDate(),
-        warehouse: getStoredWarehouse() || null,
-        remark: blocks[0]?.remark,
-        checked_by: blocks[0]?.checkedBy,
-        verified_by: blocks[0]?.verifiedBy,
-        tool_matrix,
-      };
-      await docsApi.create("productiontoolissuance", payload);
-      router.push("/documentations/productiontoolissuance");
+      const payload = buildPayload(status);
+      if (recordId == null) {
+        const res = await docsApi.create("productiontoolissuance", payload);
+        const newId = res.data?.id as number | undefined;
+        if (typeof newId === "number") setRecordId(newId);
+      } else {
+        await docsApi.update("productiontoolissuance", recordId, payload);
+      }
+      if (status === "submitted") {
+        setMessage({ kind: "ok", text: "Record submitted." });
+        setTimeout(() => router.push("/documentations/productiontoolissuance"), 800);
+      } else {
+        setMessage({ kind: "ok", text: "Draft saved." });
+      }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to submit record";
-      setSubmitError(msg);
+      const msg = err instanceof Error ? err.message : "Failed to save record";
+      setMessage({ kind: "err", text: msg });
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
@@ -132,6 +153,12 @@ export default function ProductionToolsIssuanceRecord() {
       icon={Wrench}
       note={duplicateFrom ? `Duplicating record #${duplicateFrom} — adjust the fields as needed, then Submit to save as a new record.` : "Frequency: At the start and end of the day"}
     >
+      {recordId != null && (
+        <div className="surface-card p-3 border-l-4 border-warning-500 bg-warning-50 text-xs text-warning-800 font-medium">
+          Draft <span className="font-bold">#{recordId}</span> in progress. Use <strong>Submit Partially</strong> to save progress, or <strong>Submit Record</strong> to finalize.
+        </div>
+      )}
+
       {blocks.map((block, idx) => (
         <DocSection
           key={block.id}
@@ -229,17 +256,27 @@ export default function ProductionToolsIssuanceRecord() {
           Verified By: <span className="font-semibold text-ink-500">FSTL</span>
         </p>
         <div className="flex flex-col items-stretch sm:items-end gap-2">
-          {submitError ? (
-            <p className="text-xs text-danger-600">{submitError}</p>
+          {message ? (
+            <p className={`text-xs font-semibold ${message.kind === "ok" ? "text-success-600" : "text-danger-600"}`}>{message.text}</p>
           ) : null}
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {submitting ? "Submitting…" : "Submit Record"}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              onClick={() => handleSave("draft")}
+              disabled={saving !== false}
+              className="btn-outline disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {saving === "draft" ? "Saving…" : "Submit Partially"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSave("submitted")}
+              disabled={saving !== false}
+              className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {saving === "final" ? "Submitting…" : "Submit Record"}
+            </button>
+          </div>
         </div>
       </div>
     </DocFormShell>

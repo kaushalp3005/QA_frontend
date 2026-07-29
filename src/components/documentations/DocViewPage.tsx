@@ -31,6 +31,7 @@ interface Props {
 
 export default function DocViewPage({ config }: Props) {
   const router = useRouter()
+  const base = config.basePath ?? '/documentations'
   const params = useParams()
   const id = Number(params.id)
   const [record, setRecord] = useState<Record<string, any> | null>(null)
@@ -58,7 +59,7 @@ export default function DocViewPage({ config }: Props) {
     if (!confirm('Are you sure you want to delete this record?')) return
     try {
       await docsApi.delete(config.formType, id)
-      router.push(`/documentations/${config.routeSlug}`)
+      router.push(`${base}/${config.routeSlug}`)
     } catch (e: any) {
       alert(e.message || 'Delete failed')
     }
@@ -136,7 +137,7 @@ export default function DocViewPage({ config }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push(`/documentations/${config.routeSlug}`)}
+              onClick={() => router.push(`${base}/${config.routeSlug}`)}
               className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
               title="Back to list"
             >
@@ -153,7 +154,7 @@ export default function DocViewPage({ config }: Props) {
           <div className="flex items-center gap-2">
             {/* Prev/Next navigation arrows */}
             <button
-              onClick={() => prevId && router.push(`/documentations/${config.routeSlug}/${prevId}`)}
+              onClick={() => prevId && router.push(`${base}/${config.routeSlug}/${prevId}`)}
               disabled={!prevId}
               className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               title="Previous record"
@@ -163,7 +164,7 @@ export default function DocViewPage({ config }: Props) {
               </svg>
             </button>
             <button
-              onClick={() => nextId && router.push(`/documentations/${config.routeSlug}/${nextId}`)}
+              onClick={() => nextId && router.push(`${base}/${config.routeSlug}/${nextId}`)}
               disabled={!nextId}
               className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               title="Next record"
@@ -176,7 +177,7 @@ export default function DocViewPage({ config }: Props) {
             {/* Action buttons */}
             {showPrint && (
               <button
-                onClick={() => router.push(`/documentations/${config.routeSlug}/print?id=${id}`)}
+                onClick={() => router.push(`${base}/${config.routeSlug}/print?id=${id}`)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-brand-500 text-white rounded hover:bg-brand-600 ml-2"
                 title="Print this record"
               >
@@ -185,14 +186,14 @@ export default function DocViewPage({ config }: Props) {
             )}
             {showDuplicate && (
               <button
-                onClick={() => router.push(`/documentations/${config.routeSlug}/create?duplicateFrom=${id}`)}
+                onClick={() => router.push(`${base}/${config.routeSlug}/create?duplicateFrom=${id}`)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 ${showPrint ? '' : 'ml-2'}`}
                 title="Duplicate this record as a new entry"
               >
                 <Copy className="w-4 h-4" /> Duplicate
               </button>
             )}
-            <button onClick={() => router.push(`/documentations/${config.routeSlug}/${id}/edit`)} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 ml-2">Edit</button>
+            <button onClick={() => router.push(`${base}/${config.routeSlug}/${id}/edit`)} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 ml-2">Edit</button>
             {admin && <button onClick={handleDelete} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700">Delete</button>}
           </div>
         </div>

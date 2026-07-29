@@ -1,8 +1,13 @@
 'use client'
-import { getSignaturePath } from '@/lib/signatures'
+import { getSignaturePath, type WarehouseScope } from '@/lib/signatures'
 
 interface Props {
   name?: string | null
+  /**
+   * Plant the record belongs to. Only used to disambiguate a bare first name
+   * shared by two signatories (e.g. "POOJA" → Pooja Parkar at A185).
+   */
+  warehouse?: WarehouseScope
   /** Max height of the signature image in px. Default 28 (suitable for table cells). */
   maxHeight?: number
   /** Max width of the signature image in px. Default 90. */
@@ -23,6 +28,7 @@ interface Props {
  */
 export default function SignatureCell({
   name,
+  warehouse,
   maxHeight = 28,
   maxWidth = 90,
   showName = true,
@@ -31,7 +37,7 @@ export default function SignatureCell({
   style,
 }: Props) {
   if (!name) return <span className={className} style={style}>{empty}</span>
-  const sig = getSignaturePath(name)
+  const sig = getSignaturePath(name, warehouse)
   if (!sig) {
     return <span className={className} style={style}>{name}</span>
   }

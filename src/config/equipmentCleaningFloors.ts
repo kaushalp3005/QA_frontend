@@ -103,7 +103,7 @@ export const A185_FLOOR_EQUIPMENT: Record<string, string[]> = {
   ],
 };
 
-// "Overall" section of CFPLB.C4.F.68 — equipment NOT in daily use, checked
+// "Ideal machine" section of CFPLB.C4.F.68 — equipment NOT in daily use, checked
 // monthly (Jan–Dec) and shrink-wrapped after cleaning, rather than the daily
 // Before/After-production grid used by the three floors above.
 export const A185_OVERALL_EQUIPMENT = [
@@ -116,6 +116,33 @@ export const A185_OVERALL_EQUIPMENT = [
   "Cross Feeder (Mezzanine Area)",
 ];
 
-export const A185_OVERALL_KEY = "Overall";
+// Floor-dropdown label for that section, and the value stored in the record's
+// `area` column / `notesByFloor` keys. Renamed from "Overall"; records saved
+// under the old name are still recognised via A185_OVERALL_LEGACY_KEYS below.
+export const A185_OVERALL_KEY = "Ideal machine";
+
+/** Names this section was stored under before the rename. */
+export const A185_OVERALL_LEGACY_KEYS = ["Overall"];
+
+/** True for the current name or any name this section used to be saved under. */
+export function isOverallFloor(name: string): boolean {
+  return name === A185_OVERALL_KEY || A185_OVERALL_LEGACY_KEYS.includes(name);
+}
+
+/**
+ * Re-key per-floor notes saved under a legacy section name onto the current one,
+ * so notes written against "Overall" keep showing after the rename. Notes already
+ * under the current key win.
+ */
+export function migrateOverallNotesKey<T>(notes: Record<string, T>): Record<string, T> {
+  const out = { ...notes };
+  for (const legacy of A185_OVERALL_LEGACY_KEYS) {
+    if (legacy in out) {
+      if (!(A185_OVERALL_KEY in out)) out[A185_OVERALL_KEY] = out[legacy];
+      delete out[legacy];
+    }
+  }
+  return out;
+}
 
 export const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

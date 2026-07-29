@@ -285,56 +285,81 @@ export default function PreProductionInspectionForm({
   const [date, setDate] = useState((initialData?.inspection_date || "").slice(0, 10));
   const [sections, setSections] = useState<AreaSection[]>(() => sectionsFromInitial(initialData, variant));
   const [activeSection, setActiveSection] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
+  // Partial submit: the first save creates the record and keeps its id so more
+  // sections can be filled and saved again before finalizing.
+  const [savedId, setSavedId] = useState<number | null>((initialData?.id as number | undefined) ?? null);
+  const [saving, setSaving] = useState<false | "draft" | "final">(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
+  const buildPayload = (status: "draft" | "submitted"): Record<string, unknown> => ({
+    inspection_date: date,
+    warehouse: initialData?.warehouse ?? getStoredWarehouse() ?? null,
+    sections,
+    status,
+  });
+
+  // Create on the first save, update afterwards — so "Submit Partially" can be
+  // used repeatedly and the final Submit updates the same record, not a duplicate.
+  const persist = async (status: "draft" | "submitted"): Promise<number | null> => {
+    const payload = buildPayload(status);
+    if (savedId == null) {
+      const res = await docsApi.create("preproductioninspection", payload);
+      const id = res.data?.id as number | undefined;
+      if (typeof id === "number") setSavedId(id);
+      return id ?? null;
+    }
+    await docsApi.update("preproductioninspection", savedId, payload);
+    return savedId;
+  };
+
+  const handleSave = async (status: "draft" | "submitted") => {
     setSubmitError(null);
+    setSavedNote(null);
     if (!date) {
       setSubmitError("Date is required.");
       return;
     }
-    // Each floor must have its own Time of Inspection and Time of Verification before submitting.
-    const missingInspection = sections
-      .map((s, i) => ({ i, area: s.area, time: s.timeOfInspection }))
-      .filter((s) => !s.time || !s.time.trim());
-    if (missingInspection.length > 0) {
-      setActiveSection(missingInspection[0].i);
-      setSubmitError(
-        `Time of Inspection is required for each floor. Missing: ${missingInspection
-          .map((m) => m.area)
-          .join(", ")}`
-      );
-      return;
+    // Times are only enforced on the FINAL submit, so partial drafts save early.
+    if (status === "submitted") {
+      const missingInspection = sections
+        .map((s, i) => ({ i, area: s.area, time: s.timeOfInspection }))
+        .filter((s) => !s.time || !s.time.trim());
+      if (missingInspection.length > 0) {
+        setActiveSection(missingInspection[0].i);
+        setSubmitError(
+          `Time of Inspection is required for each floor. Missing: ${missingInspection.map((m) => m.area).join(", ")}`
+        );
+        return;
+      }
+      const missing = sections
+        .map((s, i) => ({ i, area: s.area, time: s.timeOfVerification }))
+        .filter((s) => !s.time || !s.time.trim());
+      if (missing.length > 0) {
+        setActiveSection(missing[0].i);
+        setSubmitError(
+          `Time of Verification is required for each floor. Missing: ${missing.map((m) => m.area).join(", ")}`
+        );
+        return;
+      }
     }
-    const missing = sections
-      .map((s, i) => ({ i, area: s.area, time: s.timeOfVerification }))
-      .filter((s) => !s.time || !s.time.trim());
-    if (missing.length > 0) {
-      setActiveSection(missing[0].i);
-      setSubmitError(
-        `Time of Verification is required for each floor. Missing: ${missing
-          .map((m) => m.area)
-          .join(", ")}`
-      );
-      return;
-    }
-    setSubmitting(true);
+    setSaving(status === "submitted" ? "final" : "draft");
     try {
-      const payload: Record<string, unknown> = {
-        inspection_date: date,
-        warehouse: initialData?.warehouse ?? getStoredWarehouse() ?? null,
-        sections,
-      };
-      if (onSubmit) {
-        await onSubmit(payload);
-      } else {
-        await docsApi.create("preproductioninspection", payload);
+      // Edit mode final submit keeps the wrapper's update-then-navigate behavior.
+      if (status === "submitted" && onSubmit) {
+        await onSubmit(buildPayload(status));
+        return;
+      }
+      const id = await persist(status);
+      if (status === "submitted") {
         router.push("/documentations/preproductioninspection");
+      } else if (id != null) {
+        setSavedNote(`Draft saved · #${id}. Keep editing — Submit when done.`);
       }
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Failed to submit");
-      setSubmitting(false);
+      setSubmitError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -367,6 +392,12 @@ export default function PreProductionInspectionForm({
 
   return (
     <div className="space-y-5">
+      {savedId != null && !isEdit && (
+        <div className="surface-card p-3 border-l-4 border-warning-500 bg-warning-50 text-xs text-warning-800 font-medium">
+          Draft <span className="font-bold">#{savedId}</span> in progress. Use <strong>Submit Partially</strong> to save progress, or <strong>Submit Record</strong> to finalize.
+        </div>
+      )}
+
       <DocSection title="Inspection Details">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -543,13 +574,22 @@ export default function PreProductionInspectionForm({
         </p>
         <div className="flex items-center gap-3">
           {submitError && <span className="text-xs text-danger-600">{submitError}</span>}
+          {savedNote && !submitError && <span className="text-xs text-success-600">{savedNote}</span>}
           <button
             type="button"
-            onClick={handleSubmit}
-            disabled={submitting}
+            onClick={() => handleSave("draft")}
+            disabled={saving !== false}
+            className="btn-outline disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {saving === "draft" ? "Saving…" : "Submit Partially"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSave("submitted")}
+            disabled={saving !== false}
             className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {submitting ? "Saving…" : isEdit ? "Update Record" : "Submit Record"}
+            {saving === "final" ? "Saving…" : isEdit ? "Update Record" : "Submit Record"}
           </button>
         </div>
       </div>

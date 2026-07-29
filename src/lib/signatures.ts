@@ -33,18 +33,23 @@ export const VERIFIED_BY_OPTIONS: SignatureOption[] = [
  * Pre-Production Inspection Checklist. None have a signature image yet, so
  * their name prints as plain text; "Other" reveals a free-text input.
  */
+// Production Incharge "Checked By" list for the Pre-Production Inspection form.
+// The names below are W202 staff; A185 has its own two incharges. Each name is
+// plant-scoped so the dropdown only shows that plant's people ("Other" shows on both).
 export const PRODUCTION_INCHARGE_OPTIONS: SignatureOption[] = [
-  { name: 'Roshan',     signature: null, role: 'Production Incharge' },
-  { name: 'Harsh',      signature: null, role: 'Production Incharge' },
-  { name: 'Vidya',      signature: null, role: 'Production Incharge' },
-  { name: 'Abhishek',   signature: null, role: 'Production Incharge' },
-  { name: 'Shakira',    signature: null, role: 'Production Incharge' },
-  { name: 'Soham',      signature: null, role: 'Production Incharge' },
-  { name: 'Shabana A.', signature: null, role: 'Production Incharge' },
-  { name: 'Shabana S.', signature: null, role: 'Production Incharge' },
-  { name: 'Namrata N.', signature: null, role: 'Production Incharge' },
-  { name: 'Madhuri',    signature: null, role: 'Production Incharge' },
-  { name: 'Santosh',    signature: null, role: 'Production Incharge' },
+  { name: 'Roshan',     signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Harsh',      signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Vidya',      signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Abhishek',   signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Shakira',    signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Soham',      signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Shabana A.', signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Shabana S.', signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Namrata N.', signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Madhuri',    signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Santosh',    signature: null, role: 'Production Incharge', warehouses: ['W202'] },
+  { name: 'Rajkumar Kamble', signature: null, role: 'Production Incharge', warehouses: ['A185'] },
+  { name: 'Satish Ingole',   signature: null, role: 'Production Incharge', warehouses: ['A185'] },
   { name: 'Other',      signature: null },
 ]
 
@@ -162,15 +167,28 @@ function editDistance(a: string, b: string): number {
 }
 
 /**
+ * Whether a signatory signs at `warehouse`. The plant metadata lives on the QC
+ * documentation lists; someone absent from both, or listed there without a
+ * `warehouses` field (e.g. the QC head), counts as signing at every plant.
+ */
+function signatoryWorksAt(name: string, warehouse: WarehouseScope): boolean {
+  const entries = [...CHECKED_BY_OPTIONS, ...QC_VERIFIED_BY_OPTIONS].filter(o => o.name === name)
+  if (entries.length === 0) return true
+  return entries.some(o => !o.warehouses || o.warehouses.includes(warehouse))
+}
+
+/**
  * Fallback for a bare first name typed with no last name at all — e.g.
  * "SARVESH", or "DHANAHSREE" (a transposed-letter typo for "Dhanashree").
  * Real print data is full of exactly this: operators type just a first name,
- * sometimes with a slip. Resolves ONLY when exactly one signatory's first
- * name is the (tied-for-)closest match — an ambiguous first name (e.g.
- * "Pooja", shared by Pooja Parkar and Pooja Mhalim) is deliberately left
- * unresolved rather than risking attributing a QC sign-off to the wrong person.
+ * sometimes with a slip. Resolves when exactly one signatory's first name is
+ * the closest match. When several tie (e.g. "POOJA" — Pooja Parkar and Pooja
+ * Mhalim), the plant the sheet belongs to breaks the tie if it leaves exactly
+ * one candidate: Pooja Mhalim is W202-only, so "POOJA" on an A185 sheet can
+ * only be Pooja Parkar. A tie the plant can't settle stays unresolved and
+ * prints as plain text, rather than risking the wrong person's signature.
  */
-function matchBareFirstName(typed: string): SignatureOption | null {
+function matchBareFirstName(typed: string, warehouse?: WarehouseScope): SignatureOption | null {
   const t = normalizeName(typed)
   if (!t || t.includes(' ')) return null
   const bySignatoryName = new Map<string, SignatureOption>()
@@ -186,11 +204,20 @@ function matchBareFirstName(typed: string): SignatureOption | null {
     if (dist < bestDist) { bestDist = dist; bestMatches = [o] }
     else if (dist === bestDist) bestMatches.push(o)
   }
-  return bestMatches.length === 1 ? bestMatches[0] : null
+  if (bestMatches.length === 1) return bestMatches[0]
+  if (bestMatches.length > 1 && warehouse) {
+    const inPlant = bestMatches.filter(o => signatoryWorksAt(o.name, warehouse))
+    if (inPlant.length === 1) return inPlant[0]
+  }
+  return null
 }
 
-/** Look up signature path for a name (used on the print page) */
-export function getSignaturePath(name: string): string | null {
+/**
+ * Look up signature path for a name (used on the print page).
+ * `warehouse` is the plant the record belongs to — optional, and used only to
+ * break a first-name tie the name itself can't resolve (see matchBareFirstName).
+ */
+export function getSignaturePath(name: string, warehouse?: WarehouseScope): string | null {
   if (!name) return null
   // 1. Exact match (preserves prior behavior; "Other" → null signature)
   const exact = ALL_SIGNATORIES.find(o => o.name === name)
@@ -200,7 +227,7 @@ export function getSignaturePath(name: string): string | null {
   const tolerant = ALL_SIGNATORIES.find(o => o.signature && namesMatch(name, o.name))
   if (tolerant) return tolerant.signature
   // 3. Bare-first-name fallback (see matchBareFirstName)
-  return matchBareFirstName(name)?.signature ?? null
+  return matchBareFirstName(name, warehouse)?.signature ?? null
 }
 
 /**
@@ -209,13 +236,13 @@ export function getSignaturePath(name: string): string | null {
  * preset matches (e.g. a free-typed "Other" name). Used for print captions so
  * a username like "pooja.parkar@candorfoods.in" prints as "Pooja Parkar".
  */
-export function resolveSignatoryName(value: string): string {
+export function resolveSignatoryName(value: string, warehouse?: WarehouseScope): string {
   if (!value) return value
   const exact = ALL_SIGNATORIES.find(o => o.name === value)
   if (exact) return exact.name
   const match = ALL_SIGNATORIES.find(o => o.signature && namesMatch(value, o.name))
   if (match) return match.name
-  return matchBareFirstName(value)?.name ?? value
+  return matchBareFirstName(value, warehouse)?.name ?? value
 }
 
 /** Look up role for a name across any option list */

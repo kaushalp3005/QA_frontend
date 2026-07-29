@@ -10,6 +10,7 @@ import DocSection from "@/components/documentations/DocSection";
 import {
   W202_EQUIPMENT_LIST, W202_FLOOR_EQUIPMENT,
   A185_FLOOR_EQUIPMENT, A185_OVERALL_EQUIPMENT, A185_OVERALL_KEY, MONTH_LABELS,
+  isOverallFloor, migrateOverallNotesKey,
 } from "@/config/equipmentCleaningFloors";
 
 const FORM_TYPE = "equipmentcleaningsanitation";
@@ -69,7 +70,7 @@ export default function EquipmentCleaningSanitationRecord() {
   const [overallYear, setOverallYear] = useState<string>(String(new Date().getFullYear()));
   const [overallGrid, setOverallGrid] = useState<OverallGrid>({});
   const [overallSigs, setOverallSigs] = useState<Record<number, RowSig>>({});
-  const isOverall = floor === A185_OVERALL_KEY;
+  const isOverall = isOverallFloor(floor);
   const [loadingRecord, setLoadingRecord] = useState(!!duplicateFrom);
 
   // Duplicate mode: load a saved record's grid data as a fresh, unsaved entry.
@@ -90,7 +91,7 @@ export default function EquipmentCleaningSanitationRecord() {
         // Per-floor notes; older records only carry a single shared note — seed it
         // under the first floor so it isn't lost.
         const loadedNotes: Record<string, { observations: string; correctiveAction: string }> =
-          g.notesByFloor && typeof g.notesByFloor === "object" ? { ...g.notesByFloor } : {};
+          g.notesByFloor && typeof g.notesByFloor === "object" ? migrateOverallNotesKey(g.notesByFloor) : {};
         if (Object.keys(loadedNotes).length === 0 && (d?.observations || d?.corrective_action)) {
           loadedNotes[floorKeys[0] || ""] = { observations: d?.observations || "", correctiveAction: d?.corrective_action || "" };
         }
@@ -133,6 +134,19 @@ export default function EquipmentCleaningSanitationRecord() {
       const current = row[month] || "";
       const next: BAStatus = current === "" ? "✓" : current === "✓" ? "✕" : "";
       return { ...prev, [eq]: { ...row, [month]: next } };
+    });
+  };
+
+  // Vertical "tick all" for the monthly grid — same affordance the floor grid's
+  // date columns have, but marking every equipment for one month.
+  const markOverallColumnAllOK = (month: number) => {
+    const allTicked = A185_OVERALL_EQUIPMENT.every((eq) => overallGrid[eq]?.[month] === "✓");
+    setOverallGrid((prev) => {
+      const next: OverallGrid = { ...prev };
+      A185_OVERALL_EQUIPMENT.forEach((eq) => {
+        next[eq] = { ...(next[eq] || {}), [month]: allTicked ? "" : "✓" };
+      });
+      return next;
     });
   };
 
@@ -314,7 +328,7 @@ export default function EquipmentCleaningSanitationRecord() {
 
       {isOverall ? (
       <DocSection
-        title="Overall — Equipment Not In Use"
+        title="Ideal machine — Equipment Not In Use"
         description={`${A185_OVERALL_EQUIPMENT.length} equipment × 12 months`}
         bleed
       >
@@ -324,8 +338,19 @@ export default function EquipmentCleaningSanitationRecord() {
               <tr>
                 <th className="px-2 py-2 sticky left-0 bg-cream-100 z-10 text-[11px] font-semibold uppercase text-ink-400">Sr</th>
                 <th className="px-2 py-2 sticky left-8 bg-cream-100 z-10 min-w-[180px] text-left text-[11px] font-semibold uppercase text-ink-400">Equipment</th>
-                {MONTH_LABELS.map((m) => (
-                  <th key={m} className="px-2 py-2 text-center text-[11px] font-semibold text-ink-400 border-l border-cream-300">{m}</th>
+                {MONTH_LABELS.map((m, mi) => (
+                  <th key={m} className="px-2 py-2 text-center text-[11px] font-semibold text-ink-400 border-l border-cream-300">
+                    <div className="flex flex-col items-center gap-1">
+                      <span>{m}</span>
+                      <button
+                        onClick={() => markOverallColumnAllOK(mi + 1)}
+                        className="text-[9px] font-bold leading-none bg-success-50 text-success-700 px-1.5 py-0.5 rounded hover:bg-success-100"
+                        title={`Mark all equipment as ✓ for ${m}`}
+                      >
+                        ✓
+                      </button>
+                    </div>
+                  </th>
                 ))}
               </tr>
             </thead>

@@ -115,7 +115,8 @@ function NewIPQCContent() {
         backHref="/documentations/ipqc"
         title={cloneFrom ? "Re-check Entry" : "New Entry"}
       />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-28">
+      {/* Extra bottom padding only below sm, where the save bar is fixed over the page. */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-28 sm:pb-8">
         {cloneFrom && cloneData && (
           <div className="mb-4 flex items-start gap-2.5 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-800">
             <Copy className="w-4 h-4 mt-0.5 flex-shrink-0" />

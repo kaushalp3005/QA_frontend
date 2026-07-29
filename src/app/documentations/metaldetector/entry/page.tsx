@@ -7,6 +7,9 @@ import { ArrowLeft, Check, Loader2, X, Copy, Pencil } from 'lucide-react'
 import WarehouseSelector, { getStoredWarehouse, WarehouseCode } from '@/components/ui/WarehouseSelector'
 import SignaturePicker from '@/components/ui/SignaturePicker'
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from '@/lib/signatures'
+// The machine list lives in one place only — this page and the edit modal on
+// the records list both read it, so a spec change can never apply to just one.
+import { METAL_DETECTOR_OPTIONS, detectorsForWarehouse } from '@/lib/metalDetectors'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
@@ -70,115 +73,7 @@ interface MetalDetectorFormData {
   remarks: string
 }
 
-interface MetalDetectorOption {
-  identificationNo: string
-  srNo: string
-  location: string
-  sensitivityFE: string
-  sensitivityNFE: string
-  sensitivitySS: string
-  mode: string
-  warehouse?: string
-}
-
 const AUTHORIZED_EMAIL = 'pooja.parkar@candorfoods.in'
-
-const metalDetectorOptions: MetalDetectorOption[] = [
-  {
-    identificationNo: 'CCP 1',
-    srNo: '(MineBeaIntec-42110011)',
-    location: 'PFS Machine(FG Storage)',
-    sensitivityFE: 'Fe-1.5 mm',
-    sensitivityNFE: 'NFe-2 mm',
-    sensitivitySS: 'SS-2.5 mm',
-    mode: 'Online'
-  },
-  {
-    identificationNo: 'CCP 1A',
-    srNo: '(MineBeaIntec-38470963)',
-    location: 'FSS Machine(FG Storage)',
-    sensitivityFE: 'Fe-1.5 mm',
-    sensitivityNFE: 'NFe-2 mm',
-    sensitivitySS: 'SS-2.5 mm',
-    mode: 'Online'
-  },
-  {
-    identificationNo: 'CCP 1B',
-    srNo: '(Technofour-ARM 1386/18)',
-    location: 'FSS Machine(FG Storage)',
-    sensitivityFE: 'Fe-1.5 mm',
-    sensitivityNFE: 'NFe-2 mm',
-    sensitivitySS: 'SS-2.5 mm',
-    mode: 'Online'
-  },
-  {
-    identificationNo: 'CCP 1C',
-    srNo: '(Technofour-ARM 1517/18)',
-    location: 'Outer seeds section',
-    sensitivityFE: 'Fe-1.0mm',
-    sensitivityNFE: 'NFe-1.5mm',
-    sensitivitySS: 'SS-2mm',
-    mode: 'Offline'
-  },
-  {
-    identificationNo: 'CCP 1D',
-    srNo: '(Das-2021081027-AMD)',
-    location: 'Inner seeds section',
-    sensitivityFE: 'Fe-1.0mm',
-    sensitivityNFE: 'NFe-1.2mm',
-    sensitivitySS: 'SS-1.7mm',
-    mode: 'Offline'
-  },
-  {
-    identificationNo: 'CCP 1E',
-    srNo: '(Das-2025082322)',
-    location: 'Packing area',
-    sensitivityFE: 'Fe-2.0 mm',
-    sensitivityNFE: 'NFe-2.5 mm',
-    sensitivitySS: 'SS-3 mm',
-    mode: 'Offline'
-  },
-  {
-    identificationNo: 'CCP-1',
-    srNo: '(Technofour-ARM 831-17)',
-    location: 'Upper Basement',
-    sensitivityFE: 'Fe-2mm',
-    sensitivityNFE: 'NFe-2.5mm',
-    sensitivitySS: 'SS-3mm',
-    mode: 'Offline',
-    warehouse: 'W202'
-  },
-  {
-    identificationNo: 'CCP-1A',
-    srNo: '(Das-20211121140)',
-    location: 'First floor',
-    sensitivityFE: 'Fe-1.0mm',
-    sensitivityNFE: 'NFe-1.2mm',
-    sensitivitySS: 'SS-1.7mm',
-    mode: 'Offline',
-    warehouse: 'W202'
-  },
-  {
-    identificationNo: 'CCP-1B',
-    srNo: '(Technofour-ARM 769-17)',
-    location: 'FFS machine',
-    sensitivityFE: 'Fe-1.5mm',
-    sensitivityNFE: 'NFe-2mm',
-    sensitivitySS: 'SS-2.5mm',
-    mode: 'Online',
-    warehouse: 'W202'
-  },
-  {
-    identificationNo: 'CCP-1C',
-    srNo: '(Technofour-ARM 2134-20)',
-    location: 'first floor mezzanine',
-    sensitivityFE: 'Fe-1.5mm',
-    sensitivityNFE: 'NFe-2mm',
-    sensitivitySS: 'SS-2.5mm',
-    mode: 'Offline',
-    warehouse: 'W202'
-  }
-]
 
 export default function MetalDetectorEntryPage() {
   const router = useRouter()
@@ -260,9 +155,7 @@ export default function MetalDetectorEntryPage() {
   }, [warehouseParam])
 
   // Derived list of detector options for the currently active warehouse
-  const filteredDetectorOptions = metalDetectorOptions.filter(opt =>
-    selectedWarehouse === 'W202' ? opt.warehouse === 'W202' : !opt.warehouse
-  )
+  const filteredDetectorOptions = detectorsForWarehouse(selectedWarehouse)
 
   // Resume a pending record if resumeRecordId is provided
   // Use warehouseParam directly to avoid stale selectedWarehouse state
@@ -334,7 +227,7 @@ export default function MetalDetectorEntryPage() {
 
   const handleIdentificationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value
-    const selectedDetector = metalDetectorOptions.find(option =>
+    const selectedDetector = METAL_DETECTOR_OPTIONS.find(option =>
       `${option.identificationNo}-${option.srNo}` === selectedId
     )
 
@@ -673,7 +566,7 @@ export default function MetalDetectorEntryPage() {
                 </label>
                 <select
                   name="identificationNo"
-                  value={formData.identificationNo ? `${formData.identificationNo}-${metalDetectorOptions.find(opt => opt.identificationNo === formData.identificationNo)?.srNo || ''}` : ''}
+                  value={formData.identificationNo ? `${formData.identificationNo}-${METAL_DETECTOR_OPTIONS.find(opt => opt.identificationNo === formData.identificationNo)?.srNo || ''}` : ''}
                   onChange={handleIdentificationChange}
                   className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white"
                   required

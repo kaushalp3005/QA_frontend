@@ -5,14 +5,29 @@ import { Sparkles, Loader2 } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DailyCleaningTypeForm from "@/components/forms/DailyCleaningTypeForm";
 import { docsApi } from "@/lib/api/documentations";
-import { DCC_TABS, getTabDef, normalizeDCC, type DCCTabDef, type DCCFloor } from "@/lib/dailyCleaning";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import { tabsForWarehouse, getTabDef, normalizeDCC, type DCCTabDef, type DCCFloor } from "@/lib/dailyCleaning";
+
+// Map a W202 daily-cleaning doc number (CFPLA.C4.F.54[x]) to the A185 equivalent
+// (CFPLB.C4.F.49[x]), preserving the per-section suffix (Floor → 49, Facility → 49b…).
+// A number outside that series is already plant-specific (e.g. the A185-only Rack
+// Area section, CFPLB.C4.F.49e) and passes through untouched.
+function docNoForWarehouse(w202Doc: string, warehouse: string): string {
+  const match = w202Doc.match(/^CFPLA\.C4\.F\.54([a-z]?)$/i);
+  if (!match) return w202Doc;
+  return warehouse === "A185" ? `CFPLB.C4.F.49${match[1] || ""}` : w202Doc;
+}
 
 export default function DailyCleaningChecklistCreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const duplicateFrom = searchParams.get("duplicateFrom");
   const [activeTab, setActiveTab] = useState("floor");
-  const meta = getTabDef(activeTab) || DCC_TABS[0];
+  const warehouse = getStoredWarehouse();
+  // Tab strip is plant-specific (A185 has no Service Floor). Resolving `meta`
+  // from the visible tabs means a hidden type can never end up selected.
+  const tabs = tabsForWarehouse(warehouse);
+  const meta = tabs.find((t) => t.key === activeTab) || tabs[0];
 
   // Duplicate mode: load a saved record's month/floors as a fresh, unsaved entry.
   // initialRecordId is deliberately omitted so the form creates a new record on save.
@@ -49,7 +64,7 @@ export default function DailyCleaningChecklistCreatePage() {
 
   if (loadingRecord) {
     return (
-      <DocFormShell title="Daily Cleaning Checklist" docNo="CFPLA.C4.F.54" icon={Sparkles} width="full">
+      <DocFormShell title="Daily Cleaning Checklist" docNo={docNoForWarehouse("CFPLA.C4.F.54", warehouse)} icon={Sparkles} width="full">
         <div className="surface-card p-8 flex items-center justify-center gap-2 text-sm text-ink-500">
           <Loader2 className="w-5 h-5 animate-spin" /> Loading record to duplicate…
         </div>
@@ -61,7 +76,7 @@ export default function DailyCleaningChecklistCreatePage() {
     return (
       <DocFormShell
         title="Daily Cleaning Checklist"
-        docNo={dupMeta.documentNo}
+        docNo={docNoForWarehouse(dupMeta.documentNo, warehouse)}
         subtitle={`Duplicating record #${duplicateFrom} — ${dupMeta.title}`}
         icon={Sparkles}
         width="full"
@@ -81,7 +96,7 @@ export default function DailyCleaningChecklistCreatePage() {
   return (
     <DocFormShell
       title="Daily Cleaning Checklist"
-      docNo="CFPLA.C4.F.54"
+      docNo={docNoForWarehouse(meta.documentNo, warehouse)}
       subtitle="Multi-tab daily housekeeping log · add a floor per tab"
       icon={Sparkles}
       width="full"
@@ -89,7 +104,7 @@ export default function DailyCleaningChecklistCreatePage() {
       {/* Checklist type tabs */}
       <div className="surface-card p-2 overflow-x-auto">
         <div className="flex gap-1 min-w-max">
-          {DCC_TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}

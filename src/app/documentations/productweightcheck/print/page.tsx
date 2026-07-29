@@ -6,6 +6,7 @@ import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import SignatureCell from "@/components/ui/SignatureCell";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import type { WarehouseScope } from "@/lib/signatures";
 
 function fmt(date: string) {
   if (!date) return "";
@@ -33,9 +34,16 @@ function RecordSheet({ record, newLayout = false }: { record: Record<string, any
   const rows: SampleRow[] = Array.isArray(record?.rows) ? record.rows : [];
   const blankRows = Math.max(0, BLANK_ROW_COUNT - rows.length);
 
+  // Prefer the record's own plant over the currently-selected one, so a sheet
+  // prints the same regardless of which warehouse the viewer has active.
+  const warehouse: WarehouseScope =
+    record?.warehouse === "A185" || record?.warehouse === "W202"
+      ? record.warehouse
+      : getStoredWarehouse();
+
   // A185 uses its own plant-specific header (CFPLB code); W202 keeps the
   // existing values, with newLayout overriding issue/revision fields.
-  const isA185 = getStoredWarehouse() === "A185";
+  const isA185 = warehouse === "A185";
   const issueDate = isA185 ? "01/11/2019" : "01/11/2017";
   const documentNo = isA185 ? "CFPLB.C6.F.20" : "CFPLA.C6.F.16";
   const issueNo = isA185 ? "05" : newLayout ? "04" : "03";
@@ -151,10 +159,10 @@ function RecordSheet({ record, newLayout = false }: { record: Record<string, any
               <td style={td}>{r.sealing_check || ""}</td>
               <td style={td}>{r.n2_percent || ""}</td>
               <td style={{ ...td, padding: "1px 2px" }}>
-                <SignatureCell name={r.checked_by} maxHeight={22} maxWidth={70} showName={false} />
+                <SignatureCell name={r.checked_by} warehouse={warehouse} maxHeight={22} maxWidth={70} showName={false} />
               </td>
               <td style={{ ...td, padding: "1px 2px" }}>
-                <SignatureCell name={r.verified_by} maxHeight={22} maxWidth={70} showName={false} />
+                <SignatureCell name={r.verified_by} warehouse={warehouse} maxHeight={22} maxWidth={70} showName={false} />
               </td>
             </tr>
           ))}

@@ -15,10 +15,10 @@ export interface MetalDetectorOption {
 
 export const METAL_DETECTOR_OPTIONS: MetalDetectorOption[] = [
   { identificationNo: 'CCP 1',  srNo: '(MineBeaIntec-42110011)',  location: 'PFS Machine(FG Storage)', sensitivityFE: 'Fe-1.5 mm', sensitivityNFE: 'NFe-2 mm',   sensitivitySS: 'SS-2.5 mm', mode: 'Online' },
-  { identificationNo: 'CCP 1A', srNo: '(MineBeaIntec-38470963)',  location: 'FSS Machine(FG Storage)', sensitivityFE: 'Fe-1.5 mm', sensitivityNFE: 'NFe-2 mm',   sensitivitySS: 'SS-2.5 mm', mode: 'Online' },
-  { identificationNo: 'CCP 1B', srNo: '(Technofour-ARM 1386/18)', location: 'FSS Machine(FG Storage)', sensitivityFE: 'Fe-1.5 mm', sensitivityNFE: 'NFe-2 mm',   sensitivitySS: 'SS-2.5 mm', mode: 'Online' },
-  { identificationNo: 'CCP 1C', srNo: '(Technofour-ARM 1517/18)', location: 'Outer seeds section',     sensitivityFE: 'Fe-1.0mm',  sensitivityNFE: 'NFe-1.5mm',  sensitivitySS: 'SS-2mm',    mode: 'Offline' },
-  { identificationNo: 'CCP 1D', srNo: '(Das-2021081027-AMD)',     location: 'Inner seeds section',     sensitivityFE: 'Fe-1.0mm',  sensitivityNFE: 'NFe-1.2mm',  sensitivitySS: 'SS-1.7mm',  mode: 'Offline' },
+  { identificationNo: 'CCP 1A', srNo: '(MineBeaIntec-38470963)',  location: 'FFS Machine',             sensitivityFE: 'Fe-1.5 mm', sensitivityNFE: 'NFe-2 mm',   sensitivitySS: 'SS-2.5 mm', mode: 'Online' },
+  { identificationNo: 'CCP 1B', srNo: '(Technofour-ARM 1386/18)', location: 'PFS Machine 2',           sensitivityFE: 'Fe-1.5 mm', sensitivityNFE: 'NFe-2 mm',   sensitivitySS: 'SS-2.5 mm', mode: 'Online' },
+  { identificationNo: 'CCP 1C', srNo: '(Technofour-ARM 1517/18)', location: 'Section Two',             sensitivityFE: 'Fe-1.0mm',  sensitivityNFE: 'NFe-1.5mm',  sensitivitySS: 'SS-2mm',    mode: 'Offline' },
+  { identificationNo: 'CCP 1D', srNo: '(Das-2021081027-AMD)',     location: 'Section One',             sensitivityFE: 'Fe-1.0mm',  sensitivityNFE: 'NFe-1.2mm',  sensitivitySS: 'SS-1.7mm',  mode: 'Offline' },
   { identificationNo: 'CCP 1E', srNo: '(Das-2025082322)',         location: 'Packing area',            sensitivityFE: 'Fe-2.0 mm', sensitivityNFE: 'NFe-2.5 mm', sensitivitySS: 'SS-3 mm',   mode: 'Offline' },
   { identificationNo: 'CCP-1',  srNo: '(Technofour-ARM 831-17)',  location: 'Upper Basement',          sensitivityFE: 'Fe-2mm',    sensitivityNFE: 'NFe-2.5mm',  sensitivitySS: 'SS-3mm',    mode: 'Offline', warehouse: 'W202' },
   { identificationNo: 'CCP-1A', srNo: '(Das-20211121140)',        location: 'First floor',             sensitivityFE: 'Fe-1.0mm',  sensitivityNFE: 'NFe-1.2mm',  sensitivitySS: 'SS-1.7mm',  mode: 'Offline', warehouse: 'W202' },

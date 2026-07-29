@@ -14,6 +14,7 @@ interface Props {
 
 export default function DocListPage({ config }: Props) {
   const router = useRouter()
+  const base = config.basePath ?? '/documentations'
   const [records, setRecords] = useState<Record<string, any>[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -98,10 +99,9 @@ export default function DocListPage({ config }: Props) {
                   ? `${config.titlePrefixByWarehouse[warehouse]} ${config.label}`
                   : config.label}
               </h1>
+              {/* Document number is intentionally not shown here — it belongs on
+                  the form and the printed record, not the list header. */}
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <span className="inline-flex items-center rounded-full bg-brand-50 text-brand-600 text-[11px] font-semibold px-2 py-0.5">
-                  {config.docNo}
-                </span>
                 <span className="text-xs text-ink-400 font-medium">
                   {total} record{total !== 1 ? 's' : ''}
                 </span>
@@ -111,7 +111,7 @@ export default function DocListPage({ config }: Props) {
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <WarehouseSelector />
             <button
-              onClick={() => router.push(`/documentations/${config.routeSlug}/create`)}
+              onClick={() => router.push(`${base}/${config.routeSlug}/create`)}
               className="btn-primary"
             >
               <Plus className="w-4 h-4 mr-1.5" />
@@ -172,7 +172,7 @@ export default function DocListPage({ config }: Props) {
                 : 'No records have been saved yet.'}
             </p>
             <button
-              onClick={() => router.push(`/documentations/${config.routeSlug}/create`)}
+              onClick={() => router.push(`${base}/${config.routeSlug}/create`)}
               className="btn-primary mt-4"
             >
               <Plus className="w-4 h-4 mr-1.5" />
@@ -217,7 +217,7 @@ export default function DocListPage({ config }: Props) {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}`)}
+                            onClick={() => router.push(`${base}/${config.routeSlug}/${rec.id}`)}
                             className="action-btn-3d action-btn-blue"
                             title="View"
                             aria-label="View"
@@ -225,7 +225,7 @@ export default function DocListPage({ config }: Props) {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => router.push(`/documentations/${config.routeSlug}/${rec.id}/edit`)}
+                            onClick={() => router.push(`${base}/${config.routeSlug}/${rec.id}/edit`)}
                             className="action-btn-3d action-btn-amber"
                             title="Edit"
                             aria-label="Edit"
@@ -234,7 +234,7 @@ export default function DocListPage({ config }: Props) {
                           </button>
                           {showPrint && (
                             <button
-                              onClick={() => router.push(`/documentations/${config.routeSlug}/print?id=${rec.id}`)}
+                              onClick={() => router.push(`${base}/${config.routeSlug}/print?id=${rec.id}`)}
                               className="action-btn-3d action-btn-green"
                               title="Print"
                               aria-label="Print"
@@ -244,7 +244,7 @@ export default function DocListPage({ config }: Props) {
                           )}
                           {showDuplicate && (
                             <button
-                              onClick={() => router.push(`/documentations/${config.routeSlug}/create?duplicateFrom=${rec.id}`)}
+                              onClick={() => router.push(`${base}/${config.routeSlug}/create?duplicateFrom=${rec.id}`)}
                               className="action-btn-3d action-btn-purple"
                               title="Duplicate (recreate as new record)"
                               aria-label="Duplicate"

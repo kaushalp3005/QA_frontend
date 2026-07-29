@@ -8,6 +8,7 @@ import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import SignatureCell from "@/components/ui/SignatureCell";
 import {
   W202_FLOOR_EQUIPMENT, A185_FLOOR_EQUIPMENT, A185_OVERALL_EQUIPMENT, A185_OVERALL_KEY, MONTH_LABELS,
+  migrateOverallNotesKey,
 } from "@/config/equipmentCleaningFloors";
 
 type BAStatus = "✓" | "✕" | "";
@@ -393,10 +394,13 @@ export default function EquipmentCleaningPrintPage() {
 
         // When any record carries per-floor notes, use them; otherwise fall back
         // to the combined blob (legacy records that only had one shared note).
-        const hasPerFloorNotes = Object.keys(notesByFloorAgg).length > 0;
+        // Notes saved under the section's old name ("Overall") are re-keyed onto
+        // the current one so they still print after the rename.
+        const notesAgg = migrateOverallNotesKey(notesByFloorAgg);
+        const hasPerFloorNotes = Object.keys(notesAgg).length > 0;
         const notesFor = (floorKey: string) => ({
-          observations: hasPerFloorNotes ? (notesByFloorAgg[floorKey]?.observations || "") : observationsParts.join(" | "),
-          corrective_action: hasPerFloorNotes ? (notesByFloorAgg[floorKey]?.correctiveAction || "") : correctiveParts.join(" | "),
+          observations: hasPerFloorNotes ? (notesAgg[floorKey]?.observations || "") : observationsParts.join(" | "),
+          corrective_action: hasPerFloorNotes ? (notesAgg[floorKey]?.correctiveAction || "") : correctiveParts.join(" | "),
         });
 
         // 5) One synthesized page per physical floor, each with its own data.

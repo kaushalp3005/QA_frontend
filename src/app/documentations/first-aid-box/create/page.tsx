@@ -2,6 +2,7 @@
 import { Cross } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { FirstAidBoxRecord } from "@/components/forms/CFPLA_QCOperationsForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={Cross}
       width="lg"
     >
-      <FirstAidBoxRecord />
+      <DocCreateForm formType="first-aid-box" FormComponent={FirstAidBoxRecord} />
     </DocFormShell>
   );
 }

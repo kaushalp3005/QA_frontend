@@ -10,9 +10,9 @@ import SignaturePicker from '@/components/ui/SignaturePicker'
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse } from '@/lib/signatures'
 import { detectorsForWarehouse, findDetector } from '@/lib/metalDetectors'
 import MetalDetectorEditRows from '@/components/metaldetector/MetalDetectorEditRows'
+import { isDocAdmin, isDocAdminFor, ADMIN_EMAIL } from '@/lib/api/documentations'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
-const AUTHORIZED_EMAIL = 'pooja.parkar@candorfoods.in'
 
 // Convert 24hr time (HH:MM) to 12hr format (hh:mm AM/PM)
 const to12Hour = (time24: string): string => {
@@ -149,20 +149,17 @@ export default function MetalDetectorPage() {
     }[]
   } | null>(null)
 
-  // Check if current user is authorized for edit/delete
-  const [isAuthorized, setIsAuthorized] = useState(false)
+  // Edit is open to the full admin and to a warehouse-scoped admin while their
+  // own plant is selected — this page shows one warehouse at a time, so the
+  // page-level check covers every row on screen. Deleting a record and all of
+  // its entries stays with the full admin only.
+  const [canEdit, setCanEdit] = useState(false)
+  const [canDelete, setCanDelete] = useState(false)
 
   useEffect(() => {
-    try {
-      const userStr = localStorage.getItem('user')
-      if (userStr) {
-        const user = JSON.parse(userStr)
-        setIsAuthorized(user.email === AUTHORIZED_EMAIL)
-      }
-    } catch {
-      setIsAuthorized(false)
-    }
-  }, [])
+    setCanEdit(isDocAdminFor(warehouse))
+    setCanDelete(isDocAdmin())
+  }, [warehouse])
 
   const getAuthHeaders = (): Record<string, string> => {
     const token = localStorage.getItem('access_token')
@@ -343,8 +340,8 @@ export default function MetalDetectorPage() {
   }
 
   const handleDeleteRecord = async (recordId: number) => {
-    if (!isAuthorized) {
-      alert('You are not authorized to delete records. Only pooja.parkar@candorfoods.in can delete.')
+    if (!canDelete) {
+      alert(`You are not authorized to delete records. Only ${ADMIN_EMAIL} can delete.`)
       return
     }
     if (!confirm('Are you sure you want to delete this record and all its entries?')) return
@@ -367,8 +364,8 @@ export default function MetalDetectorPage() {
   }
 
   const handleEditRecord = async (recordId: number) => {
-    if (!isAuthorized) {
-      alert('You are not authorized to edit records. Only pooja.parkar@candorfoods.in can edit.')
+    if (!canEdit) {
+      alert(`You are not authorized to edit ${warehouse} records.`)
       return
     }
     setEditLoading(true)
@@ -770,7 +767,7 @@ export default function MetalDetectorPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            {isAuthorized && (
+                            {canEdit && (
                               <button
                                 onClick={() => handleEditRecord(record.id)}
                                 className="action-btn-3d action-btn-amber !w-8 !h-8"
@@ -788,7 +785,7 @@ export default function MetalDetectorPage() {
                             >
                               <Printer className="h-4 w-4" />
                             </button>
-                            {isAuthorized && (
+                            {canDelete && (
                               <button
                                 onClick={() => handleDeleteRecord(record.id)}
                                 className="action-btn-3d action-btn-red !w-8 !h-8"

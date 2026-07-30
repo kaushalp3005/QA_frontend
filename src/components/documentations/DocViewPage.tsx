@@ -147,7 +147,9 @@ export default function DocViewPage({ config }: Props) {
             </button>
             <div>
               <h1 className="text-xl font-semibold text-gray-900">{config.label}</h1>
-              <p className="text-sm text-gray-500">{config.docNo} — Record #{record.id}</p>
+              {/* config.docNo is the W202 number and ignores the warehouse selector,
+                  so it's left off here too — the printout carries the right one. */}
+              <p className="text-sm text-gray-500">Record #{record.id}</p>
             </div>
           </div>
 

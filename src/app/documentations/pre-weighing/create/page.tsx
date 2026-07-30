@@ -2,6 +2,7 @@
 import { Scale } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { PreWeighingCheckRecord } from "@/components/forms/CFPLA_QCOperationsForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={Scale}
       width="lg"
     >
-      <PreWeighingCheckRecord />
+      <DocCreateForm formType="pre-weighing" FormComponent={PreWeighingCheckRecord} />
     </DocFormShell>
   );
 }

@@ -2,6 +2,7 @@
 import { Users } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { FoodSafetyMeeting } from "@/components/forms/CFPLA_FoodSafetyDocForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={Users}
       width="lg"
     >
-      <FoodSafetyMeeting />
+      <DocCreateForm formType="safety-meeting" FormComponent={FoodSafetyMeeting} />
     </DocFormShell>
   );
 }

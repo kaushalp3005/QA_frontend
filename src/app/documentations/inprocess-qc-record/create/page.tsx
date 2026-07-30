@@ -2,6 +2,7 @@
 import { ClipboardCheck } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { InprocessQualityCheckRecord } from "@/components/forms/CFPLA_QCRecordsForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={ClipboardCheck}
       width="full"
     >
-      <InprocessQualityCheckRecord />
+      <DocCreateForm formType="inprocess-qc-record" FormComponent={InprocessQualityCheckRecord} />
     </DocFormShell>
   );
 }

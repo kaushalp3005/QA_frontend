@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Plus, Edit, Clock, AlertCircle, Video, X, Trash2, Eye, FileText } from 'lucide-react'
+import { Plus, Edit, Clock, AlertCircle, Video, X, Trash2, Eye, FileText, Search } from 'lucide-react'
 import Link from 'next/link'
 import { getComplaints, uploadSampleVideo, deleteSampleVideo, deleteComplaint, type ComplaintResponse } from '@/lib/api/complaints'
 import { formatDateShort } from '@/lib/date-utils'
@@ -46,14 +46,32 @@ export default function ComplaintsPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
+  // `search` is what the user is typing; `activeSearch` is what has actually been
+  // sent to the API. Debouncing the second one keeps every keystroke from firing
+  // a request while still letting the input stay responsive.
+  const [search, setSearch] = useState('')
+  const [activeSearch, setActiveSearch] = useState('')
   const limit = 20
+
+  useEffect(() => {
+    const t = setTimeout(() => setActiveSearch(search.trim()), 350)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // A new search starts from page 1 — otherwise a search run from page 4 lands
+  // on an empty page of a much shorter result set.
+  useEffect(() => {
+    setPage(1)
+  }, [activeSearch, currentCompany])
 
   useEffect(() => {
     // Load complaints from API
     const loadComplaints = async () => {
+      setIsLoading(true)
       try {
         const response = await getComplaints({
           company: currentCompany,
+          search: activeSearch || undefined,
           page,
           limit
         })
@@ -68,7 +86,7 @@ export default function ComplaintsPage() {
     }
 
     loadComplaints()
-  }, [currentCompany, page])
+  }, [currentCompany, page, activeSearch])
 
   const handleVideoUpload = async (complaintId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -194,6 +212,38 @@ export default function ComplaintsPage() {
 
         <ComplaintCategoryTrend />
 
+        {/* Search — one box, matches lot/batch, customer or item */}
+        <div className="surface-card p-3 sm:p-4 mb-4 animate-fade-in-up">
+          <div className="relative">
+            <Search className="w-4 h-4 text-ink-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by lot / batch code, customer or item…"
+              aria-label="Search complaints by lot or batch code, customer or item"
+              className="input-base !pl-9 !pr-9"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-ink-400 hover:text-brand-500 hover:bg-cream-100 transition-colors"
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {activeSearch && !isLoading && (
+            <p className="mt-2 text-xs text-ink-400">
+              <span className="font-semibold text-ink-600 tabular-nums">{total}</span>{' '}
+              {total === 1 ? 'complaint' : 'complaints'} matching{' '}
+              <span className="font-semibold text-ink-600">&ldquo;{activeSearch}&rdquo;</span>
+            </p>
+          )}
+        </div>
+
         {/* Complaints Table */}
         <div className="surface-card overflow-hidden animate-fade-in-up">
           {isLoading ? (
@@ -211,9 +261,18 @@ export default function ComplaintsPage() {
               </div>
               <h3 className="mt-4 text-sm font-semibold text-ink-500">No complaints found</h3>
               <p className="mt-1 text-xs text-ink-400">
-                Get started by creating a new complaint.
+                {activeSearch
+                  ? `Nothing matches "${activeSearch}". Try a different lot/batch code, customer or item.`
+                  : 'Get started by creating a new complaint.'}
               </p>
-              {canCreate('complaints') && (
+              {activeSearch && (
+                <div className="mt-5">
+                  <button onClick={() => setSearch('')} className="btn-outline">
+                    Clear search
+                  </button>
+                </div>
+              )}
+              {!activeSearch && canCreate('complaints') && (
                 <div className="mt-5">
                   <button
                     onClick={handleCreateComplaint}

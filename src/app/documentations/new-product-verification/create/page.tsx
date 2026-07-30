@@ -2,6 +2,7 @@
 import { PackageCheck } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { NewProductVerification } from "@/components/forms/CFPLA_ProductSafetyForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={PackageCheck}
       width="lg"
     >
-      <NewProductVerification />
+      <DocCreateForm formType="new-product-verification" FormComponent={NewProductVerification} />
     </DocFormShell>
   );
 }

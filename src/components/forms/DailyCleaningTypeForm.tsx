@@ -80,10 +80,20 @@ export default function DailyCleaningTypeForm({
   initialRecordId,
   onDone,
 }: Props) {
+  // Single-area sections (everything except the Floor checklist) cover one fixed
+  // area, so they get no floor picker — the area is the section itself.
+  const singleAreaDefault = meta.defaultArea || (meta.multiFloor === true ? "" : meta.label);
+
   const [month, setMonth] = useState(initialMonth || "");
-  const [floors, setFloors] = useState<DCCFloor[]>(
-    () => initialFloors && initialFloors.length > 0 ? initialFloors : [emptyFloor(meta.parameters, meta.defaultArea)]
-  );
+  const [floors, setFloors] = useState<DCCFloor[]>(() => {
+    const seeded = initialFloors && initialFloors.length > 0
+      ? initialFloors
+      : [emptyFloor(meta.parameters, singleAreaDefault)];
+    // Backfill records saved while these sections still asked for a floor.
+    return meta.multiFloor === true
+      ? seeded
+      : seeded.map((f) => (f.area.trim() ? f : { ...f, area: singleAreaDefault }));
+  });
   const [activeFloor, setActiveFloor] = useState(0);
   const [savedId, setSavedId] = useState<number | null>(initialRecordId ?? null);
   const [saving, setSaving] = useState<false | "draft" | "final">(false);
@@ -134,7 +144,7 @@ export default function DailyCleaningTypeForm({
   const setCorrectiveAction = (v: string) => updateFloor(activeFloor, (f) => ({ ...f, correctiveAction: v }));
 
   const addFloor = () => {
-    setFloors((prev) => [...prev, emptyFloor(meta.parameters, meta.defaultArea)]);
+    setFloors((prev) => [...prev, emptyFloor(meta.parameters, singleAreaDefault)]);
     setActiveFloor(floors.length);
   };
 
@@ -152,12 +162,13 @@ export default function DailyCleaningTypeForm({
       setSubmitError("Month is required.");
       return null;
     }
-    // Area is only enforced on the final submit so partial drafts can be saved early.
-    if (status === "submitted") {
+    // Only the Floor checklist asks for a floor, and only on the final submit so
+    // partial drafts can still be saved early.
+    if (status === "submitted" && multiFloor) {
       const missingArea = floors.findIndex((f) => !f.area.trim());
       if (missingArea >= 0) {
         setActiveFloor(missingArea);
-        setSubmitError("Area (Floor Name) is required for every floor.");
+        setSubmitError("Floor is required for every floor.");
         return null;
       }
     }
@@ -271,7 +282,13 @@ export default function DailyCleaningTypeForm({
       )}
 
       <DocSection
-        title={floors.length > 1 ? `Floor / Area ${activeFloor + 1} of ${floors.length}` : "Floor / Area"}
+        title={
+          !multiFloor
+            ? meta.label
+            : floors.length > 1
+            ? `Floor ${activeFloor + 1} of ${floors.length}`
+            : "Floor"
+        }
         description={`${meta.parameters.length} parameters × ${DCC_DAYS} days`}
         bleed
         actions={
@@ -286,30 +303,34 @@ export default function DailyCleaningTypeForm({
           ) : undefined
         }
       >
-        <div className="px-4 pt-4 max-w-md">
-          <label className="label-base">Floor <span className="text-danger-600">*</span></label>
-          <select
-            value={areaOptions.includes(floor.area) ? floor.area : floor.area === "" ? "" : "__other__"}
-            onChange={(e) => setArea(e.target.value === "__other__" ? " " : e.target.value)}
-            className="input-base"
-          >
-            <option value="">Select floor…</option>
-            {areaOptions.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-            <option value="__other__">Other…</option>
-          </select>
-          {!areaOptions.includes(floor.area) && floor.area !== "" && (
-            <input
-              type="text"
-              value={floor.area}
-              onChange={(e) => setArea(e.target.value)}
-              className="input-base mt-1"
-              placeholder="Type floor name…"
-              autoFocus
-            />
-          )}
-        </div>
+        {/* Floor picker belongs to the Floor checklist only — the other sections
+            each cover a single fixed area. */}
+        {multiFloor && (
+          <div className="px-4 pt-4 max-w-md">
+            <label className="label-base">Floor <span className="text-danger-600">*</span></label>
+            <select
+              value={areaOptions.includes(floor.area) ? floor.area : floor.area === "" ? "" : "__other__"}
+              onChange={(e) => setArea(e.target.value === "__other__" ? " " : e.target.value)}
+              className="input-base"
+            >
+              <option value="">Select floor…</option>
+              {areaOptions.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+              <option value="__other__">Other…</option>
+            </select>
+            {!areaOptions.includes(floor.area) && floor.area !== "" && (
+              <input
+                type="text"
+                value={floor.area}
+                onChange={(e) => setArea(e.target.value)}
+                className="input-base mt-1"
+                placeholder="Type floor name…"
+                autoFocus
+              />
+            )}
+          </div>
+        )}
 
         <p className="text-[11px] text-ink-400 italic px-4 pt-3">
           <strong>Click</strong> a cell to toggle <span className="text-success-600 font-bold">✓</span> on/off.

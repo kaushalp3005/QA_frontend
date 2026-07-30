@@ -2,6 +2,7 @@
 import { Compass } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { TraceabilityReport } from "@/components/forms/CFPLA_QCOperationsForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -11,7 +12,7 @@ export default function Page() {
       icon={Compass}
       width="lg"
     >
-      <TraceabilityReport />
+      <DocCreateForm formType="traceability" FormComponent={TraceabilityReport} />
     </DocFormShell>
   );
 }

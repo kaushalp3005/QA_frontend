@@ -2,6 +2,7 @@
 import { Droplets } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { WaterAnalysisRecord } from "@/components/forms/CFPLA_FoodSafetyDocForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={Droplets}
       width="full"
     >
-      <WaterAnalysisRecord />
+      <DocCreateForm formType="water-analysis" FormComponent={WaterAnalysisRecord} />
     </DocFormShell>
   );
 }

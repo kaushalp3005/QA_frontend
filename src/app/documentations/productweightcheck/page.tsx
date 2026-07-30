@@ -113,10 +113,10 @@ export default function ProductWeightCheckListPage() {
               <h1 className="text-lg sm:text-xl font-bold text-ink-600 tracking-tight leading-tight truncate">
                 {config.label}
               </h1>
+              {/* No document number here — config.docNo is the W202 number and
+                  doesn't follow the warehouse selector, so it misleads on A185.
+                  The correct per-plant number is on the form and the printout. */}
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <span className="inline-flex items-center rounded-full bg-brand-50 text-brand-600 text-[11px] font-semibold px-2 py-0.5">
-                  {config.docNo}
-                </span>
                 <span className="text-xs text-ink-400 font-medium">
                   {query ? `${filtered.length} of ${total}` : total} record{(query ? filtered.length : total) !== 1 ? 's' : ''}
                 </span>

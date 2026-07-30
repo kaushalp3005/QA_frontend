@@ -140,6 +140,8 @@ export async function getComplaints(params: {
   company: string
   status?: string
   customerName?: string
+  /** Free-text match across lot/batch code, customer, item description and complaint ID. */
+  search?: string
   fromDate?: string
   toDate?: string
   page?: number

@@ -28,12 +28,15 @@ export const PRINTABLE_SLUGS = new Set<string>([
   "new-product-verification",
   "roastingtemperature",
   "lux-monitoring",
+  "gmp-schedule",
+  "gmp-ghp-inspection",
 ])
 
 // Forms whose create page supports pre-filling from an existing record
 // (?duplicateFrom=<id>), so a full entry can be "recreated" as a new record
 // instead of retyping every field.
 export const DUPLICATABLE_SLUGS = new Set<string>([
+  // Forms with bespoke duplicate handling in their own create page.
   "lux-monitoring",
   "productweightcheck",
   "productiontoolissuance",
@@ -45,6 +48,40 @@ export const DUPLICATABLE_SLUGS = new Set<string>([
   "roastingtemperature",
   "weighingscalecalibration",
   "gmp-ghp-inspection",
+  // Forms whose create page delegates to <DocCreateForm>, which loads the
+  // record named by ?duplicateFrom= and passes it as `initialData`.
+  "water-analysis",
+  "incident-report",
+  "safety-meeting",
+  "new-product-verification",
+  "mock-drill",
+  "temperature-humidity",
+  "inprocess-qc-record",
+  "gmp-schedule",
+  "inward-rm-check",
+  "fg-chemical-analysis",
+  "eyewash-refill",
+  "first-aid-box",
+  "traceability",
+  "pre-weighing",
+  "fly-catcher",
+  "ccp-roasting-bar",
+  "vehicle-inspection",
+  "outgoing-vehicle-inspection",
+  "glass-brittle-check",
+  "preventive-maintenance",
+  "new-equipment-clearance",
+  "waste-disposal",
+  "chemical-preparation",
+  "deep-cleaning",
+  "non-conforming-product",
+  "rework-recycling",
+  // Training forms (basePath /training — these are routeSlugs, not formTypes).
+  "attendance-sheet",
+  "attendance-workers",
+  "reference-sheet",
+  "feedback",
+  "training-card",
 ])
 
 export const DOC_FORMS: Record<string, DocFormConfig> = {

@@ -2,6 +2,7 @@
 import { Thermometer } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { TemperatureHumidityRecord } from "@/components/forms/CFPLA_QCRecordsForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={Thermometer}
       width="full"
     >
-      <TemperatureHumidityRecord />
+      <DocCreateForm formType="temperature-humidity" FormComponent={TemperatureHumidityRecord} />
     </DocFormShell>
   );
 }

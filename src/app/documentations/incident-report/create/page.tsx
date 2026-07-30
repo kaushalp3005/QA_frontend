@@ -2,6 +2,7 @@
 import { AlertTriangle } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { FoodSafetyIncidentReport } from "@/components/forms/CFPLA_FoodSafetyDocForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={AlertTriangle}
       width="full"
     >
-      <FoodSafetyIncidentReport />
+      <DocCreateForm formType="incident-report" FormComponent={FoodSafetyIncidentReport} />
     </DocFormShell>
   );
 }

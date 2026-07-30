@@ -2,6 +2,7 @@
 import { Truck } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { IncomingVehicleInspection } from "@/components/forms/CFPLA_QCOperationsForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={Truck}
       width="md"
     >
-      <IncomingVehicleInspection />
+      <DocCreateForm formType="vehicle-inspection" FormComponent={IncomingVehicleInspection} />
     </DocFormShell>
   );
 }

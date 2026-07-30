@@ -2,6 +2,7 @@
 import { EyeOff } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { EyeWashBottleRefillingRecord } from "@/components/forms/CFPLA_QCRecordsForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -11,7 +12,7 @@ export default function Page() {
       icon={EyeOff}
       width="lg"
     >
-      <EyeWashBottleRefillingRecord />
+      <DocCreateForm formType="eyewash-refill" FormComponent={EyeWashBottleRefillingRecord} />
     </DocFormShell>
   );
 }

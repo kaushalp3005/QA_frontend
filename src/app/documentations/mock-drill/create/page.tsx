@@ -2,6 +2,7 @@
 import { Siren } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { EmergencyMockDrill } from "@/components/forms/CFPLA_ProductSafetyForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={Siren}
       width="md"
     >
-      <EmergencyMockDrill />
+      <DocCreateForm formType="mock-drill" FormComponent={EmergencyMockDrill} />
     </DocFormShell>
   );
 }

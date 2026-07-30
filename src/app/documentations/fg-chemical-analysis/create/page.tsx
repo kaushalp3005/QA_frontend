@@ -2,6 +2,7 @@
 import { Beaker } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { FinishedGoodChemicalAnalysis } from "@/components/forms/CFPLA_QCRecordsForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -11,7 +12,7 @@ export default function Page() {
       icon={Beaker}
       width="md"
     >
-      <FinishedGoodChemicalAnalysis />
+      <DocCreateForm formType="fg-chemical-analysis" FormComponent={FinishedGoodChemicalAnalysis} />
     </DocFormShell>
   );
 }

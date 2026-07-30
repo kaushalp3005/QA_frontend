@@ -2,6 +2,7 @@
 import { Flame } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import { CCPRoastingBarLine } from "@/components/forms/CFPLA_QCOperationsForms";
+import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
       icon={Flame}
       width="full"
     >
-      <CCPRoastingBarLine />
+      <DocCreateForm formType="ccp-roasting-bar" FormComponent={CCPRoastingBarLine} />
     </DocFormShell>
   );
 }

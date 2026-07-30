@@ -26,7 +26,9 @@ interface CalibrationRow {
   excluded?: boolean;
 }
 
-const FLOOR_RANGES: Record<string, [number, number]> = {
+type FloorRanges = Record<string, [number, number]>;
+
+const FLOOR_RANGES: FloorRanges = {
   "Lower Basement":   [1,  10],
   "Upper Basement":   [11, 23],
   "First Floor":      [24, 34],
@@ -35,12 +37,21 @@ const FLOOR_RANGES: Record<string, [number, number]> = {
   "Terrace":          [50, 55],
 };
 
+// Floor grouping is plant-specific. A185's scale roster carries no floor
+// assignment, so it gets none — its filter offers "All Floors" only.
+const FLOOR_RANGES_BY_WAREHOUSE: Record<string, FloorRanges> = {
+  A185: {},
+};
+
+const floorRangesForWarehouse = (warehouse: string): FloorRanges =>
+  FLOOR_RANGES_BY_WAREHOUSE[warehouse] ?? FLOOR_RANGES;
+
 // A row belongs to the selected floor when it's a fixed scale whose position
 // falls in the floor's id range; custom rows show under every floor.
-const rowInFloor = (r: CalibrationRow, f: string): boolean => {
+const rowInFloor = (r: CalibrationRow, f: string, ranges: FloorRanges): boolean => {
   if (f === "") return true;
   if (!r.fixed) return true;
-  const range = FLOOR_RANGES[f];
+  const range = ranges[f];
   if (!range) return true;
   const pos = -r.id; // id = -(idx+1) → 1-based position
   return pos >= range[0] && pos <= range[1];
@@ -81,6 +92,44 @@ const CAPACITY_MAP: Record<string, string> = {
 };
 const DEFAULT_CAPACITY = "10.000";
 
+/**
+ * A185's weighing scale roster, from the plant's scale register: the scale
+ * number is the ID No. and capacity is carried in kg (600 g → 0.600). Scales
+ * with no ID plate, the three non-standard makes, and everything in the
+ * register's REJECTED block are deliberately left out.
+ */
+const A185_SCALES: { id: string; capacityKg: string }[] = [
+  { id: "260216",       capacityKg: "500.000" },
+  { id: "458/1",        capacityKg: "10.000" },
+  { id: "317/1",        capacityKg: "10.000" },
+  { id: "320/1",        capacityKg: "10.000" },
+  { id: "796/1",        capacityKg: "10.000" },
+  { id: "806/1",        capacityKg: "10.000" },
+  { id: "801/1",        capacityKg: "10.000" },
+  { id: "807",          capacityKg: "10.000" },
+  { id: "808/1",        capacityKg: "10.000" },
+  { id: "809/1",        capacityKg: "10.000" },
+  { id: "816/1",        capacityKg: "10.000" },
+  { id: "821/1",        capacityKg: "10.000" },
+  { id: "820/1",        capacityKg: "10.000" },
+  { id: "818",          capacityKg: "10.000" },
+  { id: "822/1",        capacityKg: "10.000" },
+  { id: "824/1",        capacityKg: "10.000" },
+  { id: "2110323/1",    capacityKg: "300.000" },
+  { id: "2103190/1",    capacityKg: "100.000" },
+  { id: "745/1",        capacityKg: "10.000" },
+  { id: "D326001506/1", capacityKg: "0.220" },
+  { id: "2008063/1",    capacityKg: "0.600" },
+  { id: "2008064/1",    capacityKg: "0.600" },
+  { id: "2107243/1",    capacityKg: "300.000" },
+  { id: "D209412021/1", capacityKg: "0.060" },
+  { id: "D209412669/1", capacityKg: "0.060" },
+];
+
+const SCALES_BY_WAREHOUSE: Record<string, { id: string; capacityKg: string }[]> = {
+  A185: A185_SCALES,
+};
+
 const fixedRow = (identificationNo: string, idx: number): CalibrationRow => ({
   ...emptyRow(),
   id: -(idx + 1),
@@ -88,6 +137,25 @@ const fixedRow = (identificationNo: string, idx: number): CalibrationRow => ({
   capacityKg: CAPACITY_MAP[identificationNo] ?? DEFAULT_CAPACITY,
   fixed: true,
 });
+
+/**
+ * Pre-seeded calibration rows for a plant. A plant with its own roster uses the
+ * capacity recorded against each scale; anything else falls back to the original
+ * ID list, where capacity comes from CAPACITY_MAP.
+ */
+const fixedRowsForWarehouse = (warehouse: string): CalibrationRow[] => {
+  const roster = SCALES_BY_WAREHOUSE[warehouse];
+  if (roster) {
+    return roster.map((s, i) => ({
+      ...emptyRow(),
+      id: -(i + 1),
+      identificationNo: s.id,
+      capacityKg: s.capacityKg,
+      fixed: true,
+    }));
+  }
+  return FIXED_SCALE_IDS.map((sid, i) => fixedRow(sid, i));
+};
 
 // Map a saved record row back into an editable (non-fixed) form row.
 const rowFromSaved = (r: any, i: number): CalibrationRow => ({
@@ -142,10 +210,12 @@ export function WeighingScaleCalibrationForm({ initialData, onSubmit, isEdit }: 
   const [dateOfInspection, setDateOfInspection] = useState(initialData?.inspection_date || "");
   const [calibratedBy, setCalibratedBy] = useState(initialData?.calibrated_by || "");
   const [verifiedBy, setVerifiedBy] = useState(initialData?.verified_by || "");
+  const warehouse = getStoredWarehouse();
+  const floorRanges = floorRangesForWarehouse(warehouse);
   const [rows, setRows] = useState<CalibrationRow[]>(() => {
     const src = initialData?.rows;
     if (Array.isArray(src) && src.length) return src.map(rowFromSaved);
-    return FIXED_SCALE_IDS.map((sid, i) => fixedRow(sid, i));
+    return fixedRowsForWarehouse(warehouse);
   });
 
   const [floor, setFloor] = useState("");
@@ -159,7 +229,7 @@ export function WeighingScaleCalibrationForm({ initialData, onSubmit, isEdit }: 
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse() || null,
+      warehouse: warehouse || null,
       inspection_date: dateOfInspection,
       calibrated_by: calibratedBy,
       verified_by: verifiedBy,
@@ -214,20 +284,20 @@ export function WeighingScaleCalibrationForm({ initialData, onSubmit, isEdit }: 
   const onFloorChange = (f: string) => {
     setFloor(f);
     if (!f) return;
-    setRows((prev) => prev.map((r) => (rowInFloor(r, f) && !r.excluded ? { ...r, location: f } : r)));
+    setRows((prev) => prev.map((r) => (rowInFloor(r, f, floorRanges) && !r.excluded ? { ...r, location: f } : r)));
   };
 
   // Fill a whole column down from its first cell (first visible, non-excluded row).
   const fillColumn = (field: keyof CalibrationRow) => {
     setRows((prev) => {
-      const vis = prev.filter((r) => rowInFloor(r, floor) && !r.excluded);
+      const vis = prev.filter((r) => rowInFloor(r, floor, floorRanges) && !r.excluded);
       if (vis.length === 0) return prev;
       const firstCell = String(vis[0][field] ?? "").trim();
       const firstFilled = vis.find((r) => String(r[field] ?? "").trim() !== "");
       const val = firstCell !== "" ? firstCell : firstFilled ? String(firstFilled[field]) : "";
       if (val === "") return prev;
       return prev.map((r) => {
-        if (!(rowInFloor(r, floor) && !r.excluded)) return r;
+        if (!(rowInFloor(r, floor, floorRanges) && !r.excluded)) return r;
         let next = { ...r, [field]: val } as CalibrationRow;
         if ((READINGS as string[]).includes(field as string)) {
           next = { ...next, deviation: computeDeviation(next) };
@@ -248,7 +318,7 @@ export function WeighingScaleCalibrationForm({ initialData, onSubmit, isEdit }: 
     </button>
   );
 
-  const visibleRows = rows.filter((r) => rowInFloor(r, floor));
+  const visibleRows = rows.filter((r) => rowInFloor(r, floor, floorRanges));
 
   const activeRows = rows.filter((r) => !r.excluded);
   const okCount = activeRows.filter((r) => getDeviationStatus(r) === "ok").length;
@@ -288,7 +358,7 @@ export function WeighingScaleCalibrationForm({ initialData, onSubmit, isEdit }: 
               className="input-base !py-1.5 !px-2 text-xs min-w-[160px]"
             >
               <option value="">All Floors</option>
-              {Object.keys(FLOOR_RANGES).map((f) => (
+              {Object.keys(floorRanges).map((f) => (
                 <option key={f} value={f}>{f}</option>
               ))}
             </select>

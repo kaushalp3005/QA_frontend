@@ -1,18 +1,10 @@
 // frontend/src/lib/api/documentations.ts
 
 import { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
+import { getUserEmail, isFullAdmin, lockedWarehouse } from '@/lib/warehouseAccess'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
-function getUserEmail(): string | null {
-  if (typeof window === 'undefined') return null
-  const direct = localStorage.getItem('user_email')
-  if (direct) return direct
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null')
-    return user?.email ?? user?.user?.email ?? null
-  } catch { return null }
-}
 
 async function request<T = any>(url: string, options: RequestInit = {}): Promise<T> {
   const email = getUserEmail()
@@ -208,20 +200,14 @@ export const fgCoaApi = {
     ),
 }
 
-export const ADMIN_EMAIL = 'pooja.parkar@candorfoods.in'
-
-// Emails with admin-level rights (edit date/time fields, delete) scoped to a
-// single warehouse's records only — must mirror SCOPED_ADMIN_EMAILS in
-// backend/app/config/doc_registry.py. This only gates which buttons show;
-// the backend re-checks and is the actual source of truth.
-const SCOPED_ADMIN_EMAILS: Record<string, string> = {
-  'quality.a-185@candorfoods.in': 'A185',
-}
+// ADMIN_EMAIL and the warehouse-scoped account list live in @/lib/warehouseAccess,
+// which is also what hides the warehouse switch for a pinned account. Re-exported
+// here because callers have long imported ADMIN_EMAIL from this module.
+export { ADMIN_EMAIL } from '@/lib/warehouseAccess'
 
 /** Full admin — every record, any warehouse. */
 export function isDocAdmin(): boolean {
-  const email = getUserEmail()
-  return !!email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase()
+  return isFullAdmin()
 }
 
 /**
@@ -232,7 +218,6 @@ export function isDocAdmin(): boolean {
  */
 export function isDocAdminFor(warehouse?: string | null): boolean {
   if (isDocAdmin()) return true
-  const email = getUserEmail()
-  if (!email || !warehouse) return false
-  return SCOPED_ADMIN_EMAILS[email.toLowerCase()] === warehouse
+  if (!warehouse) return false
+  return lockedWarehouse() === warehouse
 }

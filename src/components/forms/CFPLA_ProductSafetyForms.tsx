@@ -667,6 +667,36 @@ const GMP_SECTIONS: { section: string; items: { sr: number; text: string; maxSco
   ]},
 ];
 
+/**
+ * A185's Facility & Housekeeping section differs from the list above: where W202
+ * checks three Terrace items (Sr. 20–22), A185 checks two rack items. So Sr. 22
+ * drops out and every item after it moves up one, keeping the printed Sr. column
+ * consecutive — 76 items instead of 77.
+ *
+ * Only the form's item list changes. A saved record carries its own Sr. and item
+ * text in `checklist`, so records entered before this stay exactly as audited.
+ */
+const A185_ITEM_TEXT: Record<number, string> = {
+  20: "Rack area, cleaned free from cob-webs, dust",
+  21: "product are labelled on Racks with proper stacking",
+};
+const A185_DROPPED_SR = new Set<number>([22]);
+
+const A185_GMP_SECTIONS: typeof GMP_SECTIONS = (() => {
+  let nextSr = 1;
+  return GMP_SECTIONS.map((s) => ({
+    section: s.section,
+    items: s.items
+      .filter((i) => !A185_DROPPED_SR.has(i.sr))
+      .map((i) => ({ ...i, sr: nextSr++, text: A185_ITEM_TEXT[i.sr] ?? i.text })),
+  }));
+})();
+
+/** Checklist for a plant — A185 has its own rack items in place of W202's Terrace ones. */
+export function gmpSectionsFor(warehouse: string | null | undefined) {
+  return warehouse === "A185" ? A185_GMP_SECTIONS : GMP_SECTIONS;
+}
+
 interface CAPARow { id: number; nonConformity: string; correctiveAction: string; preventiveAction: string; doneBy: string; verifiedBy: string; }
 
 interface GMPGHPInspectionProps {
@@ -677,12 +707,15 @@ interface GMPGHPInspectionProps {
 
 export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGHPInspectionProps = {}) {
   const router = useRouter();
+  // Checklist is plant-specific — prefer the record's own plant when editing, so
+  // an existing record is never re-rendered against the other plant's item list.
+  const sections = gmpSectionsFor(initialData?.warehouse || getStoredWarehouse());
   // DB column is `checklist` (an array of {sr, obtained_score, remarks, ...}),
   // not `scores` — must match exactly, or the generic backend's column-name
   // filter silently drops the whole field (see create_record()).
   const [scores, setScores] = useState<Record<number, { obtained: string; remarks: string }>>(() => {
     const init: Record<number, { obtained: string; remarks: string }> = {};
-    GMP_SECTIONS.forEach((s) => s.items.forEach((i) => { init[i.sr] = { obtained: String(i.maxScore), remarks: "" }; }));
+    sections.forEach((s) => s.items.forEach((i) => { init[i.sr] = { obtained: String(i.maxScore), remarks: "" }; }));
     if (Array.isArray(initialData?.checklist)) {
       initialData.checklist.forEach((row: any) => {
         const sr = Number(row.sr);
@@ -716,7 +749,7 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
   const addCapa = () => setCapaRows((p) => [...p, { id: p.length + 1, nonConformity: "", correctiveAction: "", preventiveAction: "", doneBy: "", verifiedBy: "" }]);
 
   // Calculate totals
-  const allItems = GMP_SECTIONS.flatMap((s) => s.items);
+  const allItems = sections.flatMap((s) => s.items);
   const totalMax = allItems.reduce((sum, i) => sum + i.maxScore, 0);
   const totalObt = allItems.reduce((sum, i) => sum + (parseFloat(scores[i.sr]?.obtained || "0") || 0), 0);
   const percentage = totalMax > 0 ? ((totalObt / totalMax) * 100).toFixed(1) : "0";
@@ -736,7 +769,7 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
     { label: "Transport", match: (n) => n === "TRANSPORT" },
   ];
   const scoreGroups = groupDefs.map((g) => {
-    const items = GMP_SECTIONS.filter((s) => g.match(s.section)).flatMap((s) => s.items);
+    const items = sections.filter((s) => g.match(s.section)).flatMap((s) => s.items);
     const max = items.reduce((sum, i) => sum + i.maxScore, 0);
     const obtained = items.reduce((sum, i) => sum + (parseFloat(scores[i.sr]?.obtained || "0") || 0), 0);
     return { label: g.label, max, obtained, percent: max > 0 ? ((obtained / max) * 100).toFixed(1) : "0" };
@@ -749,7 +782,7 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
   const obtainedGrade = parseFloat(percentage) >= 85 ? "A" : parseFloat(percentage) >= 70 ? "B" : "C";
 
   const buildPayload = (status: "draft" | "submitted") => ({
-    warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+    warehouse: getStoredWarehouse(),
     audit_datetime: auditDateTime,
     auditor_name: auditorName,
     auditee_name: auditeeName,
@@ -855,7 +888,7 @@ export function MonthlyGMPGHPInspection({ initialData, onSubmit, isEdit }: GMPGH
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-300">
-              {GMP_SECTIONS.map((section) => (
+              {sections.map((section) => (
                 <Fragment key={section.section}>
                   <tr>
                     <td colSpan={5} className="px-3 py-2 bg-brand-50/60 font-bold text-xs text-brand-700 uppercase tracking-wider">{section.section}</td>

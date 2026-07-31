@@ -3,18 +3,28 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Warehouse, Check } from 'lucide-react'
 import { cn } from '@/lib/styles'
+import { canSwitchWarehouse, lockedWarehouse, type WarehouseCode } from '@/lib/warehouseAccess'
 
-export type WarehouseCode = 'A185' | 'W202'
+export type { WarehouseCode }
 
 const STORAGE_KEY = 'currentWarehouse'
 
+/**
+ * The active warehouse. An account pinned to one plant always gets that plant,
+ * whatever is in localStorage — so a stale value (or one left behind by another
+ * user on a shared browser) can never leak the other plant's data into its view
+ * or stamp the wrong warehouse onto a record it saves.
+ */
 export function getStoredWarehouse(): WarehouseCode {
   if (typeof window === 'undefined') return 'A185'
+  const locked = lockedWarehouse()
+  if (locked) return locked
   const saved = localStorage.getItem(STORAGE_KEY)
   return saved === 'W202' || saved === 'A185' ? saved : 'A185'
 }
 
 export function setStoredWarehouse(value: WarehouseCode) {
+  if (!canSwitchWarehouse()) return // pinned account — switching is not offered
   localStorage.setItem(STORAGE_KEY, value)
   window.dispatchEvent(new CustomEvent('warehouseChanged', { detail: { warehouse: value } }))
 }
@@ -28,8 +38,13 @@ export default function WarehouseSelector() {
   const [current, setCurrent] = useState<WarehouseCode>('A185')
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  // null until mounted — who is signed in is only knowable client-side, and
+  // rendering nothing until then keeps a pinned account from seeing the switch
+  // flash up before it is removed.
+  const [canSwitch, setCanSwitch] = useState<boolean | null>(null)
 
   useEffect(() => {
+    setCanSwitch(canSwitchWarehouse())
     setCurrent(getStoredWarehouse())
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail
@@ -54,6 +69,9 @@ export default function WarehouseSelector() {
     setStoredWarehouse(value)
     setIsOpen(false)
   }
+
+  // Pinned to one plant (or not resolved yet) — render no switch at all.
+  if (canSwitch !== true) return null
 
   return (
     <div className="relative inline-block" ref={dropdownRef}>

@@ -7,6 +7,7 @@ import DocFormShell from "@/components/documentations/DocFormShell";
 import { docsApi } from "@/lib/api/documentations";
 import { dropdown as dropdownApi } from "@/lib/api";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import FloorSelect from "@/components/ui/FloorSelect";
 import type { DropdownData } from "@/types";
 
 interface WeightRow {
@@ -515,15 +516,11 @@ export default function ProductWeightSealCheckRecord() {
                   </div>
                   <div>
                     <label className="label-base">Location</label>
-                    <select value={product.location} onChange={(e) => updateEntry(product.entryId, { location: e.target.value })} className="input-base">
-                      <option value="">Select location…</option>
-                      {availableFloors.map((fl) => (
-                        <option key={fl.id} value={fl.floor_name}>{fl.floor_name}</option>
-                      ))}
-                      {product.location && !availableFloors.some((fl) => fl.floor_name === product.location) && (
-                        <option value={product.location}>{product.location}</option>
-                      )}
-                    </select>
+                    <FloorSelect
+                      value={product.location}
+                      onChange={(v) => updateEntry(product.entryId, { location: v })}
+                      options={availableFloors}
+                    />
                   </div>
                   <div>
                     <label className="label-base">Frequency</label>

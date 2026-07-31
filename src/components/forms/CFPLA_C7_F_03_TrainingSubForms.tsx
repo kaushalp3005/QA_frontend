@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 const EVAL_METHODS = ["Written", "Oral", "Observation", "Practical"];
 
@@ -67,7 +68,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       workers: rows.filter((r) => r.name).map((r) => ({
         name: r.name,
         evaluation_method: r.evaluationMethod,
@@ -181,7 +182,7 @@ export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: Traini
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       reference_material: referenceMaterial,
       rows: rows.filter((r) => r.content).map((r) => ({ content: r.content })),
     };
@@ -286,7 +287,7 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       participant_name: participantName,
       feedback_date: date,
       training_program: trainingProgram,
@@ -441,7 +442,7 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       employee_name: employeeName,
       designation,
       training_needs_identified: trainingNeeds,

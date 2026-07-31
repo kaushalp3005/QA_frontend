@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   BookOpen,
@@ -42,7 +42,7 @@ import {
   Brush,
 } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import WarehouseSelector from '@/components/ui/WarehouseSelector'
+import WarehouseSelector, { getStoredWarehouse, type WarehouseCode } from '@/components/ui/WarehouseSelector'
 import PageHeader from '@/components/ui/PageHeader'
 
 type DocItem = {
@@ -52,6 +52,12 @@ type DocItem = {
   icon: typeof BookOpen
   category: 'CCP' | 'QC' | 'Hygiene' | 'Maintenance' | 'Safety' | 'Records'
   tone?: 'brand' | 'warning' | 'ink'
+  /**
+   * Plants this format exists at. Omit for a document used at every plant —
+   * a plant-specific one is hidden from the grid elsewhere (and its pages are
+   * gated by <DocWarehouseGate>, with the backend refusing the requests too).
+   */
+  warehouses?: WarehouseCode[]
 }
 
 const DOCS: DocItem[] = [
@@ -75,6 +81,8 @@ const DOCS: DocItem[] = [
   { href: '/documentations/gmp-ghp-inspection', title: 'Monthly GMP & GHP Inspection', description: 'Monthly Facility (GMP) & GHP Inspection (CFPLA.C3.F.15)', icon: Eye, category: 'Hygiene' },
   { href: '/documentations/temperature-humidity', title: 'Temperature & Humidity', description: 'Temperature & Humidity Record Register (CFPLA.C6.F.17)', icon: Thermometer, category: 'Records' },
   { href: '/documentations/inprocess-qc-record', title: 'In-process QC Record', description: 'In-process Quality Check Record (CFPLA.C6.F.18)', icon: ClipboardCheck, category: 'QC' },
+  { href: '/documentations/inprocess-qc-after-processing', title: 'In-process QC — After Processing', description: 'In-Process Quality Check Record - After processing (CFPLB.C5.F.11)', icon: ClipboardCheck, category: 'QC', warehouses: ['A185'] },
+  { href: '/documentations/ccp-puffer', title: 'CCP Puffer Monitoring', description: 'Monitoring and Verification of CCP - Puffer (CFPLB.C2.F.62)', icon: Flame, category: 'CCP', tone: 'warning', warehouses: ['A185'] },
   { href: '/documentations/gmp-schedule', title: 'Monthly GMP Schedule', description: 'Monthly Facility GMP & GHP Inspection Schedule (CFPLA.C3.F.23)', icon: CalendarRange, category: 'Hygiene' },
   { href: '/documentations/inward-rm-check', title: 'Inward Raw Material Check', description: 'Inward Raw Material Check Records (CFPLA.C5.F.25)', icon: Package, category: 'QC' },
   { href: '/documentations/fg-chemical-analysis', title: 'FG Chemical Analysis', description: 'Finished Good Chemical Analysis (CFPLA.C5.F.26)', icon: Beaker, category: 'QC' },
@@ -103,10 +111,25 @@ export default function DocumentationsPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<DocItem['category'] | 'All'>('All')
+  // null until mounted — the active plant is only knowable client-side. Plant-
+  // specific cards stay hidden until it resolves, so one never flashes up at a
+  // plant that has no such format.
+  const [warehouse, setWarehouse] = useState<WarehouseCode | null>(null)
+
+  useEffect(() => {
+    setWarehouse(getStoredWarehouse())
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.warehouse) setWarehouse(detail.warehouse)
+    }
+    window.addEventListener('warehouseChanged', handler)
+    return () => window.removeEventListener('warehouseChanged', handler)
+  }, [])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return DOCS.filter((d) => {
+      if (d.warehouses && (!warehouse || !d.warehouses.includes(warehouse))) return false
       if (activeCategory !== 'All' && d.category !== activeCategory) return false
       if (!q) return true
       return (
@@ -115,7 +138,7 @@ export default function DocumentationsPage() {
         d.category.toLowerCase().includes(q)
       )
     })
-  }, [search, activeCategory])
+  }, [search, activeCategory, warehouse])
 
   const toneClass = (tone?: DocItem['tone']) => {
     if (tone === 'warning') return 'bg-warning-500'

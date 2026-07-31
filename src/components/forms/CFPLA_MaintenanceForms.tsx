@@ -1,6 +1,7 @@
 "use client";
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import { A185_GLASS_AREAS, GLASS_ITEM_TYPES } from "@/config/glassBrittleAreas";
 
 // ===================== Shared Props Interface =====================
 interface DocFormProps {
@@ -135,43 +136,124 @@ export function IncomingVehicleInspectionV2({ initialData, onSubmit, isEdit }: D
 }
 
 // ===================== F.48 — Glass and Brittle Check Record =====================
-interface GlassRow { id: number; floor: string; item: string; location: string; glassNo: string; glassDetails: string; months: Record<string, string>; }
+/** `legacyDetails` is not editable — the Details column was removed, so any value
+ *  a saved record already carries is written straight back rather than dropped. */
+interface GlassRow { id: number; item: string; location: string; glassNo: string; legacyDetails: string; months: Record<string, string>; }
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const eGR = (id: number): GlassRow => ({ id, floor: "", item: "", location: "", glassNo: "", glassDetails: "", months: Object.fromEntries(MONTHS_SHORT.map((m) => [m, ""])) });
+const eGR = (id: number, seed: Partial<GlassRow> = {}): GlassRow => ({
+  id, item: "", location: "", glassNo: "", legacyDetails: "",
+  months: Object.fromEntries(MONTHS_SHORT.map((m) => [m, ""])),
+  ...seed,
+});
+
+/** Month ticks are stored flat on the row (jan/feb/…) by some records and nested
+ *  under `months` by others — read both so no saved record loses its ticks. */
+const monthsFromSaved = (r: any): Record<string, string> =>
+  Object.fromEntries(MONTHS_SHORT.map((m) => [m, r?.months?.[m.toLowerCase()] ?? r?.months?.[m] ?? r?.[m.toLowerCase()] ?? r?.[m] ?? ""]));
+
+/** A185 seeds the full CFPLB.C4.F.59 register — 8 area sheets × 4 item types. */
+function seedGlassRows(warehouse: string | null | undefined): GlassRow[] {
+  if (warehouse === "A185") {
+    const out: GlassRow[] = [];
+    A185_GLASS_AREAS.forEach((a) =>
+      a.rows.forEach((r) => out.push(eGR(out.length + 1, { item: r.item, location: a.area, glassNo: r.glassNo }))),
+    );
+    return out;
+  }
+  return Array.from({ length: 10 }, (_, i) => eGR(i + 1));
+}
+
+/** Distinct areas in row order — drives the area tabs. */
+function areasOf(rows: GlassRow[]): string[] {
+  const seen: string[] = [];
+  rows.forEach((r) => {
+    const a = r.location.trim();
+    if (!seen.includes(a)) seen.push(a);
+  });
+  return seen.length ? seen : [""];
+}
+
+const GLASS_TICK_NEXT: Record<string, string> = { "": "✓", "✓": "✕", "✕": "" };
 
 export function GlassBrittleCheckRecord({ initialData, onSubmit, isEdit }: DocFormProps = {}) {
+  const warehouse = getStoredWarehouse();
   const [year, setYear] = useState(() => initialData?.year || "2026");
   const [rows, setRows] = useState<GlassRow[]>(() => {
-    if (initialData?.rows && Array.isArray(initialData.rows)) {
+    if (initialData?.rows && Array.isArray(initialData.rows) && initialData.rows.length > 0) {
       return initialData.rows.map((r: any, i: number) => ({
-        id: i + 1, floor: r.floor || "", item: r.item || "", location: r.location || "",
-        glassNo: r.glass_no || "", glassDetails: r.glass_details || "",
-        months: Object.fromEntries(MONTHS_SHORT.map((m) => [m, r.months?.[m.toLowerCase()] || r.months?.[m] || ""])),
+        id: i + 1,
+        // The Floor column is gone — fold any saved floor into Item so it survives.
+        item: [r.floor, r.item].map((v: any) => (v || "").trim()).filter(Boolean).join(" — "),
+        location: r.location || "",
+        glassNo: r.glass_no || "",
+        legacyDetails: r.glass_details || r.details || "",
+        months: monthsFromSaved(r),
       }));
     }
-    return Array.from({ length: 10 }, (_, i) => eGR(i + 1));
+    return seedGlassRows(warehouse);
   });
+  // One date per month column, filled in the row under the month headers.
+  const [monthDates, setMonthDates] = useState<Record<string, string>>(() =>
+    Object.fromEntries(MONTHS_SHORT.map((m) => [m, initialData?.month_dates?.[m.toLowerCase()] || initialData?.month_dates?.[m] || ""])),
+  );
   const [observations, setObservations] = useState(() => initialData?.observations || "");
-  const [correctiveActions, setCorrectiveActions] = useState(() => initialData?.corrective_actions || "");
+  const [correctiveActions, setCorrectiveActions] = useState(() => initialData?.corrective_action || initialData?.corrective_actions || "");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const add = () => setRows((p) => [...p, eGR(p.length + 1)]);
+  const areas = useMemo(() => areasOf(rows), [rows]);
+  const [activeArea, setActiveArea] = useState<string>(() => areasOf(rows)[0]);
+  // A row's area can be renamed or removed out from under the active tab.
+  const currentArea = areas.includes(activeArea) ? activeArea : areas[0];
+  const areaRows = rows.filter((r) => r.location.trim() === currentArea);
+
+  const nextId = (p: GlassRow[]) => Math.max(0, ...p.map((r) => r.id)) + 1;
+  /** Add an item row to the area on screen. */
+  const add = () => setRows((p) => [...p, eGR(nextId(p), { location: currentArea })]);
+  /** Add a new area, pre-filled with the four standard item rows. */
+  const addArea = () => {
+    const name = window.prompt("New area / floor name")?.trim();
+    if (!name) return;
+    setRows((p) => {
+      let id = nextId(p);
+      return [...p, ...GLASS_ITEM_TYPES.map((item) => eGR(id++, { item, location: name }))];
+    });
+    setActiveArea(name);
+  };
   const rm = (id: number) => { if (rows.length > 1) setRows((p) => p.filter((r) => r.id !== id)); };
   const up = (id: number, f: keyof GlassRow, v: string) => setRows((p) => p.map((r) => (r.id === id ? { ...r, [f]: v } : r)));
   const upM = (id: number, m: string, v: string) => setRows((p) => p.map((r) => (r.id === id ? { ...r, months: { ...r.months, [m]: v } } : r)));
+  /** Rename the area on every row that belongs to it. */
+  const renameArea = (from: string, to: string) => {
+    setRows((p) => p.map((r) => (r.location.trim() === from ? { ...r, location: to } : r)));
+    setActiveArea(to);
+  };
+  /** Tick or clear a whole month column for the visible area. */
+  const tickMonthForArea = (m: string) => {
+    const allTicked = areaRows.length > 0 && areaRows.every((r) => r.months[m] === "✓");
+    setRows((p) => p.map((r) => (r.location.trim() === currentArea ? { ...r, months: { ...r.months, [m]: allTicked ? "" : "✓" } } : r)));
+  };
+  const areaFilled = (a: string) =>
+    rows.some((r) => r.location.trim() === a && MONTHS_SHORT.some((m) => r.months[m]));
 
   const handleSubmit = async () => {
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse,
       year,
-      rows: rows.filter((r) => r.floor || r.item).map((r) => ({
-        floor: r.floor, item: r.item, location: r.location, glass_no: r.glassNo, glass_details: r.glassDetails,
-        months: Object.fromEntries(MONTHS_SHORT.map((m) => [m.toLowerCase(), r.months[m]])),
-      })),
-      observations, corrective_actions: correctiveActions,
+      rows: rows
+        .filter((r) => r.item || r.location || r.glassNo || MONTHS_SHORT.some((m) => r.months[m]))
+        .map((r) => ({
+          item: r.item, location: r.location, glass_no: r.glassNo,
+          // Written back untouched — no longer editable, but not thrown away.
+          ...(r.legacyDetails ? { glass_details: r.legacyDetails } : {}),
+          months: Object.fromEntries(MONTHS_SHORT.map((m) => [m.toLowerCase(), r.months[m]])),
+        })),
+      month_dates: Object.fromEntries(MONTHS_SHORT.map((m) => [m.toLowerCase(), monthDates[m] || ""])),
+      // Column is `corrective_action` (singular) — the old plural key was dropped
+      // by the backend's column filter, so these never persisted.
+      observations, corrective_action: correctiveActions,
     };
     try {
       if (onSubmit) { await onSubmit(payload); }
@@ -180,31 +262,215 @@ export function GlassBrittleCheckRecord({ initialData, onSubmit, isEdit }: DocFo
     finally { setSubmitting(false); }
   };
 
+  const isA185 = warehouse === "A185";
+  const docNo = isA185 ? "CFPLB.C4.F.59" : "CFPLA.C4.F.48";
+  const issueMeta = isA185
+    ? "Issue 02 · 04/08/2021 · Rev 01 · 02/09/2024"
+    : "Frequency: Monthly";
+
   return (
-    <div className="p-4 max-w-full mx-auto">
-      <div className="border border-gray-300 mb-4 rounded"><div className="bg-gray-50 p-3"><h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1><p className="text-sm font-semibold">Glass and Brittle Check Record</p><p className="text-xs text-gray-600">Doc No: CFPLA.C4.F.48</p></div></div>
-      <div className="mb-4"><label className="text-sm font-medium mr-2">Year:</label><input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="border rounded px-3 py-1 w-24" /></div>
-      <p className="text-xs text-gray-600 mb-2 italic">Click cells to toggle: ✓ (OK) → ✕ (Damaged) → Empty</p>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="text-xs">
-          <thead className="bg-gray-100"><tr>{["Floor", "Item", "Location", "Glass No.", "Details", ...MONTHS_SHORT, ""].map((h) => <th key={h} className="border border-gray-300 px-1 py-1">{h}</th>)}</tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="hover:bg-blue-50">
-                {(["floor", "item", "location", "glassNo", "glassDetails"] as (keyof GlassRow)[]).map((f) => <td key={f} className="border border-gray-300 px-1 py-0.5"><input type="text" value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="w-full border rounded px-1 py-0.5 min-w-[60px]" /></td>)}
-                {MONTHS_SHORT.map((m) => <td key={m} className={`border border-gray-300 px-1 py-0.5 text-center cursor-pointer select-none font-bold min-w-[32px] ${r.months[m] === "✓" ? "bg-green-100 text-green-700" : r.months[m] === "✕" ? "bg-red-100 text-red-700" : ""}`} onClick={() => upM(r.id, m, r.months[m] === "" ? "✓" : r.months[m] === "✓" ? "✕" : "")}>{r.months[m]}</td>)}
-                <td className="border border-gray-300 px-1 py-0.5 text-center"><button onClick={() => rm(r.id)} className="text-red-500 text-xs">✕</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="max-w-[1400px] mx-auto space-y-5">
+      {/* Header */}
+      <section className="surface-card p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-bold text-ink-600 leading-tight">Glass and Brittle Check Record</h1>
+            <p className="text-xs text-ink-400 mt-0.5">
+              <span className="font-semibold">{docNo}</span>
+              <span className="mx-2 text-cream-300">|</span>
+              {issueMeta}
+              <span className="mx-2 text-cream-300">|</span>
+              Frequency: Monthly
+            </p>
+          </div>
+          <div className="shrink-0">
+            <label className="label-base">Year</label>
+            <input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="input-base sm:w-28" />
+          </div>
+        </div>
+      </section>
+
+      {/* Area tabs — the source format is one sheet per area / floor. */}
+      <div className="surface-card p-2 overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-max">
+          {areas.map((a) => (
+            <button
+              key={a || "unnamed"}
+              type="button"
+              onClick={() => setActiveArea(a)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
+                currentArea === a ? "bg-brand-500 text-white shadow-soft" : "text-ink-500 hover:bg-cream-200"
+              }`}
+            >
+              <span>{a || "Unnamed area"}</span>
+              {areaFilled(a) && (
+                <span className={`w-1.5 h-1.5 rounded-full ${currentArea === a ? "bg-white" : "bg-success-500"}`} />
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={addArea}
+            className="px-2.5 py-1.5 text-xs font-semibold rounded-lg text-brand-600 border border-dashed border-brand-300 hover:bg-brand-50 whitespace-nowrap"
+            title="Add another area / floor with the four standard item rows"
+          >
+            + Add Area
+          </button>
+        </div>
       </div>
-      <button onClick={add} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="grid grid-cols-2 gap-3 mt-4"><div><label className="text-sm font-medium">Observations/Remarks</label><textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={2} className="border rounded px-3 py-2 w-full" /></div><div><label className="text-sm font-medium">Corrective/Preventive Actions</label><textarea value={correctiveActions} onChange={(e) => setCorrectiveActions(e.target.value)} rows={2} className="border rounded px-3 py-2 w-full" /></div></div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
+
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0 sm:flex-1">
+            <label className="label-base">Area / Floor</label>
+            <input
+              type="text"
+              value={currentArea}
+              onChange={(e) => renameArea(currentArea, e.target.value)}
+              className="input-base sm:max-w-sm"
+              placeholder="Area or floor name"
+            />
+          </div>
+          <button onClick={add} className="btn-secondary !py-1.5 !px-3 text-xs whitespace-nowrap shrink-0">+ Add Item Row</button>
+        </header>
+
+        <p className="text-[11px] text-ink-400 italic px-4 sm:px-5 pt-3">
+          Click a month cell to cycle <span className="text-success-600 font-bold">✓</span> (OK) →{" "}
+          <span className="text-danger-600 font-bold">✕</span> (Damaged) → empty. The <span className="font-semibold">✓</span> under
+          a month marks every item in this area at once.
+        </p>
+        <p className="text-[11px] text-ink-400 italic px-4 sm:px-5 pt-1 lg:hidden">← Swipe the table sideways to reach later months.</p>
+
+        <div className="overflow-x-auto mt-2">
+          <table className="text-xs border-collapse">
+            <thead>
+              <tr className="bg-cream-100/70 border-y border-cream-300">
+                <th className="sticky left-0 z-10 bg-cream-100 px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400 min-w-[130px]">Item</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400 min-w-[240px]">Glass No.</th>
+                {MONTHS_SHORT.map((m) => (
+                  <th key={m} className="px-1 py-2 text-center text-[11px] font-semibold text-ink-400 border-l border-cream-300 min-w-[40px]">
+                    <div className="flex flex-col items-center gap-1">
+                      <span>{m}</span>
+                      <button
+                        type="button"
+                        onClick={() => tickMonthForArea(m)}
+                        className="text-[9px] font-bold leading-none bg-success-50 text-success-700 px-1.5 py-0.5 rounded hover:bg-success-100"
+                        title={`Mark every item in ${currentArea || "this area"} as ✓ for ${m}`}
+                      >
+                        ✓
+                      </button>
+                    </div>
+                  </th>
+                ))}
+                <th className="px-1 py-2 border-l border-cream-300" />
+              </tr>
+              {/* Date the check was carried out, one per month column. */}
+              <tr className="bg-cream-50 border-b border-cream-300">
+                <th className="sticky left-0 z-10 bg-cream-50 px-2 py-1 text-right text-[10px] font-semibold text-ink-400">Date of check →</th>
+                <th className="px-2 py-1" />
+                {MONTHS_SHORT.map((m) => (
+                  <th key={m} className="px-0.5 py-1 border-l border-cream-300">
+                    <input
+                      type="date"
+                      value={monthDates[m] || ""}
+                      onChange={(e) => setMonthDates((p) => ({ ...p, [m]: e.target.value }))}
+                      title={`Date checked — ${m}`}
+                      className="w-full border border-cream-300 rounded px-0.5 py-0.5 text-[9px] font-normal bg-white min-w-[96px] focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    />
+                  </th>
+                ))}
+                <th className="border-l border-cream-300" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream-300">
+              {areaRows.length === 0 ? (
+                <tr>
+                  <td colSpan={MONTHS_SHORT.length + 3} className="px-4 py-8 text-center text-sm text-ink-400">
+                    No item rows in this area yet — use <span className="font-semibold">+ Add Item Row</span>.
+                  </td>
+                </tr>
+              ) : (
+                areaRows.map((r) => (
+                  <tr key={r.id} className="hover:bg-cream-100/60">
+                    <td className="sticky left-0 z-10 bg-white px-1 py-1 align-top">
+                      <input
+                        type="text"
+                        list="glass-item-options"
+                        value={r.item}
+                        onChange={(e) => up(r.id, "item", e.target.value)}
+                        className="w-full border border-cream-300 rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+                        placeholder="Select or type…"
+                      />
+                    </td>
+                    {/* Textarea — these ID lists run to hundreds of characters. */}
+                    <td className="px-1 py-1 align-top">
+                      <textarea
+                        value={r.glassNo}
+                        onChange={(e) => up(r.id, "glassNo", e.target.value)}
+                        rows={2}
+                        className="w-full border border-cream-300 rounded px-1.5 py-1 text-[11px] leading-snug bg-white resize-y focus:outline-none focus:ring-1 focus:ring-brand-500"
+                        placeholder="e.g. GL1, GL2, GL44…"
+                      />
+                    </td>
+                    {MONTHS_SHORT.map((m) => (
+                      <td
+                        key={m}
+                        onClick={() => upM(r.id, m, GLASS_TICK_NEXT[r.months[m]] ?? "✓")}
+                        className={`border-l border-cream-300 px-1 py-1 text-center cursor-pointer select-none font-bold ${
+                          r.months[m] === "✓" ? "bg-success-50 text-success-700" : r.months[m] === "✕" ? "bg-danger-50 text-danger-600" : ""
+                        }`}
+                      >
+                        {r.months[m] || <span className="text-ink-300 text-[9px]">—</span>}
+                      </td>
+                    ))}
+                    <td className="border-l border-cream-300 px-1 py-1 text-center align-top">
+                      <button
+                        onClick={() => rm(r.id)}
+                        className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50"
+                        title="Remove this row"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <datalist id="glass-item-options">
+        {GLASS_ITEM_TYPES.map((o) => <option key={o} value={o} />)}
+      </datalist>
+
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">Observations &amp; Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Observations / Remarks</label>
+            <textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={3} className="input-base" />
+          </div>
+          <div>
+            <label className="label-base">Corrective / Preventive Actions</label>
+            <textarea value={correctiveActions} onChange={(e) => setCorrectiveActions(e.target.value)} rows={3} className="input-base" />
+          </div>
+        </div>
+      </section>
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Prepared by: <span className="font-semibold text-ink-500">FST</span>
+          <span className="mx-2 text-cream-300">|</span>
+          Verified by: <span className="font-semibold text-ink-500">FSTL</span>
+        </p>
+        <div className="flex items-center gap-3">
+          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -463,7 +729,7 @@ export function ChemicalPreparationRecord({ initialData, onSubmit, isEdit }: Doc
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       rows: rows.filter((r) => r.chemicalName || r.date).map((r) => ({
         date: r.date, chemical_name: r.chemicalName, expiry_date: r.expiryDate, manufacturer: r.manufacturer,
         qty_chemical: r.qtyChemical ? Number(r.qtyChemical) : null, qty_water: r.qtyWater ? Number(r.qtyWater) : null,
@@ -532,7 +798,7 @@ export function DeepCleaningRecord({ initialData, onSubmit, isEdit }: DocFormPro
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       month, checked_by: checkedBy, verified_by: verifiedBy, observations, corrective_actions: correctiveActions, weeks,
     };
     try {

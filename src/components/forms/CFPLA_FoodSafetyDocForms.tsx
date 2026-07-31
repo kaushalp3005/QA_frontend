@@ -189,7 +189,7 @@ export function FoodSafetyIncidentReport({ initialData, onSubmit, isEdit }: Inci
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       rows: rows.filter((r) => r.dateOfIncident || r.natureOfIncident).map((r) => ({
         date_of_incident: r.dateOfIncident,
         nature_of_incident: r.natureOfIncident,

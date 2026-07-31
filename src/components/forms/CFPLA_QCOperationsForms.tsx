@@ -2,7 +2,12 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import SignaturePicker from "@/components/ui/SignaturePicker";
-import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
+import {
+  CHECKED_BY_OPTIONS,
+  QC_VERIFIED_BY_OPTIONS,
+  filterSignaturesByWarehouse,
+  type SignatureOption,
+} from "@/lib/signatures";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 // ===================== F.29 — First Aid Box Record =====================
@@ -41,7 +46,7 @@ export function FirstAidBoxRecord({ initialData, onSubmit, isEdit }: FirstAidBox
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       rows: rows.filter((r) => r.boxNo || r.itemName).map((r) => ({
         box_no: r.boxNo,
         item_name: r.itemName,
@@ -377,12 +382,48 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit }: Traceabili
 
 // ===================== F.32 — Lux Monitoring Record =====================
 interface LuxRow { id: number; location: string; tableNo: string; r1: string; r2: string; r3: string; r4: string; r5: string; correctiveAction: string; }
-const eLux = (id: number, loc: string): LuxRow => ({ id, location: loc, tableNo: "", r1: "", r2: "", r3: "", r4: "", r5: "", correctiveAction: "" });
+const eLux = (id: number, loc: string, tableNo = ""): LuxRow => ({ id, location: loc, tableNo, r1: "", r2: "", r3: "", r4: "", r5: "", correctiveAction: "" });
+
 // Source: 32) CFPLA.C4.F.32 Lux Monitoring Record.docx
-const LUX_LOCATIONS = [
+const W202_LUX_LOCATIONS = [
   "Lower Basement", "Upper Basement", "Lab", "RM Inspection", "RM Dock", "RM Store", "Printing Area",
   "First Floor", "First Floor Mezzanine", "Second Floor", "Second Floor Mezzanine", "Terrace",
 ];
+
+// A185's own location list — the plant has no basements/terrace, and adds the
+// seed sections plus the PFS/FFS lines.
+const A185_LUX_LOCATIONS = [
+  "Seed Section 1", "Seed Section 2", "Packing Area", "Mezzanine Area", "Production Area",
+  "Printing Area", "RM Storage and Rack", "Pantry", "Office", "Cold Room",
+  "Loading Unloading", "Lab", "PFS", "FFS", "FG Storage Area",
+];
+
+const LUX_LOCATIONS_BY_WAREHOUSE: Record<string, string[]> = {
+  A185: A185_LUX_LOCATIONS,
+};
+
+const luxLocationsFor = (warehouse: string | null | undefined): string[] =>
+  (warehouse && LUX_LOCATIONS_BY_WAREHOUSE[warehouse]) || W202_LUX_LOCATIONS;
+
+/** Locations laid out as four tables — each gets one row per table, T1–T4. */
+const LUX_TABLE_OPTIONS = ["T1", "T2", "T3", "T4"];
+const LUX_TABLED_LOCATIONS = new Set([
+  "Seed Section 1", "Seed Section 2", "Packing Area", "Mezzanine Area", "PFS", "FFS",
+]);
+const isTabledLocation = (loc: string) => LUX_TABLED_LOCATIONS.has(loc.trim());
+
+/** Seed one row per location — four (T1–T4) for the tabled ones. */
+function seedLuxRows(warehouse: string | null | undefined): LuxRow[] {
+  const rows: LuxRow[] = [];
+  luxLocationsFor(warehouse).forEach((loc) => {
+    if (isTabledLocation(loc)) {
+      LUX_TABLE_OPTIONS.forEach((t) => rows.push(eLux(rows.length + 1, loc, t)));
+    } else {
+      rows.push(eLux(rows.length + 1, loc));
+    }
+  });
+  return rows;
+}
 
 interface LuxMonitoringRecordProps {
   initialData?: Record<string, any>;
@@ -392,31 +433,71 @@ interface LuxMonitoringRecordProps {
 
 export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonitoringRecordProps = {}) {
   const [date, setDate] = useState(initialData?.check_date || ""); const [checkedBy, setCheckedBy] = useState(initialData?.checked_by || ""); const [verifiedBy, setVerifiedBy] = useState(initialData?.verified_by || "");
+  const warehouse = getStoredWarehouse();
+  const locationOptions = luxLocationsFor(warehouse);
   const [rows, setRows] = useState<LuxRow[]>(() => {
-    if (initialData?.rows && Array.isArray(initialData.rows)) {
+    if (initialData?.rows && Array.isArray(initialData.rows) && initialData.rows.length > 0) {
       return initialData.rows.map((r: any, i: number) => ({ id: i + 1, location: r.location || "", tableNo: r.table_no || "", r1: r.r1 || "", r2: r.r2 || "", r3: r.r3 || "", r4: r.r4 || "", r5: r.r5 || "", correctiveAction: r.corrective_action || "" }));
     }
-    return LUX_LOCATIONS.map((l, i) => eLux(i + 1, l));
+    return seedLuxRows(warehouse);
   });
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const add = () => setRows((p) => [...p, eLux(p.length + 1, "")]);
+  // Created on the first save, then updated — so "Submit Partially" can be used
+  // repeatedly without creating a new record each time.
+  const [recordId, setRecordId] = useState<number | null>(initialData?.id ?? null);
+  const [saving, setSaving] = useState<false | "draft" | "final">(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const add = () => setRows((p) => [...p, eLux(Math.max(0, ...p.map((r) => r.id)) + 1, "")]);
   const rm = (id: number) => { if (rows.length > 1) setRows((p) => p.filter((r) => r.id !== id)); };
-  const up = (id: number, f: keyof LuxRow, v: string) => setRows((p) => p.map((r) => (r.id === id ? { ...r, [f]: v } : r)));
+  const up = (id: number, f: keyof LuxRow, v: string) =>
+    setRows((p) => p.map((r) => {
+      if (r.id !== id) return r;
+      const next = { ...r, [f]: v };
+      // Table No. only applies to the tabled locations — drop a stale value if
+      // the row is pointed at a location that isn't laid out in tables.
+      if (f === "location" && !isTabledLocation(v)) next.tableNo = "";
+      return next;
+    }));
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setSuccess(false);
-    const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
-      check_date: date, checked_by: checkedBy, verified_by: verifiedBy,
-      rows: rows.filter((r) => r.location || r.tableNo).map((r) => ({ location: r.location, table_no: r.tableNo, r1: r.r1, r2: r.r2, r3: r.r3, r4: r.r4, r5: r.r5, corrective_action: r.correctiveAction })),
-    };
+  const buildPayload = (status: "draft" | "submitted"): Record<string, any> => ({
+    warehouse,
+    check_date: date, checked_by: checkedBy, verified_by: verifiedBy,
+    status,
+    rows: rows
+      .filter((r) => r.location || r.tableNo || r.r1 || r.r2 || r.r3 || r.r4 || r.r5 || r.correctiveAction)
+      .map((r) => ({ location: r.location, table_no: r.tableNo, r1: r.r1, r2: r.r2, r3: r.r3, r4: r.r4, r5: r.r5, corrective_action: r.correctiveAction })),
+  });
+
+  const handleSave = async (status: "draft" | "submitted") => {
+    if (saving) return;
+    setSaving(status === "draft" ? "draft" : "final");
+    setMessage(null);
     try {
-      if (onSubmit) { await onSubmit(payload); }
-      else { const { docsApi } = await import("@/lib/api/documentations"); await docsApi.create("lux-monitoring", payload); setSuccess(true); }
-    } catch (e: any) { alert(e.message || "Submit failed"); }
-    finally { setSubmitting(false); }
+      const payload = buildPayload(status);
+      // Edit page: the wrapper owns the update + redirect on final submit.
+      if (status === "submitted" && onSubmit) {
+        await onSubmit(payload);
+        return;
+      }
+      const { docsApi } = await import("@/lib/api/documentations");
+      let id = recordId;
+      if (id == null) {
+        const res = await docsApi.create("lux-monitoring", payload);
+        const newId = res.data?.id;
+        if (typeof newId === "number") { id = newId; setRecordId(newId); }
+      } else {
+        await docsApi.update("lux-monitoring", id, payload);
+      }
+      setMessage({
+        kind: "ok",
+        text: status === "submitted"
+          ? "Record submitted."
+          : id != null ? `Draft saved — record #${id}. Keep editing and submit when done.` : "Draft saved.",
+      });
+    } catch (e: any) {
+      setMessage({ kind: "err", text: e?.message || "Save failed." });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -439,7 +520,34 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonito
             <tbody className="divide-y divide-cream-300">
               {rows.map((r) => (
                 <tr key={r.id} className="hover:bg-cream-100/60">
-                  {(["location", "tableNo", "r1", "r2", "r3", "r4", "r5", "correctiveAction"] as (keyof LuxRow)[]).map((f) => (
+                  {/* Location: dropdown of the plant's locations, still free-typed
+                      for anything not on the list. */}
+                  <td className="px-1 py-1">
+                    <input
+                      type="text"
+                      list="lux-location-options"
+                      value={r.location}
+                      onChange={(e) => up(r.id, "location", e.target.value)}
+                      className="input-base !py-1 !px-2 text-xs min-w-[150px]"
+                      placeholder="Select or type…"
+                    />
+                  </td>
+                  {/* Table No.: T1–T4 for the tabled locations, free text elsewhere. */}
+                  <td className="px-1 py-1">
+                    {isTabledLocation(r.location) ? (
+                      <select
+                        value={r.tableNo}
+                        onChange={(e) => up(r.id, "tableNo", e.target.value)}
+                        className="input-base !py-1 !px-2 text-xs"
+                      >
+                        <option value="">—</option>
+                        {LUX_TABLE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    ) : (
+                      <input type="text" value={r.tableNo} onChange={(e) => up(r.id, "tableNo", e.target.value)} className="input-base !py-1 !px-2 text-xs" />
+                    )}
+                  </td>
+                  {(["r1", "r2", "r3", "r4", "r5", "correctiveAction"] as (keyof LuxRow)[]).map((f) => (
                     <td key={f} className="px-1 py-1"><input type={["r1", "r2", "r3", "r4", "r5"].includes(f) ? "number" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
                   ))}
                   <td className="px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
@@ -447,23 +555,50 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonito
               ))}
             </tbody>
           </table>
+          <datalist id="lux-location-options">
+            {locationOptions.map((l) => <option key={l} value={l} />)}
+          </datalist>
         </div>
       </section>
 
       <section className="surface-card p-4 sm:p-5">
         <h2 className="text-sm font-bold text-ink-600 mb-3">Approvals</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label className="label-base">Checked By</label><input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="input-base" /></div>
-          <div><label className="label-base">Verified By</label><input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="input-base" /></div>
+          <SignaturePicker
+            label="Checked By"
+            value={checkedBy}
+            onChange={setCheckedBy}
+            options={CHECKED_BY_OPTIONS}
+            roleHint="Quality Control Executive"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
+          <SignaturePicker
+            label="Verified By"
+            value={verifiedBy}
+            onChange={setVerifiedBy}
+            options={QC_VERIFIED_BY_OPTIONS}
+            roleHint="Quality Manager"
+            inputCls="input-base"
+            labelCls="label-base"
+          />
         </div>
       </section>
 
+      {message && (
+        <div className={`surface-card p-3 text-sm font-medium ${message.kind === "ok" ? "border-l-4 border-success-500 text-success-800 bg-success-50" : "border-l-4 border-danger-500 text-danger-700 bg-danger-50"}`}>
+          {message.text}
+        </div>
+      )}
+
       <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="text-xs text-ink-400">Prepared by: <span className="font-semibold text-ink-500">FST</span><span className="mx-2 text-cream-300">|</span>Approved by: <span className="font-semibold text-ink-500">FSTL</span></p>
-        <div className="flex items-center gap-3">
-          {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
-          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
-            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button onClick={() => handleSave("draft")} disabled={saving !== false} className="btn-outline">
+            {saving === "draft" ? "Saving draft..." : isEdit ? "Save Draft" : "Submit Partially"}
+          </button>
+          <button onClick={() => handleSave("submitted")} disabled={saving !== false} className="btn-primary">
+            {saving === "final" ? "Submitting..." : isEdit ? "Update" : "Submit Record"}
           </button>
         </div>
       </div>
@@ -571,7 +706,100 @@ export function PreWeighingCheckRecord({ initialData, onSubmit, isEdit }: PreWei
 
 // ===================== F.37 — Daily Fly Catcher Check =====================
 interface FlyRow { id: number; location: string; flyCatcherNo: string; date: string; gluePadStatus: "Cleaned" | "Uncleaned" | ""; fliesWeight: string; integrityTubelights: string; doneBy: string; observation: string; correctiveAction: string; verifiedBy: string; }
-const eFC = (id: number): FlyRow => ({ id, location: "", flyCatcherNo: "", date: "", gluePadStatus: "", fliesWeight: "", integrityTubelights: "", doneBy: "", observation: "", correctiveAction: "", verifiedBy: "" });
+// Tubelights are intact on a normal round, so the column starts at OK and the
+// operator only edits it when something is wrong.
+const TUBELIGHT_DEFAULT = "OK";
+
+const eFC = (id: number): FlyRow => ({ id, location: "", flyCatcherNo: "", date: "", gluePadStatus: "", fliesWeight: "", integrityTubelights: TUBELIGHT_DEFAULT, doneBy: "", observation: "", correctiveAction: "", verifiedBy: "" });
+
+/**
+ * A185's installed fly catchers, in the order the CFPLB.C7.F.79 sheet lists them.
+ * The rows are pre-filled from this so a weekly round starts with every catcher
+ * already listed — both fields stay editable, and rows can still be added or
+ * removed for a catcher that has moved.
+ */
+const A185_FLY_CATCHERS: { no: string; location: string }[] = [
+  { no: "1",  location: "CR Outside Passage" },
+  { no: "2",  location: "Canteen Entrance" },
+  { no: "3",  location: "Outside Storage Room Canteen" },
+  { no: "4",  location: "Packing Section 1" },
+  { no: "5",  location: "Near Wash basin" },
+  { no: "6",  location: "Packing Section 3" },
+  { no: "7",  location: "Packing Section 2" },
+  { no: "8",  location: "Backside PFS Machine" },
+  { no: "9",  location: "Near FG Storage" },
+  { no: "10", location: "Near Rack Area" },
+  { no: "11", location: "Near printing passage" },
+  { no: "12", location: "Mezzanine Area" },
+  { no: "13", location: "Cheese section" },
+  { no: "14", location: "Cheese Section back" },
+  { no: "15", location: "Lab" },
+  { no: "16", location: "Production Area Entry" },
+  { no: "17", location: "Seasoning Area" },
+  { no: "18", location: "Inside Storage room Canteen" },
+  { no: "19", location: "CCP Area" },
+  { no: "20", location: "Near server room" },
+  { no: "21", location: "Dock Area" },
+];
+
+/** Starting rows for a new sheet — A185's catcher list, or blanks elsewhere. */
+const initialFlyRows = (warehouse: string): FlyRow[] =>
+  warehouse === "A185"
+    ? A185_FLY_CATCHERS.map((c, i) => ({ ...eFC(i + 1), location: c.location, flyCatcherNo: c.no }))
+    : Array.from({ length: 8 }, (_, i) => eFC(i + 1));
+
+/** Per-row signatory dropdown, filtered to the current plant's staff. */
+function FlyRowSignSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: SignatureOption[];
+}) {
+  const visible = filterSignaturesByWarehouse(options, getStoredWarehouse()).filter(
+    (o) => o.name !== "Other",
+  );
+  const isOther = value !== "" && !visible.some((o) => o.name === value);
+  const [other, setOther] = useState(isOther);
+
+  return (
+    <div className="space-y-1">
+      <select
+        value={isOther || other ? "Other" : value}
+        onChange={(e) => {
+          if (e.target.value === "Other") {
+            setOther(true);
+            onChange("");
+          } else {
+            setOther(false);
+            onChange(e.target.value);
+          }
+        }}
+        className="input-base !py-1 !px-1.5 text-xs min-w-[110px]"
+        title={value || "Select"}
+      >
+        <option value="">—</option>
+        {visible.map((o) => (
+          <option key={o.name} value={o.name}>
+            {o.name}
+          </option>
+        ))}
+        <option value="Other">Other…</option>
+      </select>
+      {(other || isOther) && (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Type name"
+          className="input-base !py-1 !px-1.5 text-xs min-w-[110px]"
+        />
+      )}
+    </div>
+  );
+}
 
 interface DailyFlyCatcherCheckProps {
   initialData?: Record<string, any>;
@@ -584,7 +812,7 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
     if (initialData?.rows && Array.isArray(initialData.rows)) {
       return initialData.rows.map((r: any, i: number) => ({ id: i + 1, location: r.location || "", flyCatcherNo: r.fly_catcher_no || "", date: r.date || "", gluePadStatus: r.glue_pad_status || "", fliesWeight: r.flies_weight?.toString() || "", integrityTubelights: r.integrity_tubelights || "", doneBy: r.done_by || "", observation: r.observation || "", correctiveAction: r.corrective_action || "", verifiedBy: r.verified_by || "" }));
     }
-    return Array.from({ length: 8 }, (_, i) => eFC(i + 1));
+    return initialFlyRows(initialData?.warehouse || getStoredWarehouse());
   });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -596,7 +824,7 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       rows: rows.filter((r) => r.location || r.flyCatcherNo).map((r) => ({ location: r.location, fly_catcher_no: r.flyCatcherNo, date: r.date, glue_pad_status: r.gluePadStatus, flies_weight: r.fliesWeight ? Number(r.fliesWeight) : null, integrity_tubelights: r.integrityTubelights, done_by: r.doneBy, observation: r.observation, corrective_action: r.correctiveAction, verified_by: r.verifiedBy })),
     };
     try {
@@ -641,10 +869,10 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
                   </td>
                   <td className="px-1 py-1"><input type="number" value={r.fliesWeight} onChange={(e) => up(r.id, "fliesWeight", e.target.value)} className="input-base !py-1 !px-2 text-xs w-16" step="0.1" /></td>
                   <td className="px-1 py-1"><input type="text" value={r.integrityTubelights} onChange={(e) => up(r.id, "integrityTubelights", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
-                  <td className="px-1 py-1"><input type="text" value={r.doneBy} onChange={(e) => up(r.id, "doneBy", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><FlyRowSignSelect value={r.doneBy} onChange={(v) => up(r.id, "doneBy", v)} options={CHECKED_BY_OPTIONS} /></td>
                   <td className="px-1 py-1"><input type="text" value={r.observation} onChange={(e) => up(r.id, "observation", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
                   <td className="px-1 py-1"><input type="text" value={r.correctiveAction} onChange={(e) => up(r.id, "correctiveAction", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
-                  <td className="px-1 py-1"><input type="text" value={r.verifiedBy} onChange={(e) => up(r.id, "verifiedBy", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  <td className="px-1 py-1"><FlyRowSignSelect value={r.verifiedBy} onChange={(v) => up(r.id, "verifiedBy", v)} options={QC_VERIFIED_BY_OPTIONS} /></td>
                   <td className="px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
                 </tr>
               ))}
@@ -747,7 +975,7 @@ export function CCPRoastingBarLine({ initialData, onSubmit, isEdit }: CCPRoastin
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       rows: rows.filter((r) => r.productName || r.date).map((r) => ({
         date: r.date,
         product_name: r.productName,

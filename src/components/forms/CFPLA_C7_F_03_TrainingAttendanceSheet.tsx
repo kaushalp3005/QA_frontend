@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 const TRAINING_TYPES = ["Induction", "Refresher", "Food Safety", "Job Specific", "Retraining", "GMP", "GHP", "Other"];
 const LANGUAGES = ["English", "Hindi", "Marathi"];
@@ -117,7 +118,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       training_date: trainingDate,
       training_type: trainingTypes.map((t) =>
         t === "Other" && otherTrainingTypeDetail.trim() ? `Other: ${otherTrainingTypeDetail.trim()}` : t

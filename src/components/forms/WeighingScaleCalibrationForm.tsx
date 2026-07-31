@@ -124,6 +124,17 @@ const A185_SCALES: { id: string; capacityKg: string }[] = [
   { id: "2107243/1",    capacityKg: "300.000" },
   { id: "D209412021/1", capacityKg: "0.060" },
   { id: "D209412669/1", capacityKg: "0.060" },
+  // New weighing balances, serial 841–850, all 10 kg.
+  { id: "841",          capacityKg: "10.000" },
+  { id: "842",          capacityKg: "10.000" },
+  { id: "843",          capacityKg: "10.000" },
+  { id: "844",          capacityKg: "10.000" },
+  { id: "845",          capacityKg: "10.000" },
+  { id: "846",          capacityKg: "10.000" },
+  { id: "847",          capacityKg: "10.000" },
+  { id: "848",          capacityKg: "10.000" },
+  { id: "849",          capacityKg: "10.000" },
+  { id: "850",          capacityKg: "10.000" },
 ];
 
 const SCALES_BY_WAREHOUSE: Record<string, { id: string; capacityKg: string }[]> = {

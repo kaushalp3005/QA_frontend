@@ -1,5 +1,7 @@
 // frontend/src/config/doc-forms.ts
 
+import type { WarehouseCode } from '@/lib/warehouseAccess'
+
 export interface DocFormConfig {
   formType: string
   label: string
@@ -10,6 +12,14 @@ export interface DocFormConfig {
   printable?: boolean
   /** Warehouse-specific text prefixed in front of `label` (e.g. A185 → "Tray Roaster"). */
   titlePrefixByWarehouse?: Record<string, string>
+  /**
+   * Plants this format exists at. Omit for a form used at every plant. When set,
+   * the card is hidden from the documentations grid and every page of the form
+   * is gated for any other plant — see <DocWarehouseGate>. Mirrors the
+   * "warehouses" key in backend/app/config/doc_registry.py, which does the real
+   * enforcement.
+   */
+  warehouses?: WarehouseCode[]
   /**
    * Base path this form's pages live under. Defaults to "/documentations" —
    * only override for forms whose Next.js routes live outside that tree
@@ -30,6 +40,8 @@ export const PRINTABLE_SLUGS = new Set<string>([
   "lux-monitoring",
   "gmp-schedule",
   "gmp-ghp-inspection",
+  "inprocess-qc-after-processing",
+  "ccp-puffer",
 ])
 
 // Forms whose create page supports pre-filling from an existing record
@@ -57,6 +69,8 @@ export const DUPLICATABLE_SLUGS = new Set<string>([
   "mock-drill",
   "temperature-humidity",
   "inprocess-qc-record",
+  "inprocess-qc-after-processing",
+  "ccp-puffer",
   "gmp-schedule",
   "inward-rm-check",
   "fg-chemical-analysis",
@@ -101,16 +115,18 @@ export const DOC_FORMS: Record<string, DocFormConfig> = {
   "new-product-verification":{ formType: "new-product-verification",  routeSlug: "new-product-verification",  label: "New Product Verification",         docNo: "CFPLA.C5.F.13",  dateField: "verify_date",     listColumns: ["verify_date", "product_name", "customer_name", "warehouse"] },
   "mock-drill":              { formType: "mock-drill",                routeSlug: "mock-drill",                label: "Emergency Mock Drill",             docNo: "CFPLA.C4.F.14",  dateField: "drill_datetime",  listColumns: ["drill_datetime", "location", "warehouse"] },
   "gmp-ghp-inspection":      { formType: "gmp-ghp-inspection",        routeSlug: "gmp-ghp-inspection",        label: "Monthly GMP & GHP Inspection",     docNo: "CFPLA.C3.F.15",  dateField: "audit_datetime",  listColumns: ["audit_datetime", "auditor_name", "rating", "percentage", "status", "warehouse"] },
-  "temperature-humidity":    { formType: "temperature-humidity",      routeSlug: "temperature-humidity",      label: "Temperature & Humidity Record",    docNo: "CFPLA.C6.F.17",  dateField: "month",           listColumns: ["month", "area", "checked_by", "warehouse"] },
+  "temperature-humidity":    { formType: "temperature-humidity",      routeSlug: "temperature-humidity",      label: "Temperature & Humidity Record",    docNo: "CFPLA.C6.F.17",  dateField: "month",           listColumns: ["month", "area", "checked_by", "warehouse", "status"] },
   "inprocess-qc-record":     { formType: "inprocess-qc-record",       routeSlug: "inprocess-qc-record",       label: "In-process Quality Check",         docNo: "CFPLA.C6.F.18",  dateField: "check_date",      listColumns: ["check_date", "warehouse", "created_by"] },
-  "gmp-schedule":            { formType: "gmp-schedule",              routeSlug: "gmp-schedule",              label: "Monthly GMP Schedule",             docNo: "CFPLA.C3.F.23",  dateField: "year",            listColumns: ["year", "warehouse", "created_by"] },
+  "inprocess-qc-after-processing": { formType: "inprocess-qc-after-processing", routeSlug: "inprocess-qc-after-processing", label: "In-process QC — After Processing", docNo: "CFPLB.C5.F.11", dateField: "check_date", listColumns: ["check_date", "warehouse", "created_by"], warehouses: ["A185"] },
+  "ccp-puffer":              { formType: "ccp-puffer", routeSlug: "ccp-puffer", label: "CCP Puffer Monitoring", docNo: "CFPLB.C2.F.62", dateField: "check_date", listColumns: ["check_date", "product_name", "batch_no", "warehouse"], warehouses: ["A185"] },
+  "gmp-schedule":            { formType: "gmp-schedule",            routeSlug: "gmp-schedule",              label: "Monthly GMP Schedule",             docNo: "CFPLA.C3.F.23",  dateField: "year",            listColumns: ["year", "warehouse", "created_by"] },
   "inward-rm-check":         { formType: "inward-rm-check",           routeSlug: "inward-rm-check",           label: "Inward Raw Material Check",        docNo: "CFPLA.C5.F.25",  dateField: "month",           listColumns: ["month", "area", "warehouse"] },
   "fg-chemical-analysis":    { formType: "fg-chemical-analysis",      routeSlug: "fg-chemical-analysis",      label: "Finished Good Chemical Analysis",  docNo: "CFPLA.C5.F.26",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   "eyewash-refill":          { formType: "eyewash-refill",            routeSlug: "eyewash-refill",            label: "Eye Wash Bottle Refilling",        docNo: "CFPLA.C7.F.27",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   "first-aid-box":           { formType: "first-aid-box",             routeSlug: "first-aid-box",             label: "First Aid Box Record",             docNo: "CFPLA.C7.F.29",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   // ── Batch 2 (15) ──
   "traceability":            { formType: "traceability",              routeSlug: "traceability",              label: "Traceability Report",              docNo: "CFPLA.C3.F.30",  dateField: "report_date",     listColumns: ["report_date", "product_name", "batch_number", "warehouse"] },
-  "lux-monitoring":          { formType: "lux-monitoring",            routeSlug: "lux-monitoring",            label: "Lux Monitoring Record",            docNo: "CFPLA.C4.F.32",  dateField: "check_date",      listColumns: ["check_date", "checked_by", "warehouse"] },
+  "lux-monitoring":          { formType: "lux-monitoring",            routeSlug: "lux-monitoring",            label: "Lux Monitoring Record",            docNo: "CFPLA.C4.F.32",  dateField: "check_date",      listColumns: ["check_date", "checked_by", "warehouse", "status"] },
   "pre-weighing":            { formType: "pre-weighing",              routeSlug: "pre-weighing",              label: "Pre Weighing Check Record",        docNo: "CFPLA.C6.F.34",  dateField: "check_date",      listColumns: ["check_date", "customer", "product", "warehouse"] },
   "fly-catcher":             { formType: "fly-catcher",               routeSlug: "fly-catcher",               label: "Daily Fly Catcher Check",          docNo: "CFPLA.C7.F.37",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   "ccp-roasting-bar":        { formType: "ccp-roasting-bar",          routeSlug: "ccp-roasting-bar",          label: "CCP Roasting (Bar Line)",          docNo: "CFPLA.C2.F.43",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },

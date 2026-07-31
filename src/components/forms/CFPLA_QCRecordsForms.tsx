@@ -47,72 +47,241 @@ interface TemperatureHumidityProps {
   isEdit?: boolean;
 }
 
+const TH_FORM_TYPE = "temperature-humidity";
+const TH_DAYS = 31;
+
+/** Monitored areas — each gets its own tab, readings grid and notes. */
+const TH_SECTIONS = ["Lab", "Cold storage", "Mezzanine"];
+
+type THReading = { temp: string; humidity: string };
+
+interface THSection {
+  area: string;
+  /** day number → [Start, Mid, End] */
+  grid: Record<number, THReading[]>;
+  checkedBy: Record<number, string>;
+  verifiedBy: Record<number, string>;
+  observations: string;
+  correctiveAction: string;
+}
+
+const thEmptyGrid = (): Record<number, THReading[]> => {
+  const g: Record<number, THReading[]> = {};
+  for (let d = 1; d <= TH_DAYS; d++) {
+    g[d] = [{ temp: "", humidity: "" }, { temp: "", humidity: "" }, { temp: "", humidity: "" }];
+  }
+  return g;
+};
+
+const thEmptySection = (area: string): THSection => ({
+  area,
+  grid: thEmptyGrid(),
+  checkedBy: {},
+  verifiedBy: {},
+  observations: "",
+  correctiveAction: "",
+});
+
+/** Day-rows (legacy flat array, or one v2 section's rows) → editable section. */
+function thSectionFromRows(
+  area: string,
+  rows: any[],
+  observations?: string,
+  correctiveAction?: string,
+): THSection {
+  const s = thEmptySection(area);
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const d = Number(r?.day);
+    if (!d || d < 1 || d > TH_DAYS) continue;
+    s.grid[d] = [
+      { temp: r.start_temp ?? "", humidity: r.start_humidity ?? "" },
+      { temp: r.mid_temp ?? "", humidity: r.mid_humidity ?? "" },
+      { temp: r.end_temp ?? "", humidity: r.end_humidity ?? "" },
+    ];
+    if (r.checked_by) s.checkedBy[d] = r.checked_by;
+    if (r.verified_by) s.verifiedBy[d] = r.verified_by;
+  }
+  s.observations = observations || "";
+  s.correctiveAction = correctiveAction || "";
+  return s;
+}
+
+const thHasData = (s: THSection) =>
+  s.observations.trim() !== "" ||
+  s.correctiveAction.trim() !== "" ||
+  Object.values(s.checkedBy).some(Boolean) ||
+  Object.values(s.verifiedBy).some(Boolean) ||
+  Object.values(s.grid).some((day) => day.some((r) => r.temp !== "" || r.humidity !== ""));
+
+/**
+ * Build the tab list: always the three standard areas, plus any other area a
+ * saved record used (older records stored one free-text area like "First floor",
+ * so those keep their data instead of silently disappearing).
+ */
+function thParseSections(initialData?: Record<string, any>): THSection[] {
+  const raw = initialData?.readings;
+  let parsed: THSection[] = [];
+
+  if (raw && !Array.isArray(raw) && typeof raw === "object" && Array.isArray(raw.sections)) {
+    parsed = raw.sections.map((s: any) =>
+      thSectionFromRows(s?.area || "", s?.rows, s?.observations, s?.corrective_action),
+    );
+  } else if (Array.isArray(raw) && raw.length > 0) {
+    // Legacy shape: one flat day-rows array for the record's single area.
+    parsed = [thSectionFromRows(initialData?.area || "", raw, initialData?.observations, initialData?.corrective_action)];
+  }
+
+  const key = (a: string) => a.trim().toLowerCase();
+  const byArea = new Map(parsed.map((s) => [key(s.area), s]));
+  const out = TH_SECTIONS.map((name) => byArea.get(key(name)) ?? thEmptySection(name));
+  parsed.forEach((s) => {
+    if (s.area.trim() && !TH_SECTIONS.some((n) => key(n) === key(s.area))) out.push(s);
+  });
+  return out;
+}
+
 export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: TemperatureHumidityProps = {}) {
   const [month, setMonth] = useState(initialData?.month || "");
-  const [area, setArea] = useState(initialData?.area || "");
-  const days = 31;
-
-  // Parse the stored `readings` array back into the editable grid + per-day signs.
-  const parsed = (() => {
-    const grid: Record<number, { temp: string; humidity: string }[]> = {};
-    const check: Record<number, string> = {};
-    const verify: Record<number, string> = {};
-    for (let d = 1; d <= days; d++) {
-      grid[d] = [{ temp: "", humidity: "" }, { temp: "", humidity: "" }, { temp: "", humidity: "" }];
-    }
-    const readings = Array.isArray(initialData?.readings) ? initialData!.readings : [];
-    for (const r of readings) {
-      const d = Number(r.day);
-      if (!d || d < 1 || d > days) continue;
-      grid[d] = [
-        { temp: r.start_temp ?? "", humidity: r.start_humidity ?? "" },
-        { temp: r.mid_temp ?? "", humidity: r.mid_humidity ?? "" },
-        { temp: r.end_temp ?? "", humidity: r.end_humidity ?? "" },
-      ];
-      check[d] = r.checked_by ?? "";
-      verify[d] = r.verified_by ?? "";
-    }
-    return { grid, check, verify };
-  })();
-
-  const [grid, setGrid] = useState<Record<number, { temp: string; humidity: string }[]>>(parsed.grid);
-  const updateCell = (day: number, idx: number, field: "temp" | "humidity", value: string) =>
-    setGrid((p) => ({ ...p, [day]: p[day].map((r, i) => (i === idx ? { ...r, [field]: value } : r)) }));
-  // Per-day Checked By / Verified By signatures (keyed by day number).
-  const [signCheck, setSignCheck] = useState<Record<number, string>>(parsed.check);
-  const [signVerify, setSignVerify] = useState<Record<number, string>>(parsed.verify);
-  const [submitting, setSubmitting] = useState(false);
+  const [sections, setSections] = useState<THSection[]>(() => thParseSections(initialData));
+  const [activeIdx, setActiveIdx] = useState(0);
+  // Created on the first save, updated on every save after — so a draft can be
+  // saved repeatedly without piling up duplicate records.
+  const [savedId, setSavedId] = useState<number | null>(initialData?.id ?? null);
+  const [saving, setSaving] = useState<false | "draft" | "final">(false);
   const [success, setSuccess] = useState(false);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
+
+  const section = sections[activeIdx] || sections[0];
+  const days = TH_DAYS;
+
+  const updateSection = (idx: number, updater: (s: THSection) => THSection) =>
+    setSections((prev) => prev.map((s, i) => (i === idx ? updater(s) : s)));
+
+  const updateCell = (day: number, idx: number, field: "temp" | "humidity", value: string) =>
+    updateSection(activeIdx, (s) => ({
+      ...s,
+      grid: { ...s.grid, [day]: s.grid[day].map((r, i) => (i === idx ? { ...r, [field]: value } : r)) },
+    }));
+
+  /**
+   * Row-wise "fill all": copy the row's first filled value across every day.
+   * Clicking again when the row is already uniform clears it, matching the
+   * tick-all buttons on the cleaning checklists.
+   */
+  const fillRow = (readingIdx: number, field: "temp" | "humidity") =>
+    updateSection(activeIdx, (s) => {
+      const values = Array.from({ length: days }, (_, i) => s.grid[i + 1]?.[readingIdx]?.[field] ?? "");
+      const first = values.find((v) => v !== "");
+      if (!first) return s;
+      const uniform = values.every((v) => v === first);
+      const next = { ...s.grid };
+      for (let d = 1; d <= days; d++) {
+        next[d] = next[d].map((r, i) => (i === readingIdx ? { ...r, [field]: uniform ? "" : first } : r));
+      }
+      return { ...s, grid: next };
+    });
+
+  const fillSignRow = (which: "checkedBy" | "verifiedBy") =>
+    updateSection(activeIdx, (s) => {
+      const values = Array.from({ length: days }, (_, i) => s[which][i + 1] || "");
+      const first = values.find((v) => v !== "");
+      if (!first) return s;
+      const uniform = values.every((v) => v === first);
+      const next: Record<number, string> = {};
+      for (let d = 1; d <= days; d++) next[d] = uniform ? "" : first;
+      return { ...s, [which]: next };
+    });
+
+  const setNote = (field: "observations" | "correctiveAction", value: string) =>
+    updateSection(activeIdx, (s) => ({ ...s, [field]: value }));
+
+  const buildPayload = (status: "draft" | "submitted"): Record<string, any> => {
+    const filled = sections.filter(thHasData);
+    const firstSign = (which: "checkedBy" | "verifiedBy") => {
+      for (const s of filled) {
+        const hit = Object.values(s[which]).find(Boolean);
+        if (hit) return hit;
+      }
+      return "";
+    };
+    return {
+      warehouse: getStoredWarehouse() || null,
+      month,
+      // Kept as a plain string for the DB column and the list's AREA cell.
+      area: filled.map((s) => s.area).join(", ") || section?.area || "",
+      checked_by: firstSign("checkedBy"),
+      verified_by: firstSign("verifiedBy"),
+      status,
+      readings: {
+        version: 2,
+        sections: sections.map((s) => ({
+          area: s.area,
+          observations: s.observations,
+          corrective_action: s.correctiveAction,
+          rows: Array.from({ length: days }, (_, i) => {
+            const d = i + 1;
+            const [st, mid, en] = s.grid[d];
+            return {
+              day: d,
+              start_temp: st.temp, mid_temp: mid.temp, end_temp: en.temp,
+              start_humidity: st.humidity, mid_humidity: mid.humidity, end_humidity: en.humidity,
+              checked_by: s.checkedBy[d] || "", verified_by: s.verifiedBy[d] || "",
+            };
+          }),
+        })),
+      },
+    };
+  };
+
+  const handleSaveDraft = async () => {
+    if (saving) return;
+    setSaving("draft");
+    setSuccess(false);
+    setSavedNote(null);
+    try {
+      const { docsApi } = await import("@/lib/api/documentations");
+      const payload = buildPayload("draft");
+      if (savedId != null) {
+        await docsApi.update(TH_FORM_TYPE, savedId, payload);
+        setSavedNote(`Draft saved · #${savedId}. Keep editing — Submit when done.`);
+      } else {
+        const res = await docsApi.create(TH_FORM_TYPE, payload);
+        const id = res.data?.id as number | undefined;
+        if (typeof id === "number") {
+          setSavedId(id);
+          setSavedNote(`Draft saved · #${id}. Keep editing — Submit when done.`);
+        }
+      }
+    } catch (e: any) {
+      alert(e.message || "Failed to save draft");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSubmit = async () => {
-    setSubmitting(true);
+    if (saving) return;
+    setSaving("final");
     setSuccess(false);
-    const readings = Array.from({ length: days }, (_, i) => {
-      const d = i + 1;
-      const [s, m, e] = grid[d];
-      return {
-        day: d,
-        start_temp: s.temp, mid_temp: m.temp, end_temp: e.temp,
-        start_humidity: s.humidity, mid_humidity: m.humidity, end_humidity: e.humidity,
-        checked_by: signCheck[d] || "", verified_by: signVerify[d] || "",
-      };
-    });
-    const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse() || null,
-      month, area, readings,
-    };
+    setSavedNote(null);
+    const payload = buildPayload("submitted");
     try {
       if (onSubmit) {
         await onSubmit(payload);
       } else {
         const { docsApi } = await import("@/lib/api/documentations");
-        await docsApi.create("temperature-humidity", payload);
+        if (savedId != null) await docsApi.update(TH_FORM_TYPE, savedId, payload);
+        else {
+          const res = await docsApi.create(TH_FORM_TYPE, payload);
+          const id = res.data?.id as number | undefined;
+          if (typeof id === "number") setSavedId(id);
+        }
         setSuccess(true);
       }
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
@@ -127,15 +296,49 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
           </div>
           <div>
             <label className="label-base">Area</label>
-            <input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="input-base" />
+            <select
+              value={activeIdx}
+              onChange={(e) => setActiveIdx(Number(e.target.value))}
+              className="input-base"
+            >
+              {sections.map((s, i) => (
+                <option key={s.area || i} value={i}>{s.area}</option>
+              ))}
+            </select>
           </div>
         </div>
-        <p className="text-[11px] text-ink-400 italic mt-3">Humidity acceptable: 50–70%. Out-of-range values highlight red.</p>
+        <p className="text-[11px] text-ink-400 italic mt-3">
+          Each area keeps its own readings and notes — switch areas below and fill them in turn. Humidity acceptable: 50–70%. Out-of-range values highlight red.
+        </p>
       </section>
+
+      {/* Area tabs — one Daily Readings grid per area. */}
+      <div className="surface-card p-2 overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-max">
+          {sections.map((s, i) => (
+            <button
+              key={s.area || i}
+              type="button"
+              onClick={() => setActiveIdx(i)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
+                activeIdx === i ? "bg-brand-500 text-white shadow-soft" : "text-ink-500 hover:bg-cream-200"
+              }`}
+            >
+              <span>{s.area || `Area ${i + 1}`}</span>
+              {thHasData(s) && (
+                <span className={`w-1.5 h-1.5 rounded-full ${activeIdx === i ? "bg-white" : "bg-success-500"}`} />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <section className="surface-card overflow-hidden">
         <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
-          <h2 className="text-sm font-bold text-ink-600">Daily Readings</h2>
+          <h2 className="text-sm font-bold text-ink-600">Daily Readings — {section?.area}</h2>
+          <p className="text-[11px] text-ink-400 mt-0.5">
+            Use <span className="font-semibold">Fill</span> on a row to copy its first value across all {days} days (click again to clear).
+          </p>
         </header>
         <p className="text-[11px] text-ink-400 italic px-4 pt-3 sm:hidden">← Swipe to view all days</p>
         <div className="overflow-x-auto">
@@ -152,21 +355,31 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
               {["Start", "Mid", "End"].map((label, idx) => (
                 <Fragment key={label}>
                   <tr className="hover:bg-cream-100/60">
-                    <td className="px-2 py-1 sticky left-0 bg-cream-50 z-10 font-semibold text-ink-500 text-xs">{label} Temp °C</td>
+                    <td className="px-2 py-1 sticky left-0 bg-cream-50 z-10 font-semibold text-ink-500 text-xs">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span>{label} Temp °C</span>
+                        <THFillButton onClick={() => fillRow(idx, "temp")} label={`${label} Temp`} />
+                      </div>
+                    </td>
                     {Array.from({ length: days }, (_, d) => (
                       <td key={d + 1} className="px-0.5 py-0.5 border-l border-cream-300">
-                        <input type="number" value={grid[d + 1]?.[idx]?.temp || ""} onChange={(e) => updateCell(d + 1, idx, "temp", e.target.value)} className="w-full bg-transparent text-center text-xs focus:outline-none focus:bg-brand-50/30 rounded" />
+                        <input type="number" value={section?.grid[d + 1]?.[idx]?.temp || ""} onChange={(e) => updateCell(d + 1, idx, "temp", e.target.value)} className="w-full bg-transparent text-center text-xs focus:outline-none focus:bg-brand-50/30 rounded" />
                       </td>
                     ))}
                   </tr>
                   <tr className="hover:bg-cream-100/60">
-                    <td className="px-2 py-1 sticky left-0 bg-cream-50 z-10 font-semibold text-ink-500 text-xs">{label} Humidity %</td>
+                    <td className="px-2 py-1 sticky left-0 bg-cream-50 z-10 font-semibold text-ink-500 text-xs">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span>{label} Humidity %</span>
+                        <THFillButton onClick={() => fillRow(idx, "humidity")} label={`${label} Humidity`} />
+                      </div>
+                    </td>
                     {Array.from({ length: days }, (_, d) => {
-                      const v = parseFloat(grid[d + 1]?.[idx]?.humidity || "");
+                      const v = parseFloat(section?.grid[d + 1]?.[idx]?.humidity || "");
                       const bad = !isNaN(v) && (v < 50 || v > 70);
                       return (
                         <td key={d + 1} className={`px-0.5 py-0.5 border-l border-cream-300 ${bad ? "bg-danger-50" : ""}`}>
-                          <input type="number" value={grid[d + 1]?.[idx]?.humidity || ""} onChange={(e) => updateCell(d + 1, idx, "humidity", e.target.value)} className={`w-full bg-transparent text-center text-xs focus:outline-none focus:bg-brand-50/30 rounded ${bad ? "text-danger-600 font-semibold" : ""}`} />
+                          <input type="number" value={section?.grid[d + 1]?.[idx]?.humidity || ""} onChange={(e) => updateCell(d + 1, idx, "humidity", e.target.value)} className={`w-full bg-transparent text-center text-xs focus:outline-none focus:bg-brand-50/30 rounded ${bad ? "text-danger-600 font-semibold" : ""}`} />
                         </td>
                       );
                     })}
@@ -175,24 +388,34 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
               ))}
               {/* Per-day Checked By / Verified By signatory dropdowns */}
               <tr className="bg-cream-100/40">
-                <td className="px-2 py-1 sticky left-0 bg-cream-100 z-10 font-semibold text-ink-500 text-xs">Checked By</td>
+                <td className="px-2 py-1 sticky left-0 bg-cream-100 z-10 font-semibold text-ink-500 text-xs">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span>Checked By</span>
+                    <THFillButton onClick={() => fillSignRow("checkedBy")} label="Checked By" />
+                  </div>
+                </td>
                 {Array.from({ length: days }, (_, d) => (
                   <td key={d + 1} className="px-0.5 py-0.5 border-l border-cream-300">
                     <CompactSignSelect
-                      value={signCheck[d + 1] || ""}
-                      onChange={(v) => setSignCheck((p) => ({ ...p, [d + 1]: v }))}
+                      value={section?.checkedBy[d + 1] || ""}
+                      onChange={(v) => updateSection(activeIdx, (s) => ({ ...s, checkedBy: { ...s.checkedBy, [d + 1]: v } }))}
                       options={CHECKED_BY_OPTIONS}
                     />
                   </td>
                 ))}
               </tr>
               <tr className="bg-cream-100/40">
-                <td className="px-2 py-1 sticky left-0 bg-cream-100 z-10 font-semibold text-ink-500 text-xs">Verified By</td>
+                <td className="px-2 py-1 sticky left-0 bg-cream-100 z-10 font-semibold text-ink-500 text-xs">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span>Verified By</span>
+                    <THFillButton onClick={() => fillSignRow("verifiedBy")} label="Verified By" />
+                  </div>
+                </td>
                 {Array.from({ length: days }, (_, d) => (
                   <td key={d + 1} className="px-0.5 py-0.5 border-l border-cream-300">
                     <CompactSignSelect
-                      value={signVerify[d + 1] || ""}
-                      onChange={(v) => setSignVerify((p) => ({ ...p, [d + 1]: v }))}
+                      value={section?.verifiedBy[d + 1] || ""}
+                      onChange={(v) => updateSection(activeIdx, (s) => ({ ...s, verifiedBy: { ...s.verifiedBy, [d + 1]: v } }))}
                       options={QC_VERIFIED_BY_OPTIONS}
                     />
                   </td>
@@ -203,16 +426,66 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
         </div>
       </section>
 
+      {/* Notes for the active area only — each area carries its own pair. */}
+      <section className="surface-card p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink-600 mb-3">
+          Observations &amp; Corrective Action — {section?.area}
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-base">Observations</label>
+            <textarea
+              value={section?.observations || ""}
+              onChange={(e) => setNote("observations", e.target.value)}
+              rows={3}
+              className="input-base"
+              placeholder={`Observations for ${section?.area || "this area"}…`}
+            />
+          </div>
+          <div>
+            <label className="label-base">Corrective Action</label>
+            <textarea
+              value={section?.correctiveAction || ""}
+              onChange={(e) => setNote("correctiveAction", e.target.value)}
+              rows={3}
+              className="input-base"
+              placeholder={`Corrective action for ${section?.area || "this area"}…`}
+            />
+          </div>
+        </div>
+      </section>
+
       <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <p className="text-xs text-ink-400">Frequency: Start, Mid and End of shift · Set Checked By / Verified By per day in the grid above.</p>
-        <div className="flex items-center gap-3">
+        <p className="text-xs text-ink-400">
+          Frequency: Start, Mid and End of shift · Set Checked By / Verified By per day in the grid above.
+          Save a draft any time — partly filled areas are kept.
+        </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          {savedNote && <span className="text-xs font-semibold text-brand-600">{savedNote}</span>}
           {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
-          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
-            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+          <button onClick={handleSaveDraft} disabled={saving !== false} className="btn-secondary">
+            {saving === "draft" ? "Saving…" : "Save Draft"}
+          </button>
+          <button onClick={handleSubmit} disabled={saving !== false} className="btn-primary">
+            {saving === "final" ? "Submitting..." : isEdit ? "Update" : "Submit"}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+/** Row-wise "copy the first value across every day" control. */
+function THFillButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`Fill every day of "${label}" with its first value (click again to clear)`}
+      className="text-[9px] font-bold leading-none bg-success-50 text-success-700 px-1.5 py-0.5 rounded hover:bg-success-100 shrink-0"
+    >
+      Fill
+    </button>
   );
 }
 
@@ -250,7 +523,7 @@ export function InprocessQualityCheckRecord({ initialData, onSubmit, isEdit }: I
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       check_date: date,
       rows: rows.filter((r) => r.skuName || r.batchNo).map((r) => ({
         sku_name: r.skuName, customer: r.customer, batch_no: r.batchNo,
@@ -360,7 +633,7 @@ export function MonthlyGMPSchedule({ initialData, onSubmit, isEdit }: GMPSchedul
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       year,
       rows: rows.map((r: any) => ({ month: r.month, planned_date: r.plannedDate, actual_date: r.actualDate, remarks: r.remarks })),
     };
@@ -468,7 +741,7 @@ export function InwardRawMaterialCheck({ initialData, onSubmit, isEdit }: Inward
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       entries: entries.filter((e: any) => e.materialName || e.vendorName).map((e: any) => ({
         material_name: e.materialName, inward_date: e.inwardDate, vendor_name: e.vendorName,
         lot_number: e.lotNumber, customer_name: e.customerName, quantity: e.quantity,
@@ -621,7 +894,7 @@ export function FinishedGoodChemicalAnalysis({ initialData, onSubmit, isEdit }: 
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       entries: entries.filter((e: any) => e.productName || e.fgBatchNo).map((e: any) => ({
         product_name: e.productName, date_receiving: e.dateReceiving, customer: e.customer,
         date_analysis: e.dateAnalysis, fg_batch_no: e.fgBatchNo,
@@ -741,7 +1014,7 @@ export function EyeWashBottleRefillingRecord({ initialData, onSubmit, isEdit }: 
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
-      warehouse: typeof window !== "undefined" ? localStorage.getItem("currentWarehouse") || "A185" : "A185",
+      warehouse: getStoredWarehouse(),
       quarters: quarters.map((q: any) => ({ month: q.month, done_by: q.doneBy, verified_by: q.verifiedBy, grid: q.grid })),
       observations,
       corrective,

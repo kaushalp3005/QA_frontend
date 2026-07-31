@@ -2,10 +2,14 @@
 // `slug` is the folder name under /documentations; `createSubpath` is the subroute with the form
 // (usually "create", but ipqc uses "new" and metaldetector uses "entry").
 
+import type { WarehouseCode } from "@/lib/warehouseAccess";
+
 export interface DocNavEntry {
   slug: string;
   label: string;
   createSubpath: string;
+  /** Plants this form exists at. Omit when it exists at every plant. */
+  warehouses?: WarehouseCode[];
 }
 
 export const DOC_NAV_ORDER: DocNavEntry[] = [
@@ -27,6 +31,8 @@ export const DOC_NAV_ORDER: DocNavEntry[] = [
   { slug: "gmp-ghp-inspection", label: "Monthly GMP & GHP Inspection", createSubpath: "create" },
   { slug: "temperature-humidity", label: "Temperature & Humidity Record", createSubpath: "create" },
   { slug: "inprocess-qc-record", label: "In-process Quality Check", createSubpath: "create" },
+  { slug: "inprocess-qc-after-processing", label: "In-process QC — After Processing", createSubpath: "create", warehouses: ["A185"] },
+  { slug: "ccp-puffer", label: "CCP Puffer Monitoring", createSubpath: "create", warehouses: ["A185"] },
   { slug: "gmp-schedule", label: "Monthly GMP Schedule", createSubpath: "create" },
   { slug: "inward-rm-check", label: "Inward Raw Material Check", createSubpath: "create" },
   { slug: "fg-chemical-analysis", label: "Finished Good Chemical Analysis", createSubpath: "create" },
@@ -51,6 +57,15 @@ export const DOC_NAV_ORDER: DocNavEntry[] = [
   { slug: "xray", label: "X-Ray", createSubpath: "create" },
 ];
 
-export function findCreatePageIndex(pathname: string): number {
-  return DOC_NAV_ORDER.findIndex((e) => pathname === `/documentations/${e.slug}/${e.createSubpath}`);
+export function findCreatePageIndex(
+  pathname: string,
+  entries: DocNavEntry[] = DOC_NAV_ORDER,
+): number {
+  return entries.findIndex((e) => pathname === `/documentations/${e.slug}/${e.createSubpath}`);
+}
+
+/** The forms reachable from a plant — plant-specific formats drop out elsewhere. */
+export function navEntriesForWarehouse(warehouse: WarehouseCode | null): DocNavEntry[] {
+  if (!warehouse) return DOC_NAV_ORDER;
+  return DOC_NAV_ORDER.filter((e) => !e.warehouses || e.warehouses.includes(warehouse));
 }

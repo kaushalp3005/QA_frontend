@@ -1,16 +1,34 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { DOC_NAV_ORDER, findCreatePageIndex } from "@/config/doc-nav-order";
+import { findCreatePageIndex, navEntriesForWarehouse } from "@/config/doc-nav-order";
+import { getStoredWarehouse, type WarehouseCode } from "@/components/ui/WarehouseSelector";
 
 export default function CreateFormNav() {
   const pathname = usePathname() || "";
-  const idx = findCreatePageIndex(pathname);
+  // null until mounted — the active plant is only knowable client-side. Until
+  // then the full chain is used; after mount, forms belonging to another plant
+  // drop out so prev/next never points at a page this plant can't open.
+  const [warehouse, setWarehouse] = useState<WarehouseCode | null>(null);
+
+  useEffect(() => {
+    setWarehouse(getStoredWarehouse());
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.warehouse) setWarehouse(detail.warehouse);
+    };
+    window.addEventListener("warehouseChanged", handler);
+    return () => window.removeEventListener("warehouseChanged", handler);
+  }, []);
+
+  const entries = useMemo(() => navEntriesForWarehouse(warehouse), [warehouse]);
+  const idx = findCreatePageIndex(pathname, entries);
   if (idx === -1) return null;
 
-  const prev = idx > 0 ? DOC_NAV_ORDER[idx - 1] : null;
-  const next = idx < DOC_NAV_ORDER.length - 1 ? DOC_NAV_ORDER[idx + 1] : null;
+  const prev = idx > 0 ? entries[idx - 1] : null;
+  const next = idx < entries.length - 1 ? entries[idx + 1] : null;
 
   const hrefOf = (e: { slug: string; createSubpath: string }) =>
     `/documentations/${e.slug}/${e.createSubpath}`;
@@ -36,7 +54,7 @@ export default function CreateFormNav() {
       )}
 
       <span className="text-[11px] text-gray-500 font-medium px-1 select-none">
-        {idx + 1} / {DOC_NAV_ORDER.length}
+        {idx + 1} / {entries.length}
       </span>
 
       {next ? (

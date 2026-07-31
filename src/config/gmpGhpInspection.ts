@@ -5,12 +5,15 @@
 //
 // Sources (both in /docs):
 //   W202 → "15)CFPLA.C3.F.15 Monthly Facility (GMP) & GHP Inspection.pdf" — 77 items, total 170
-//   A185 → "1)CFPLB.C3.F.01 Monthly Facility (GMP) & GHP Inspection.pdf"  — 74 items, total 164
+//   A185 → "1)CFPLB.C3.F.01 Monthly Facility (GMP) & GHP Inspection.pdf"  — 76 items, total 168
 //
-// The two formats share the same checklist wording but differ in item count:
-// W202 carries three extra Terrace items (Sr. 20–22) that A185 doesn't have, so
-// every Sr. No. after them is shifted by 3. That's why the section boundaries and
-// scoring-card maximums below are held per plant rather than derived.
+// The two formats share most checklist wording but differ in item count. In
+// Facility & Housekeeping, W202 checks three Terrace items (Sr. 20–22) where A185
+// checks two rack items — so A185 has one item fewer and every Sr. No. after them
+// is shifted by 1. The A185 list is generated from the W202 one in
+// components/forms/CFPLA_ProductSafetyForms.tsx (gmpSectionsFor); the boundaries
+// and maximums below must stay in step with it — they are what places the section
+// headings and scoring card on the print sheet.
 
 export interface GmpGhpFormat {
   documentNo: string;
@@ -66,21 +69,21 @@ const A185: GmpGhpFormat = {
   sections: [
     { title: "MANUFACTURING", startSr: 1 },
     { title: "Facility and House keeping", startSr: 3 },
-    { title: "Control of operations", startSr: 21 },
-    { title: "Personal Hygiene", startSr: 34 },
-    { title: "Equipment and fixtures", startSr: 43 },
-    { title: "Pest control", startSr: 50 },
-    { title: "Training and Complaint handling", startSr: 56 },
-    { title: "Documentation and Record keeping", startSr: 61 },
-    { title: "COLD STORAGE & WAREHOUSE", startSr: 65 },
-    { title: "TRANSPORT", startSr: 69 },
+    { title: "Control of operations", startSr: 23 },
+    { title: "Personal Hygiene", startSr: 36 },
+    { title: "Equipment and fixtures", startSr: 45 },
+    { title: "Pest control", startSr: 52 },
+    { title: "Training and Complaint handling", startSr: 58 },
+    { title: "Documentation and Record keeping", startSr: 63 },
+    { title: "COLD STORAGE & WAREHOUSE", startSr: 67 },
+    { title: "TRANSPORT", startSr: 71 },
   ],
   scoringCard: [
-    { label: "Manufacturing and facility", max: 138, fromSr: 1, toSr: 64 },
-    { label: "Cold storage and warehouse", max: 10, fromSr: 65, toSr: 68 },
-    { label: "Transport", max: 16, fromSr: 69, toSr: 74 },
+    { label: "Manufacturing and facility", max: 142, fromSr: 1, toSr: 66 },
+    { label: "Cold storage and warehouse", max: 10, fromSr: 67, toSr: 70 },
+    { label: "Transport", max: 16, fromSr: 71, toSr: 76 },
   ],
-  totalMax: 164,
+  totalMax: 168,
 };
 
 export function gmpGhpFormatFor(warehouse: string | null | undefined): GmpGhpFormat {

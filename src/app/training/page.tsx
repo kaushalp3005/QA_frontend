@@ -5,17 +5,14 @@ import { useRouter } from "next/navigation";
 import {
   GraduationCap,
   Search,
-  ClipboardList,
-  HardHat,
-  BookMarked,
-  Star,
-  CreditCard,
   ArrowRight,
   ArrowLeft,
   FileText,
 } from "lucide-react";
 import WarehouseSelector from "@/components/ui/WarehouseSelector";
 import PageHeader from "@/components/ui/PageHeader";
+// Card list + side-nav list share one source so they never drift apart.
+import { TRAINING_PAGES, toneClass } from "@/config/training-nav";
 
 /*
  * ============================================================
@@ -71,55 +68,6 @@ import PageHeader from "@/components/ui/PageHeader";
  * ============================================================
  */
 
-const TRAINING_PAGES = [
-  {
-    href: "/training/attendance-sheet",
-    title: "Training Attendance Sheet",
-    docNo: "CFPLA.C7.F.03",
-    description: "Main attendance sheet with evaluation & effectiveness tracking for staff",
-    icon: ClipboardList,
-    tone: "brand" as const,
-  },
-  {
-    href: "/training/attendance-workers",
-    title: "Training Attendance (Workers)",
-    docNo: "CFPLA.C7.F.03",
-    description: "Simplified attendance & evaluation record specifically for workers",
-    icon: HardHat,
-    tone: "warning" as const,
-  },
-  {
-    href: "/training/reference-sheet",
-    title: "Reference Material Sheet",
-    docNo: "CFPLA.C7.F.03i",
-    description: "Reference material & record for evaluation/effectiveness basis",
-    icon: BookMarked,
-    tone: "ink" as const,
-  },
-  {
-    href: "/training/feedback",
-    title: "Trainee & Trainer Feedback",
-    docNo: "CFPLA.C7.F.03j",
-    description: "Feedback record with 1-5 rating on training parameters",
-    icon: Star,
-    tone: "warning" as const,
-  },
-  {
-    href: "/training/training-card",
-    title: "Employee Training Card",
-    docNo: "CFPLA.C7.F.03k",
-    description: "Individual employee training history card with topic tracking",
-    icon: CreditCard,
-    tone: "brand" as const,
-  },
-];
-
-const toneClass = (tone: "brand" | "warning" | "ink") => {
-  if (tone === "warning") return "bg-warning-500";
-  if (tone === "ink") return "bg-ink-600";
-  return "bg-brand-500";
-};
-
 export default function TrainingIndexPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -135,9 +83,10 @@ export default function TrainingIndexPage() {
     );
   }, [search]);
 
+  // Width, gutters and the side nav all come from app/training/layout.tsx
   return (
-    <div className="p-6">
-      <div className="max-w-7xl mx-auto">
+    <div>
+      <div>
         <button
           onClick={() => router.back()}
           className="mb-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-ink-500 hover:text-ink-700 hover:bg-cream-200 transition"
@@ -176,7 +125,7 @@ export default function TrainingIndexPage() {
             <p className="text-xs text-ink-400 mt-0.5">Try a different search term</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((page, i) => {
               const Icon = page.icon;
               return (

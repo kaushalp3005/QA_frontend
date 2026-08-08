@@ -42,6 +42,9 @@ export const PRINTABLE_SLUGS = new Set<string>([
   "gmp-ghp-inspection",
   "inprocess-qc-after-processing",
   "ccp-puffer",
+  // Training forms (basePath /training — these are routeSlugs, not formTypes).
+  "attendance-sheet",
+  "training-card",
 ])
 
 // Forms whose create page supports pre-filling from an existing record

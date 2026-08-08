@@ -1,6 +1,25 @@
 "use client";
 import { useState } from "react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import {
+  AddRowButton,
+  CardField,
+  CriteriaLegend,
+  DocHeader,
+  Field,
+  OptionChip,
+  Pill,
+  RemoveRowButton,
+  RowCard,
+  Section,
+  SubmitBar,
+  Td,
+  Th,
+  cellInput,
+  resultTone,
+  scoreTone,
+  statusTone,
+} from "@/components/training/FormShell";
 
 const EVAL_METHODS = ["Written", "Oral", "Observation", "Practical"];
 
@@ -96,68 +115,155 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
     }
   };
 
-  return (
-    <div className="p-4 max-w-full mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">TRAINING ATTENDANCE SHEET & RECORD FOR EVALUATION / EFFECTIVENESS OF TRAINING (WORKERS)</p>
-          <p className="text-xs text-gray-600">Document No: CFPLA.C7.F.03 | Issue No: 03 | Rev Date: 01/11/2025 | Rev No: 02</p>
-        </div>
-      </div>
+  const filled = rows.filter((r) => r.name.trim()).length;
 
-      <div className="overflow-x-auto border border-gray-300 rounded mb-4">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-gray-300 px-1 py-2 w-10">SR. NO</th>
-              <th className="border border-gray-300 px-1 py-2 min-w-[150px]">Name</th>
-              <th className="border border-gray-300 px-1 py-2">Evaluation Method</th>
-              <th className="border border-gray-300 px-1 py-2">Evaluation Scoring (Dated)</th>
-              <th className="border border-gray-300 px-1 py-2">Results Pass/Fail</th>
-              <th className="border border-gray-300 px-1 py-2">Effectiveness Method</th>
-              <th className="border border-gray-300 px-1 py-2">Effectiveness Scoring (Dated)</th>
-              <th className="border border-gray-300 px-1 py-2">Results Effective/Non-Effective</th>
-              <th className="border border-gray-300 px-1 py-2">Average Scoring (%)</th>
-              <th className="border border-gray-300 px-1 py-2">Training Status</th>
-              <th className="border border-gray-300 px-1 py-2 w-8"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-1 py-1 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} className="w-full border rounded px-1 py-0.5" placeholder="Worker name" /></td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.evaluationMethod} onChange={(e) => updateRow(row.id, "evaluationMethod", e.target.value)} className="w-full border rounded px-0.5 py-0.5">
-                    <option value="">Select</option>
-                    {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </td>
-                <td className="border border-gray-300 px-1 py-1"><input type="number" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className="w-full border rounded px-1 py-0.5" placeholder="%" min="0" max="100" /></td>
-                <td className={`border border-gray-300 px-1 py-1 text-center font-semibold ${row.evaluationResult === "Pass" ? "bg-green-100 text-green-800" : row.evaluationResult === "Fail" ? "bg-red-100 text-red-800" : ""}`}>{row.evaluationResult}</td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.effectivenessMethod} onChange={(e) => updateRow(row.id, "effectivenessMethod", e.target.value)} className="w-full border rounded px-0.5 py-0.5">
-                    <option value="">Select</option>
-                    {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </td>
-                <td className="border border-gray-300 px-1 py-1"><input type="number" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className="w-full border rounded px-1 py-0.5" placeholder="%" min="0" max="100" /></td>
-                <td className={`border border-gray-300 px-1 py-1 text-center font-semibold ${row.effectivenessResult === "Effective" ? "bg-green-100 text-green-800" : row.effectivenessResult === "Non-Effective" ? "bg-red-100 text-red-800" : ""}`}>{row.effectivenessResult}</td>
-                <td className={`border border-gray-300 px-1 py-1 text-center font-bold ${parseFloat(row.averageScoring) >= 80 ? "bg-green-100" : parseFloat(row.averageScoring) >= 60 ? "bg-yellow-100" : row.averageScoring ? "bg-red-100" : ""}`}>{row.averageScoring ? `${row.averageScoring}%` : ""}</td>
-                <td className={`border border-gray-300 px-1 py-1 text-center text-[10px] font-semibold ${row.trainingStatus === "Effective" ? "text-green-800" : row.trainingStatus === "Refresher" ? "text-yellow-800" : row.trainingStatus === "Retraining" ? "text-red-800" : ""}`}>{row.trainingStatus}</td>
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => removeRow(row.id)} className="text-red-500 text-xs">✕</button></td>
+  return (
+    <div className="space-y-4 sm:space-y-5 pb-2">
+      <DocHeader
+        title="Training Attendance & Record for Evaluation / Effectiveness of Training (Workers)"
+        docNo="CFPLA.C7.F.03"
+        meta="Issue 03 · Rev 02 · 01/11/2025"
+      />
+
+      <Section
+        title="Workers"
+        hint={`${filled} of ${rows.length} rows filled · results and status calculate from the scores`}
+        bodyClassName="p-0"
+      >
+        {/* Desktop table */}
+        <div className="hidden overflow-x-auto lg:block">
+          <table className="w-full min-w-[1080px] text-xs">
+            <thead className="bg-cream-100/70">
+              <tr>
+                <Th className="w-10">Sr.</Th>
+                <Th className="min-w-[170px] text-left">Name</Th>
+                <Th className="min-w-[120px]">Eval. Method</Th>
+                <Th className="min-w-[80px]">Eval. Score</Th>
+                <Th className="min-w-[90px]">Result</Th>
+                <Th className="min-w-[120px] border-l border-cream-300">Effect. Method</Th>
+                <Th className="min-w-[80px]">Effect. Score</Th>
+                <Th className="min-w-[120px]">Result</Th>
+                <Th className="min-w-[80px] border-l border-cream-300">Avg %</Th>
+                <Th className="min-w-[100px]">Status</Th>
+                <Th className="w-10" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={addRow} className="bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Worker</button>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: HR | Approved by: FSTL</div>
-      <button onClick={handleSubmitWorkers} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={row.id} className="transition-colors hover:bg-cream-100/60">
+                  <Td className="text-center text-[11px] font-semibold text-ink-400">{idx + 1}</Td>
+                  <Td>
+                    <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} className={cellInput} placeholder="Worker name" />
+                  </Td>
+                  <Td>
+                    <select value={row.evaluationMethod} onChange={(e) => updateRow(row.id, "evaluationMethod", e.target.value)} className={cellInput}>
+                      <option value="">Select</option>
+                      {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </Td>
+                  <Td>
+                    <input type="number" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className={cellInput} placeholder="%" min="0" max="100" />
+                  </Td>
+                  <Td className="text-center">
+                    {row.evaluationResult ? <Pill tone={resultTone(row.evaluationResult)}>{row.evaluationResult}</Pill> : <span className="text-ink-300">—</span>}
+                  </Td>
+                  <Td className="border-l border-cream-200">
+                    <select value={row.effectivenessMethod} onChange={(e) => updateRow(row.id, "effectivenessMethod", e.target.value)} className={cellInput}>
+                      <option value="">Select</option>
+                      {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </Td>
+                  <Td>
+                    <input type="number" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className={cellInput} placeholder="%" min="0" max="100" />
+                  </Td>
+                  <Td className="text-center">
+                    {row.effectivenessResult ? <Pill tone={resultTone(row.effectivenessResult)}>{row.effectivenessResult}</Pill> : <span className="text-ink-300">—</span>}
+                  </Td>
+                  <Td className="border-l border-cream-200 text-center">
+                    {row.averageScoring ? <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring}%</Pill> : <span className="text-ink-300">—</span>}
+                  </Td>
+                  <Td className="text-center">
+                    {row.trainingStatus ? <Pill tone={statusTone(row.trainingStatus)}>{row.trainingStatus}</Pill> : <span className="text-ink-300">—</span>}
+                  </Td>
+                  <Td className="text-center">
+                    <RemoveRowButton onClick={() => removeRow(row.id)} label={`Remove worker ${idx + 1}`} />
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="space-y-3 p-4 lg:hidden">
+          {rows.map((row, idx) => (
+            <RowCard
+              key={row.id}
+              index={idx + 1}
+              label="Worker"
+              onRemove={() => removeRow(row.id)}
+              badge={row.trainingStatus ? <Pill tone={statusTone(row.trainingStatus)}>{row.trainingStatus}</Pill> : undefined}
+            >
+              <CardField label="Name">
+                <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} className="input-base" placeholder="Worker name" />
+              </CardField>
+
+              <div className="rounded-xl border border-cream-300 bg-cream-100/50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-brand-500">Evaluation</p>
+                  {row.evaluationResult && <Pill tone={resultTone(row.evaluationResult)}>{row.evaluationResult}</Pill>}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <CardField label="Method">
+                    <select value={row.evaluationMethod} onChange={(e) => updateRow(row.id, "evaluationMethod", e.target.value)} className="input-base">
+                      <option value="">Select</option>
+                      {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </CardField>
+                  <CardField label="Score (%)">
+                    <input type="number" inputMode="numeric" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className="input-base" placeholder="%" min="0" max="100" />
+                  </CardField>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-cream-300 bg-cream-100/50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-brand-500">Effectiveness</p>
+                  {row.effectivenessResult && <Pill tone={resultTone(row.effectivenessResult)}>{row.effectivenessResult}</Pill>}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <CardField label="Method">
+                    <select value={row.effectivenessMethod} onChange={(e) => updateRow(row.id, "effectivenessMethod", e.target.value)} className="input-base">
+                      <option value="">Select</option>
+                      {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </CardField>
+                  <CardField label="Score (%)">
+                    <input type="number" inputMode="numeric" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className="input-base" placeholder="%" min="0" max="100" />
+                  </CardField>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl bg-cream-100 px-3 py-2">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">Average score</span>
+                {row.averageScoring ? (
+                  <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring}%</Pill>
+                ) : (
+                  <span className="text-xs text-ink-300">Not calculated</span>
+                )}
+              </div>
+            </RowCard>
+          ))}
+        </div>
+
+        <div className="border-t border-cream-200 px-4 py-3 sm:px-5">
+          <AddRowButton label="Add Worker" onClick={addRow} />
+        </div>
+      </Section>
+
+      <CriteriaLegend />
+
+      <SubmitBar submitting={submitting} isEdit={isEdit} success={success} onSubmit={handleSubmitWorkers} />
     </div>
   );
 }
@@ -202,48 +308,81 @@ export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: Traini
   };
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">REFERENCE MATERIAL & RECORD FOR EVALUATION / EFFECTIVENESS OF TRAINING</p>
-          <p className="text-xs text-gray-600">Document No: CFPLA.C7.F.03i | Issue No: 03 | Rev Date: 01/11/2025 | Rev No: 02</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-5 pb-2">
+      <DocHeader
+        title="Reference Material & Record for Evaluation / Effectiveness of Training"
+        docNo="CFPLA.C7.F.03i"
+        meta="Issue 03 · Rev 02 · 01/11/2025"
+      />
 
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Reference Material</label>
-        <textarea value={referenceMaterial} onChange={(e) => setReferenceMaterial(e.target.value)} rows={5} className="border border-gray-300 rounded px-3 py-2 w-full" placeholder="Enter reference material details..." />
-      </div>
+      <Section title="Reference Material">
+        <textarea
+          value={referenceMaterial}
+          onChange={(e) => setReferenceMaterial(e.target.value)}
+          rows={5}
+          className="input-base resize-y"
+          placeholder="Enter reference material details…"
+        />
+      </Section>
 
-      <div className="border border-gray-300 rounded overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-gray-300 px-2 py-2 w-16">SR NO.</th>
-              <th className="border border-gray-300 px-2 py-2">EVALUATION & EFFECTIVES BASED ON</th>
-              <th className="border border-gray-300 px-2 py-2 w-10"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-2 py-1 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" value={row.content} onChange={(e) => setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, content: e.target.value } : r))} className="w-full border rounded px-2 py-1" placeholder="Enter evaluation criteria..." />
-                </td>
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => removeRow(row.id)} className="text-red-500 text-xs">✕</button></td>
+      <Section title="Evaluation & Effectiveness Based On" bodyClassName="p-0">
+        {/* Desktop table */}
+        <div className="hidden sm:block">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70">
+              <tr>
+                <Th className="w-16">Sr.</Th>
+                <Th className="text-left">Evaluation &amp; effectiveness based on</Th>
+                <Th className="w-12" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={addRow} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: HR | Approved by: FSTL</div>
-      <button onClick={handleSubmitRef} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={row.id} className="transition-colors hover:bg-cream-100/60">
+                  <Td className="text-center text-[11px] font-semibold text-ink-400">{idx + 1}</Td>
+                  <Td>
+                    <input
+                      type="text"
+                      value={row.content}
+                      onChange={(e) => setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, content: e.target.value } : r)))}
+                      className={cellInput}
+                      placeholder="Enter evaluation criteria…"
+                    />
+                  </Td>
+                  <Td className="text-center">
+                    <RemoveRowButton onClick={() => removeRow(row.id)} label={`Remove row ${idx + 1}`} />
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile list — number chip + full-width input */}
+        <div className="space-y-2.5 p-4 sm:hidden">
+          {rows.map((row, idx) => (
+            <div key={row.id} className="flex items-center gap-2">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cream-200 text-[11px] font-bold text-ink-500">
+                {idx + 1}
+              </span>
+              <input
+                type="text"
+                value={row.content}
+                onChange={(e) => setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, content: e.target.value } : r)))}
+                className="input-base"
+                placeholder="Evaluation criteria…"
+              />
+              <RemoveRowButton onClick={() => removeRow(row.id)} label={`Remove row ${idx + 1}`} />
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-cream-200 px-4 py-3 sm:px-5">
+          <AddRowButton label="Add Row" onClick={addRow} />
+        </div>
+      </Section>
+
+      <SubmitBar submitting={submitting} isEdit={isEdit} success={success} onSubmit={handleSubmitRef} />
     </div>
   );
 }
@@ -257,6 +396,33 @@ const FEEDBACK_PARAMS = [
   "Over all Discipline",
   "Participation / Interactive Session",
 ];
+
+/** 1–5 rating buttons, sized for a thumb on mobile. */
+function RatingScale({ value, onSelect }: { value: number; onSelect: (star: number) => void }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {[1, 2, 3, 4, 5].map((star) => {
+        const active = value >= star;
+        return (
+          <button
+            key={star}
+            type="button"
+            aria-label={`Rate ${star} of 5`}
+            aria-pressed={active}
+            onClick={() => onSelect(star)}
+            className={`h-9 w-9 shrink-0 rounded-full border text-sm font-bold transition-all ${
+              active
+                ? "border-warning-500 bg-warning-400 text-white shadow-soft"
+                : "border-cream-300 bg-cream-50 text-ink-300 hover:border-warning-300 hover:text-warning-600"
+            }`}
+          >
+            {star}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: TrainingFormProps = {}) {
   const [participantName, setParticipantName] = useState(initialData?.participant_name || "");
@@ -312,215 +478,141 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
     }
   };
 
-  return (
-    <div className="p-4 max-w-3xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">TRAINEE & TRAINER FEEDBACK RECORD</p>
-          <p className="text-xs text-gray-600">Document No: CFPLA.C7.F.03j | Issue No: 03 | Rev Date: 01/11/2025 | Rev No: 02</p>
-        </div>
-      </div>
+  const rate = (idx: number, star: number) =>
+    setRatings((prev) => ({ ...prev, [idx]: { ...prev[idx], rating: star } }));
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div><label className="block text-sm font-medium mb-1">Participant&apos;s Name</label><input type="text" value={participantName} onChange={(e) => setParticipantName(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Training Program</label><input type="text" value={trainingProgram} onChange={(e) => setTrainingProgram(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Mode of Training</label>
-          <div className="flex gap-3 mt-1">
-            {(["Internal", "External", "Others"] as const).map((mode) => (
-              <label key={mode} className={`px-3 py-1.5 rounded border text-sm cursor-pointer ${modeOfTraining === mode ? "bg-blue-100 border-blue-400" : "border-gray-300"}`}>
-                <input type="radio" name="mode" checked={modeOfTraining === mode} onChange={() => setModeOfTraining(mode)} className="sr-only" />
-                {mode}
-              </label>
-            ))}
+  return (
+    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-5 pb-2">
+      <DocHeader
+        title="Trainee & Trainer Feedback Record"
+        docNo="CFPLA.C7.F.03j"
+        meta="Issue 03 · Rev 02 · 01/11/2025"
+      />
+
+      <Section title="Participant Details">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Participant's Name">
+            <input type="text" value={participantName} onChange={(e) => setParticipantName(e.target.value)} className="input-base" placeholder="Full name" />
+          </Field>
+          <Field label="Date">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-base" />
+          </Field>
+          <Field label="Training Program">
+            <input type="text" value={trainingProgram} onChange={(e) => setTrainingProgram(e.target.value)} className="input-base" placeholder="Program name" />
+          </Field>
+          <div className="min-w-0">
+            <label className="label-base">Mode of Training</label>
+            <div className="flex flex-wrap gap-2">
+              {(["Internal", "External", "Others"] as const).map((mode) => (
+                <OptionChip
+                  key={mode}
+                  type="radio"
+                  label={mode}
+                  checked={modeOfTraining === mode}
+                  onToggle={() => setModeOfTraining(mode)}
+                />
+              ))}
+            </div>
+            {modeOfTraining === "Others" && (
+              <input
+                type="text"
+                value={otherModeDetail}
+                onChange={(e) => setOtherModeDetail(e.target.value)}
+                placeholder="Specify mode of training…"
+                className="input-base mt-2.5"
+                autoFocus
+              />
+            )}
           </div>
-          {modeOfTraining === "Others" && (
-            <input
-              type="text"
-              value={otherModeDetail}
-              onChange={(e) => setOtherModeDetail(e.target.value)}
-              placeholder="Specify mode of training…"
-              className="border border-gray-300 rounded px-3 py-2 w-full mt-2 text-sm"
-              autoFocus
-            />
-          )}
         </div>
-      </div>
+      </Section>
 
-      <p className="text-sm font-medium mb-2">Please rate on the following parameters:</p>
-      <p className="text-xs text-gray-500 mb-3">Excellent (5) &nbsp; V Good (4) &nbsp; Good (3) &nbsp; Average (2) &nbsp; Poor (1)</p>
-
-      <div className="border border-gray-300 rounded overflow-hidden mb-4">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-gray-300 px-2 py-2 w-10">Sr.</th>
-              <th className="border border-gray-300 px-2 py-2">Parameters</th>
-              <th className="border border-gray-300 px-2 py-2 w-40">Rating</th>
-              <th className="border border-gray-300 px-2 py-2">Comments</th>
-            </tr>
-          </thead>
-          <tbody>
-            {FEEDBACK_PARAMS.map((param, idx) => (
-              <tr key={idx} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-2 py-2 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-2 py-2 text-sm">{param}</td>
-                <td className="border border-gray-300 px-2 py-2">
-                  <div className="flex gap-1 justify-center">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        onClick={() => setRatings((prev) => ({ ...prev, [idx]: { ...prev[idx], rating: star } }))}
-                        className={`w-8 h-8 rounded-full border text-sm font-bold transition-colors ${
-                          ratings[idx]?.rating >= star
-                            ? "bg-yellow-400 border-yellow-500 text-white"
-                            : "border-gray-300 text-gray-400 hover:border-yellow-300"
-                        }`}
-                      >
-                        {star}
-                      </button>
-                    ))}
-                  </div>
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" value={ratings[idx]?.comments || ""} onChange={(e) => setRatings((prev) => ({ ...prev, [idx]: { ...prev[idx], comments: e.target.value } }))} className="w-full border rounded px-2 py-1 text-sm" />
-                </td>
+      <Section
+        title="Rate the following parameters"
+        hint="Excellent (5) · V Good (4) · Good (3) · Average (2) · Poor (1)"
+        bodyClassName="p-0"
+      >
+        {/* Desktop table */}
+        <div className="hidden lg:block">
+          <table className="w-full text-sm">
+            <thead className="bg-cream-100/70">
+              <tr>
+                <Th className="w-10">Sr.</Th>
+                <Th className="text-left">Parameter</Th>
+                <Th className="w-[230px]">Rating</Th>
+                <Th className="min-w-[200px] text-left">Comments</Th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {FEEDBACK_PARAMS.map((param, idx) => (
+                <tr key={idx} className="transition-colors hover:bg-cream-100/60">
+                  <Td className="text-center text-[11px] font-semibold text-ink-400">{idx + 1}</Td>
+                  <Td className="py-2.5 text-[13px] text-ink-600">{param}</Td>
+                  <Td>
+                    <div className="flex justify-center">
+                      <RatingScale value={ratings[idx]?.rating || 0} onSelect={(star) => rate(idx, star)} />
+                    </div>
+                  </Td>
+                  <Td>
+                    <input
+                      type="text"
+                      value={ratings[idx]?.comments || ""}
+                      onChange={(e) => setRatings((prev) => ({ ...prev, [idx]: { ...prev[idx], comments: e.target.value } }))}
+                      className={cellInput}
+                      placeholder="Optional comment"
+                    />
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      <div className="space-y-3 mb-4">
-        <div><label className="block text-sm font-medium mb-1">In what specific ways, could the training be improved?</label><textarea value={improvements} onChange={(e) => setImprovements(e.target.value)} rows={3} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Please list the major learning from the training.</label><textarea value={majorLearning} onChange={(e) => setMajorLearning(e.target.value)} rows={3} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Signature</label><input type="text" value={signature} onChange={(e) => setSignature(e.target.value)} className="border rounded px-3 py-2 w-64" /></div>
-      </div>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: HR | Approved by: FSTL</div>
-      <button onClick={handleSubmitFeedback} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
+        {/* Mobile cards */}
+        <div className="space-y-3 p-4 lg:hidden">
+          {FEEDBACK_PARAMS.map((param, idx) => (
+            <div key={idx} className="rounded-2xl border border-cream-300 bg-cream-50 p-3.5 shadow-soft">
+              <div className="flex gap-2">
+                <span className="flex h-6 min-w-[24px] items-center justify-center rounded-lg bg-brand-500 px-1.5 text-[11px] font-bold text-white">
+                  {idx + 1}
+                </span>
+                <p className="text-[13px] font-semibold leading-snug text-ink-600">{param}</p>
+              </div>
+              <div className="mt-3 flex justify-center">
+                <RatingScale value={ratings[idx]?.rating || 0} onSelect={(star) => rate(idx, star)} />
+              </div>
+              <input
+                type="text"
+                value={ratings[idx]?.comments || ""}
+                onChange={(e) => setRatings((prev) => ({ ...prev, [idx]: { ...prev[idx], comments: e.target.value } }))}
+                className="input-base mt-3"
+                placeholder="Comments (optional)"
+              />
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Your Feedback">
+        <div className="space-y-3">
+          <Field label="In what specific ways could the training be improved?">
+            <textarea value={improvements} onChange={(e) => setImprovements(e.target.value)} rows={3} className="input-base resize-y" placeholder="Suggestions…" />
+          </Field>
+          <Field label="Please list the major learnings from the training.">
+            <textarea value={majorLearning} onChange={(e) => setMajorLearning(e.target.value)} rows={3} className="input-base resize-y" placeholder="Key takeaways…" />
+          </Field>
+          <Field label="Signature">
+            <input type="text" value={signature} onChange={(e) => setSignature(e.target.value)} className="input-base sm:max-w-xs" placeholder="Participant signature" />
+          </Field>
+        </div>
+      </Section>
+
+      <SubmitBar submitting={submitting} isEdit={isEdit} success={success} onSubmit={handleSubmitFeedback} />
     </div>
   );
 }
 
-// ===================== F.03k - EMPLOYEE TRAINING CARD =====================
-interface TrainingCardRow {
-  id: number; date: string; totalHours: string; topicsCovered: string; trainer: string; acknowledgement: string;
-}
-const emptyCardRow = (id: number): TrainingCardRow => ({ id, date: "", totalHours: "", topicsCovered: "", trainer: "", acknowledgement: "" });
-
-export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: TrainingFormProps = {}) {
-  const [employeeName, setEmployeeName] = useState(initialData?.employee_name || "");
-  const [designation, setDesignation] = useState(initialData?.designation || "");
-  const [trainingNeeds, setTrainingNeeds] = useState(initialData?.training_needs_identified || "");
-  const [rows, setRows] = useState<TrainingCardRow[]>(() => {
-    if (initialData?.rows && Array.isArray(initialData.rows)) {
-      return initialData.rows.map((r: any, i: number) => ({
-        id: i + 1,
-        date: r.date || "",
-        totalHours: r.total_hours?.toString() || "",
-        topicsCovered: r.topics_covered || "",
-        trainer: r.trainer || "",
-        acknowledgement: r.acknowledgement || "",
-      }));
-    }
-    return Array.from({ length: 12 }, (_, i) => emptyCardRow(i + 1));
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const addRow = () => setRows((prev) => [...prev, emptyCardRow(prev.length + 1)]);
-  const removeRow = (id: number) => { if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id)); };
-  const updateRow = (id: number, field: keyof TrainingCardRow, value: string) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
-  };
-
-  const handleSubmitCard = async () => {
-    setSubmitting(true);
-    setSuccess(false);
-    const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse(),
-      employee_name: employeeName,
-      designation,
-      training_needs_identified: trainingNeeds,
-      rows: rows.filter((r) => r.date || r.topicsCovered).map((r) => ({
-        date: r.date,
-        total_hours: r.totalHours ? Number(r.totalHours) : null,
-        topics_covered: r.topicsCovered,
-        trainer: r.trainer,
-        acknowledgement: r.acknowledgement,
-      })),
-    };
-    try {
-      if (onSubmit) {
-        await onSubmit(payload);
-      } else {
-        const { docsApi } = await import("@/lib/api/documentations");
-        await docsApi.create("training-card", payload);
-        setSuccess(true);
-      }
-    } catch (e: any) {
-      alert(e.message || "Submit failed");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="p-4 max-w-5xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300">
-          <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-          <p className="text-sm font-semibold">Training Card</p>
-          <p className="text-xs text-gray-600">Document No: CFPLA.C7.F.03k | Issue No: 03 | Rev Date: 01/11/2025 | Rev No: 02</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <div><label className="block text-sm font-medium mb-1">Employee Name</label><input type="text" value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Designation</label><input type="text" value={designation} onChange={(e) => setDesignation(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="block text-sm font-medium mb-1">Training Needs Identified</label><input type="text" value={trainingNeeds} onChange={(e) => setTrainingNeeds(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-      </div>
-
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-gray-300 px-2 py-2 w-10">Sr.no</th>
-              <th className="border border-gray-300 px-2 py-2 w-32">DATE</th>
-              <th className="border border-gray-300 px-2 py-2 w-20">Total Training Hours</th>
-              <th className="border border-gray-300 px-2 py-2">Brief of Training Topics Covered (with references of applicable GMP, SOP, SSOP, etc.)</th>
-              <th className="border border-gray-300 px-2 py-2 w-28">Trainer</th>
-              <th className="border border-gray-300 px-2 py-2 w-28">Acknowledgment by TRAINEE</th>
-              <th className="border border-gray-300 px-2 py-2 w-8"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-2 py-1 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-1 py-1"><input type="date" value={row.date} onChange={(e) => updateRow(row.id, "date", e.target.value)} className="w-full border rounded px-1 py-0.5 text-sm" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="number" value={row.totalHours} onChange={(e) => updateRow(row.id, "totalHours", e.target.value)} className="w-full border rounded px-1 py-0.5 text-sm" placeholder="hrs" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.topicsCovered} onChange={(e) => updateRow(row.id, "topicsCovered", e.target.value)} className="w-full border rounded px-1 py-0.5 text-sm" placeholder="Training topics..." /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.trainer} onChange={(e) => updateRow(row.id, "trainer", e.target.value)} className="w-full border rounded px-1 py-0.5 text-sm" /></td>
-                <td className="border border-gray-300 px-1 py-1"><input type="text" value={row.acknowledgement} onChange={(e) => updateRow(row.id, "acknowledgement", e.target.value)} className="w-full border rounded px-1 py-0.5 text-sm" /></td>
-                <td className="border border-gray-300 px-1 py-1 text-center"><button onClick={() => removeRow(row.id)} className="text-red-500 text-xs">✕</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={addRow} className="mt-2 bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Row</button>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: HR | Approved by: FSTL</div>
-      <button onClick={handleSubmitCard} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
-    </div>
-  );
-}
+// Moved to its own file — re-exported so existing imports keep working.
+export { EmployeeTrainingCard } from "./EmployeeTrainingCard";
 
 export default TrainingAttendanceWorkers;

@@ -1,6 +1,24 @@
 "use client";
 import { useState } from "react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import {
+  AddRowButton,
+  CardField,
+  CriteriaLegend,
+  DocHeader,
+  Field,
+  OptionChip,
+  Pill,
+  RemoveRowButton,
+  RowCard,
+  Section,
+  SubmitBar,
+  Td,
+  Th,
+  cellInput,
+  scoreTone,
+  statusTone,
+} from "@/components/training/FormShell";
 
 const TRAINING_TYPES = ["Induction", "Refresher", "Food Safety", "Job Specific", "Retraining", "GMP", "GHP", "Other"];
 const LANGUAGES = ["English", "Hindi", "Marathi"];
@@ -89,6 +107,9 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
   });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  // Row ids whose designation is missing, plus the message shown above the submit bar.
+  const [rowErrors, setRowErrors] = useState<number[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const addRow = () => setRows((prev) => [...prev, emptyRow(prev.length + 1)]);
   const removeRow = (id: number) => { if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id)); };
@@ -97,6 +118,9 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
     setRows((prev) => prev.map((r) => {
       if (r.id !== id) return r;
       const updated = { ...r, [field]: value };
+      if (field === "designation" && String(value).trim()) {
+        setRowErrors((errs) => errs.filter((errId) => errId !== id));
+      }
       // Auto-calculate average and status
       const evalScore = parseFloat(updated.evaluationScoring) || 0;
       const effScore = parseFloat(updated.effectivenessScoring) || 0;
@@ -115,6 +139,20 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
     arr.includes(item) ? arr.filter((i) => i !== item) : [...arr, item];
 
   const handleSubmit = async () => {
+    // Designation is how the Employee Training Card tells two same-named people
+    // apart when it resolves an attendee, so every named attendee needs one.
+    const missing = rows
+      .map((r, i) => ({ r, position: i + 1 }))
+      .filter(({ r }) => r.name.trim() && !r.designation.trim());
+    if (missing.length) {
+      setRowErrors(missing.map(({ r }) => r.id));
+      setFormError(
+        `Designation is required for attendee ${missing.map((m) => m.position).join(", ")}.`
+      );
+      return;
+    }
+    setRowErrors([]);
+    setFormError(null);
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
@@ -168,244 +206,346 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
     }
   };
 
+  const filledAttendees = rows.filter((r) => r.name.trim()).length;
+
   return (
-    <div className="p-4 max-w-full mx-auto">
-      {/* Header */}
-      <div className="border border-gray-300 mb-4 rounded">
-        <div className="bg-gray-50 p-3 border-b border-gray-300 flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-5 pb-2">
+      <DocHeader
+        title="Training Attendance Sheet & Record for Evaluation / Effectiveness of Training"
+        docNo="CFPLA.C7.F.03"
+        meta="Issue 03 · Rev 02 · 27/09/2025"
+      />
+
+      {/* Training details */}
+      <Section title="Training Details">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <Field label="Training Date">
+            <input type="date" value={trainingDate} onChange={(e) => setTrainingDate(e.target.value)} className="input-base" />
+          </Field>
+          <Field label="Time: Start">
+            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="input-base" />
+          </Field>
+          <Field label="Time: End">
+            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="input-base" />
+          </Field>
+          <Field label="Training Conducted by">
+            <input type="text" value={conductedBy} onChange={(e) => setConductedBy(e.target.value)} className="input-base" placeholder="Trainer name" />
+          </Field>
+          <Field label="Trainer Qualification / Competencies">
+            <input type="text" value={trainerQualification} onChange={(e) => setTrainerQualification(e.target.value)} className="input-base" placeholder="Qualification" />
+          </Field>
+          <Field label="Venue">
+            <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} className="input-base" placeholder="Venue" />
+          </Field>
+          <Field label="Department">
+            <input type="text" value={department} onChange={(e) => setDepartment(e.target.value)} className="input-base" placeholder="Department" />
+          </Field>
+        </div>
+
+        <div className="mt-4 border-t border-cream-200 pt-4">
+          <label className="label-base">Training Type</label>
+          <div className="flex flex-wrap gap-2">
+            {TRAINING_TYPES.map((type) => (
+              <OptionChip
+                key={type}
+                label={type}
+                checked={trainingTypes.includes(type)}
+                onToggle={() => setTrainingTypes((prev) => toggleArrayItem(prev, type))}
+              />
+            ))}
+          </div>
+          {trainingTypes.includes("Other") && (
+            <input
+              type="text"
+              value={otherTrainingTypeDetail}
+              onChange={(e) => setOtherTrainingTypeDetail(e.target.value)}
+              placeholder="Specify other training type…"
+              className="input-base mt-2.5"
+              autoFocus
+            />
+          )}
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 border-t border-cream-200 pt-4 sm:grid-cols-2">
           <div>
-            <h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1>
-            <p className="text-sm font-semibold">TRAINING ATTENDANCE SHEET & RECORD FOR EVALUATION / EFFECTIVENESS OF TRAINING</p>
+            <label className="label-base">Training Language</label>
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGES.map((lang) => (
+                <OptionChip
+                  key={lang}
+                  label={lang}
+                  checked={language.includes(lang)}
+                  onToggle={() => setLanguage((prev) => toggleArrayItem(prev, lang))}
+                />
+              ))}
+            </div>
           </div>
-          <div className="text-xs text-right text-gray-600">
-            <p>Document No: CFPLA.C7.F.03</p>
-            <p>Issue No: 03 | Rev Date: 27/09/2025 | Rev No: 02</p>
+          <div>
+            <label className="label-base">Effectiveness will be conducted after</label>
+            <div className="flex flex-wrap gap-2">
+              {["15", "30"].map((d) => (
+                <OptionChip
+                  key={d}
+                  type="radio"
+                  label={`${d} days`}
+                  checked={effectivenessDays === d}
+                  onToggle={() => setEffectivenessDays(d as "15" | "30")}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Training Meta Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Training Date</label>
-          <input type="date" value={trainingDate} onChange={(e) => setTrainingDate(e.target.value)} className="border border-gray-300 rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Time: Start</label>
-          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="border border-gray-300 rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Time: End</label>
-          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="border border-gray-300 rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Training Conducted by</label>
-          <input type="text" value={conductedBy} onChange={(e) => setConductedBy(e.target.value)} className="border border-gray-300 rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Trainer Qualification/Competencies</label>
-          <input type="text" value={trainerQualification} onChange={(e) => setTrainerQualification(e.target.value)} className="border border-gray-300 rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Venue</label>
-          <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} className="border border-gray-300 rounded px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Department</label>
-          <input type="text" value={department} onChange={(e) => setDepartment(e.target.value)} className="border border-gray-300 rounded px-3 py-2 w-full" />
-        </div>
-      </div>
-
-      {/* Training Type Checkboxes */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-2">Training Type</label>
-        <div className="flex flex-wrap gap-3">
-          {TRAINING_TYPES.map((type) => (
-            <label key={type} className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm cursor-pointer transition-colors ${trainingTypes.includes(type) ? "bg-blue-100 border-blue-400 text-blue-800" : "border-gray-300 hover:bg-gray-50"}`}>
-              <input type="checkbox" checked={trainingTypes.includes(type)} onChange={() => setTrainingTypes((prev) => toggleArrayItem(prev, type))} className="sr-only" />
-              <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${trainingTypes.includes(type) ? "bg-blue-500 border-blue-500 text-white" : "border-gray-400"}`}>{trainingTypes.includes(type) ? "✓" : ""}</span>
-              {type}
-            </label>
-          ))}
-        </div>
-        {trainingTypes.includes("Other") && (
-          <input
-            type="text"
-            value={otherTrainingTypeDetail}
-            onChange={(e) => setOtherTrainingTypeDetail(e.target.value)}
-            placeholder="Specify other training type…"
-            className="border border-gray-300 rounded px-3 py-2 w-full mt-2 text-sm"
-            autoFocus
+        <div className="mt-4 border-t border-cream-200 pt-4">
+          <label className="label-base">Key Points / Topics Covered</label>
+          <textarea
+            value={keyPoints}
+            onChange={(e) => setKeyPoints(e.target.value)}
+            rows={3}
+            className="input-base resize-y"
+            placeholder="Enter key training topics covered…"
           />
-        )}
-      </div>
-
-      {/* Language & Effectiveness */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Training Language</label>
-          <div className="flex gap-3">
-            {LANGUAGES.map((lang) => (
-              <label key={lang} className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm cursor-pointer ${language.includes(lang) ? "bg-blue-100 border-blue-400" : "border-gray-300"}`}>
-                <input type="checkbox" checked={language.includes(lang)} onChange={() => setLanguage((prev) => toggleArrayItem(prev, lang))} className="sr-only" />
-                <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${language.includes(lang) ? "bg-blue-500 border-blue-500 text-white" : "border-gray-400"}`}>{language.includes(lang) ? "✓" : ""}</span>
-                {lang}
-              </label>
-            ))}
-          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Effectiveness will be conducted after</label>
-          <div className="flex gap-3">
-            {["15", "30"].map((d) => (
-              <label key={d} className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm cursor-pointer ${effectivenessDays === d ? "bg-blue-100 border-blue-400" : "border-gray-300"}`}>
-                <input type="radio" name="effDays" checked={effectivenessDays === d} onChange={() => setEffectivenessDays(d as "15" | "30")} className="sr-only" />
-                <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${effectivenessDays === d ? "bg-blue-500 border-blue-500" : "border-gray-400"}`}>{effectivenessDays === d ? <span className="w-2 h-2 bg-white rounded-full"></span> : ""}</span>
-                {d} days
-              </label>
-            ))}
-          </div>
+      </Section>
+
+      {/* Attendees */}
+      <Section
+        title="Attendees, Evaluation & Effectiveness"
+        hint={`${filledAttendees} of ${rows.length} rows filled · scores auto-calculate the average and status`}
+        bodyClassName="p-0"
+      >
+        {/* Desktop: full record grid */}
+        <div className="hidden overflow-x-auto lg:block">
+          <table className="w-full min-w-[1180px] text-xs">
+            <thead className="bg-cream-100/70">
+              <tr>
+                <Th className="w-10" rowSpan={2}>Sr.</Th>
+                <Th className="min-w-[150px] text-left" rowSpan={2}>Name</Th>
+                <Th className="min-w-[120px] text-left" rowSpan={2}>Designation *</Th>
+                <Th className="min-w-[110px] text-left" rowSpan={2}>Signature</Th>
+                <Th className="border-l border-cream-300 text-center" colSpan={3}>Evaluation</Th>
+                <Th className="border-l border-cream-300 text-center" colSpan={3}>Effectiveness</Th>
+                <Th className="min-w-[80px] border-l border-cream-300" rowSpan={2}>Avg %</Th>
+                <Th className="min-w-[100px]" rowSpan={2}>Status</Th>
+                <Th className="w-10" rowSpan={2} />
+              </tr>
+              <tr>
+                <Th className="border-l border-cream-300 text-[10px] min-w-[110px]">Method</Th>
+                <Th className="text-[10px] min-w-[70px]">Score</Th>
+                <Th className="text-[10px] min-w-[90px]">Result</Th>
+                <Th className="border-l border-cream-300 text-[10px] min-w-[110px]">Method</Th>
+                <Th className="text-[10px] min-w-[70px]">Score</Th>
+                <Th className="text-[10px] min-w-[110px]">Result</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={row.id} className="transition-colors hover:bg-cream-100/60">
+                  <Td className="text-center text-[11px] font-semibold text-ink-400">{idx + 1}</Td>
+                  <Td>
+                    <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} className={cellInput} placeholder="Name" />
+                  </Td>
+                  <Td>
+                    <input
+                      type="text"
+                      value={row.designation}
+                      onChange={(e) => updateRow(row.id, "designation", e.target.value)}
+                      className={`${cellInput} ${rowErrors.includes(row.id) ? "ring-2 ring-danger-400" : ""}`}
+                      placeholder="Designation"
+                    />
+                  </Td>
+                  <Td>
+                    <input type="text" value={row.signature} onChange={(e) => updateRow(row.id, "signature", e.target.value)} className={cellInput} placeholder="Sign" />
+                  </Td>
+                  <Td className="border-l border-cream-200">
+                    <select value={row.evaluationMethod[0] || ""} onChange={(e) => updateRow(row.id, "evaluationMethod", e.target.value ? [e.target.value] : [])} className={cellInput}>
+                      <option value="">Select</option>
+                      {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </Td>
+                  <Td>
+                    <input type="number" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className={cellInput} placeholder="%" min="0" max="100" />
+                  </Td>
+                  <Td>
+                    <select value={row.evaluationResult} onChange={(e) => updateRow(row.id, "evaluationResult", e.target.value)} className={cellInput}>
+                      <option value="">—</option>
+                      <option value="Pass">Pass</option>
+                      <option value="Fail">Fail</option>
+                    </select>
+                  </Td>
+                  <Td className="border-l border-cream-200">
+                    <select value={row.effectivenessMethod[0] || ""} onChange={(e) => updateRow(row.id, "effectivenessMethod", e.target.value ? [e.target.value] : [])} className={cellInput}>
+                      <option value="">Select</option>
+                      {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </Td>
+                  <Td>
+                    <input type="number" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className={cellInput} placeholder="%" min="0" max="100" />
+                  </Td>
+                  <Td>
+                    <select value={row.effectivenessResult} onChange={(e) => updateRow(row.id, "effectivenessResult", e.target.value)} className={cellInput}>
+                      <option value="">—</option>
+                      <option value="Effective">Effective</option>
+                      <option value="Non-Effective">Non-Effective</option>
+                    </select>
+                  </Td>
+                  <Td className="border-l border-cream-200 text-center">
+                    {row.averageScoring ? (
+                      <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring}%</Pill>
+                    ) : (
+                      <span className="text-ink-300">—</span>
+                    )}
+                  </Td>
+                  <Td className="text-center">
+                    {row.trainingStatus ? (
+                      <Pill tone={statusTone(row.trainingStatus)}>{row.trainingStatus}</Pill>
+                    ) : (
+                      <span className="text-ink-300">—</span>
+                    )}
+                  </Td>
+                  <Td className="text-center">
+                    <RemoveRowButton onClick={() => removeRow(row.id)} label={`Remove attendee ${idx + 1}`} />
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
 
-      {/* Key Points */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Key Points/Topic Covered</label>
-        <textarea value={keyPoints} onChange={(e) => setKeyPoints(e.target.value)} rows={3} className="border border-gray-300 rounded px-3 py-2 w-full" placeholder="Enter key training topics covered..." />
-      </div>
+        {/* Mobile / tablet: one card per attendee */}
+        <div className="space-y-3 p-4 lg:hidden">
+          {rows.map((row, idx) => (
+            <RowCard
+              key={row.id}
+              index={idx + 1}
+              label="Attendee"
+              onRemove={() => removeRow(row.id)}
+              badge={row.trainingStatus ? <Pill tone={statusTone(row.trainingStatus)}>{row.trainingStatus}</Pill> : undefined}
+            >
+              <CardField label="Name">
+                <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} className="input-base" placeholder="Attendee name" />
+              </CardField>
+              <div className="grid grid-cols-2 gap-3">
+                <CardField label="Designation">
+                  <input
+                    type="text"
+                    value={row.designation}
+                    onChange={(e) => updateRow(row.id, "designation", e.target.value)}
+                    className={`input-base ${rowErrors.includes(row.id) ? "ring-2 ring-danger-400" : ""}`}
+                    placeholder="Role"
+                  />
+                </CardField>
+                <CardField label="Signature">
+                  <input type="text" value={row.signature} onChange={(e) => updateRow(row.id, "signature", e.target.value)} className="input-base" placeholder="Sign" />
+                </CardField>
+              </div>
 
-      {/* Attendee Table */}
-      <div className="overflow-x-auto border border-gray-300 rounded mb-4">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-gray-300 px-1 py-2 w-10" rowSpan={2}>Sr.</th>
-              <th className="border border-gray-300 px-1 py-2 min-w-[130px]" rowSpan={2}>Name</th>
-              <th className="border border-gray-300 px-1 py-2 min-w-[100px]" rowSpan={2}>Designation</th>
-              <th className="border border-gray-300 px-1 py-2" rowSpan={2}>Signature</th>
-              <th className="border border-gray-300 px-1 py-1 text-center" colSpan={3}>Evaluation</th>
-              <th className="border border-gray-300 px-1 py-1 text-center" colSpan={3}>Effectiveness</th>
-              <th className="border border-gray-300 px-1 py-2 min-w-[70px]" rowSpan={2}>Avg Score (%)</th>
-              <th className="border border-gray-300 px-1 py-2 min-w-[90px]" rowSpan={2}>Training Status</th>
-              <th className="border border-gray-300 px-1 py-2 w-8" rowSpan={2}></th>
-            </tr>
-            <tr>
-              <th className="border border-gray-300 px-1 py-1 text-[10px]">Method</th>
-              <th className="border border-gray-300 px-1 py-1 text-[10px]">Score (Dated)</th>
-              <th className="border border-gray-300 px-1 py-1 text-[10px]">Result</th>
-              <th className="border border-gray-300 px-1 py-1 text-[10px]">Method</th>
-              <th className="border border-gray-300 px-1 py-1 text-[10px]">Score (Dated)</th>
-              <th className="border border-gray-300 px-1 py-1 text-[10px]">Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-1 py-1 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} className="w-full border rounded px-1 py-0.5" placeholder="Name" />
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" value={row.designation} onChange={(e) => updateRow(row.id, "designation", e.target.value)} className="w-full border rounded px-1 py-0.5" placeholder="Designation" />
-                </td>
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="text" value={row.signature} onChange={(e) => updateRow(row.id, "signature", e.target.value)} className="w-full border rounded px-1 py-0.5" />
-                </td>
-                {/* Evaluation Method */}
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.evaluationMethod[0] || ""} onChange={(e) => updateRow(row.id, "evaluationMethod", e.target.value ? [e.target.value] : [])} className="w-full border rounded px-0.5 py-0.5 text-[10px]">
-                    <option value="">Select</option>
-                    {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </td>
-                {/* Evaluation Score */}
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="number" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className="w-full border rounded px-0.5 py-0.5" placeholder="%" min="0" max="100" />
-                </td>
-                {/* Evaluation Result */}
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.evaluationResult} onChange={(e) => updateRow(row.id, "evaluationResult", e.target.value)} className={`w-full border rounded px-0.5 py-0.5 text-[10px] ${row.evaluationResult === "Pass" ? "bg-green-100" : row.evaluationResult === "Fail" ? "bg-red-100" : ""}`}>
-                    <option value="">-</option>
+              <div className="rounded-xl border border-cream-300 bg-cream-100/50 p-3">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-brand-500">Evaluation</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <CardField label="Method">
+                    <select value={row.evaluationMethod[0] || ""} onChange={(e) => updateRow(row.id, "evaluationMethod", e.target.value ? [e.target.value] : [])} className="input-base">
+                      <option value="">Select</option>
+                      {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </CardField>
+                  <CardField label="Score (%)">
+                    <input type="number" inputMode="numeric" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className="input-base" placeholder="%" min="0" max="100" />
+                  </CardField>
+                </div>
+                <CardField label="Result" className="mt-3">
+                  <select value={row.evaluationResult} onChange={(e) => updateRow(row.id, "evaluationResult", e.target.value)} className="input-base">
+                    <option value="">—</option>
                     <option value="Pass">Pass</option>
                     <option value="Fail">Fail</option>
                   </select>
-                </td>
-                {/* Effectiveness Method */}
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.effectivenessMethod[0] || ""} onChange={(e) => updateRow(row.id, "effectivenessMethod", e.target.value ? [e.target.value] : [])} className="w-full border rounded px-0.5 py-0.5 text-[10px]">
-                    <option value="">Select</option>
-                    {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </td>
-                {/* Effectiveness Score */}
-                <td className="border border-gray-300 px-1 py-1">
-                  <input type="number" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className="w-full border rounded px-0.5 py-0.5" placeholder="%" min="0" max="100" />
-                </td>
-                {/* Effectiveness Result */}
-                <td className="border border-gray-300 px-1 py-1">
-                  <select value={row.effectivenessResult} onChange={(e) => updateRow(row.id, "effectivenessResult", e.target.value)} className={`w-full border rounded px-0.5 py-0.5 text-[10px] ${row.effectivenessResult === "Effective" ? "bg-green-100" : row.effectivenessResult === "Non-Effective" ? "bg-red-100" : ""}`}>
-                    <option value="">-</option>
+                </CardField>
+              </div>
+
+              <div className="rounded-xl border border-cream-300 bg-cream-100/50 p-3">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-brand-500">Effectiveness</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <CardField label="Method">
+                    <select value={row.effectivenessMethod[0] || ""} onChange={(e) => updateRow(row.id, "effectivenessMethod", e.target.value ? [e.target.value] : [])} className="input-base">
+                      <option value="">Select</option>
+                      {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </CardField>
+                  <CardField label="Score (%)">
+                    <input type="number" inputMode="numeric" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className="input-base" placeholder="%" min="0" max="100" />
+                  </CardField>
+                </div>
+                <CardField label="Result" className="mt-3">
+                  <select value={row.effectivenessResult} onChange={(e) => updateRow(row.id, "effectivenessResult", e.target.value)} className="input-base">
+                    <option value="">—</option>
                     <option value="Effective">Effective</option>
                     <option value="Non-Effective">Non-Effective</option>
                   </select>
-                </td>
-                {/* Average */}
-                <td className={`border border-gray-300 px-1 py-1 text-center font-bold ${parseFloat(row.averageScoring) >= 80 ? "bg-green-100 text-green-800" : parseFloat(row.averageScoring) >= 60 ? "bg-yellow-100 text-yellow-800" : row.averageScoring ? "bg-red-100 text-red-800" : ""}`}>
-                  {row.averageScoring ? `${row.averageScoring}%` : ""}
-                </td>
-                {/* Training Status */}
-                <td className={`border border-gray-300 px-1 py-1 text-center text-[10px] font-semibold ${row.trainingStatus === "Effective" ? "bg-green-100 text-green-800" : row.trainingStatus === "Refresher" ? "bg-yellow-100 text-yellow-800" : row.trainingStatus === "Retraining" ? "bg-red-100 text-red-800" : ""}`}>
-                  {row.trainingStatus}
-                </td>
-                <td className="border border-gray-300 px-1 py-1 text-center">
-                  <button onClick={() => removeRow(row.id)} className="text-red-500 hover:text-red-700">✕</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </CardField>
+              </div>
 
-      <button onClick={addRow} className="bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">+ Add Attendee</button>
-
-      {/* Criteria Note */}
-      <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200 text-xs">
-        <p className="font-semibold mb-1">Evaluation & Effectiveness Criteria:</p>
-        <div className="flex gap-4">
-          <span className="text-green-700">≥80% : Effective</span>
-          <span className="text-yellow-700">60–79% : Partially Effective (Refresher required)</span>
-          <span className="text-red-700">&lt;60% : Not Effective (Retraining mandatory)</span>
-        </div>
-      </div>
-
-      {/* Corrective Actions */}
-      <div className="mt-4">
-        <label className="block text-sm font-medium mb-2">Corrective Actions Taken</label>
-        <div className="flex gap-3">
-          {["Refresher", "Re-training", "Closer Supervision"].map((action) => (
-            <label key={action} className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm cursor-pointer ${correctiveActions.includes(action) ? "bg-orange-100 border-orange-400" : "border-gray-300"}`}>
-              <input type="checkbox" checked={correctiveActions.includes(action)} onChange={() => setCorrectiveActions((prev) => toggleArrayItem(prev, action))} className="sr-only" />
-              <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${correctiveActions.includes(action) ? "bg-orange-500 border-orange-500 text-white" : "border-gray-400"}`}>{correctiveActions.includes(action) ? "✓" : ""}</span>
-              {action}
-            </label>
+              <div className="flex items-center justify-between rounded-xl bg-cream-100 px-3 py-2">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">Average score</span>
+                {row.averageScoring ? (
+                  <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring}%</Pill>
+                ) : (
+                  <span className="text-xs text-ink-300">Not calculated</span>
+                )}
+              </div>
+            </RowCard>
           ))}
         </div>
-      </div>
 
-      {/* Signatures */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-        <div><label className="text-sm font-medium">Trainer</label><input type="text" value={trainerSign} onChange={(e) => setTrainerSign(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="text-sm font-medium">FSTL</label><input type="text" value={fstlSign} onChange={(e) => setFstlSign(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="text-sm font-medium">Effectiveness Evaluated by</label><input type="text" value={effectivenessEvaluatedBy} onChange={(e) => setEffectivenessEvaluatedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-        <div><label className="text-sm font-medium">Dated</label><input type="date" value={effectivenessDate} onChange={(e) => setEffectivenessDate(e.target.value)} className="border rounded px-3 py-2 w-full" /></div>
-      </div>
+        <div className="border-t border-cream-200 px-4 py-3 sm:px-5">
+          <AddRowButton label="Add Attendee" onClick={addRow} />
+        </div>
+      </Section>
 
-      <p className="mt-3 text-xs text-gray-500 italic">Acknowledgement by TRAINEE that he/she has received, understood, and will comply with the instructions given in training.</p>
-      <div className="mt-2 text-xs text-gray-500">Prepared by: HR | Approved by: FSTL</div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
+      <CriteriaLegend />
+
+      {/* Corrective actions + signatures */}
+      <Section title="Corrective Actions & Sign-off">
+        <label className="label-base">Corrective Actions Taken</label>
+        <div className="flex flex-wrap gap-2">
+          {["Refresher", "Re-training", "Closer Supervision"].map((action) => (
+            <OptionChip
+              key={action}
+              tone="warning"
+              label={action}
+              checked={correctiveActions.includes(action)}
+              onToggle={() => setCorrectiveActions((prev) => toggleArrayItem(prev, action))}
+            />
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 border-t border-cream-200 pt-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Field label="Trainer">
+            <input type="text" value={trainerSign} onChange={(e) => setTrainerSign(e.target.value)} className="input-base" />
+          </Field>
+          <Field label="FSTL">
+            <input type="text" value={fstlSign} onChange={(e) => setFstlSign(e.target.value)} className="input-base" />
+          </Field>
+          <Field label="Effectiveness Evaluated by">
+            <input type="text" value={effectivenessEvaluatedBy} onChange={(e) => setEffectivenessEvaluatedBy(e.target.value)} className="input-base" />
+          </Field>
+          <Field label="Dated">
+            <input type="date" value={effectivenessDate} onChange={(e) => setEffectivenessDate(e.target.value)} className="input-base" />
+          </Field>
+        </div>
+
+        <p className="mt-4 rounded-xl bg-cream-100/60 px-3 py-2.5 text-[11px] italic leading-relaxed text-ink-400">
+          Acknowledgement by TRAINEE that he/she has received, understood, and will comply with the
+          instructions given in training.
+        </p>
+      </Section>
+
+      {formError && (
+        <p className="rounded-xl border border-danger-200 bg-danger-50 px-3 py-2.5 text-xs font-semibold text-danger-700">
+          {formError}
+        </p>
+      )}
+
+      <SubmitBar submitting={submitting} isEdit={isEdit} success={success} onSubmit={handleSubmit} />
     </div>
   );
 }

@@ -468,8 +468,8 @@ export function WeighingScaleCalibrationForm({ initialData, onSubmit, isEdit }: 
                         type="text"
                         value={row.correctiveAction}
                         onChange={(e) => updateRow(row.id, "correctiveAction", e.target.value)}
-                        disabled={excluded || status !== "deviation"}
-                        placeholder={status === "deviation" ? "Action taken…" : "—"}
+                        disabled={excluded}
+                        placeholder={status === "deviation" ? "Action taken…" : "No"}
                         className="input-base !py-1 !px-2 text-xs disabled:bg-cream-200/60 disabled:text-ink-300"
                       />
                     </td>

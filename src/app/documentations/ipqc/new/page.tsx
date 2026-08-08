@@ -7,7 +7,8 @@ import { ipqc } from "@/lib/api";
 import { getSession } from "@/lib/auth";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { Session, IPQCRecord } from "@/types";
-import { CheckCircle2, Copy, Loader2 } from "lucide-react";
+import { Copy, Loader2 } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 function NewIPQCContent() {
   const router = useRouter();
@@ -15,7 +16,6 @@ function NewIPQCContent() {
   const cloneFrom = searchParams.get("from");
 
   const [loading, setLoading] = useState(false);
-  const [created, setCreated] = useState<string | null>(null);
   const [cloneData, setCloneData] = useState<IPQCRecord | null>(null);
   // Block the form from mounting until the source record is loaded — IPQCForm
   // reads initialData only on mount, so it must be ready first.
@@ -69,43 +69,19 @@ function NewIPQCContent() {
         ...data,
         checked_by: data.checked_by || user?.displayName,
       });
-      setCreated(res.ipqc_no);
+      // The record number is assigned server-side, and this toast is now the
+      // only place it surfaces — it replaces the interstitial success screen.
+      toast.success(`IPQC record ${res.ipqc_no} created`);
+      // replace, not push: Back should return to wherever the user came from,
+      // never to a form they have already submitted.
+      router.replace("/documentations/ipqc");
+      // `loading` is deliberately left true. The save button stays disabled for
+      // the moment it takes to route away, so a double-tap cannot create a
+      // second record.
     } catch (err: any) {
-      alert(err.message);
-    } finally {
+      toast.error(err.message || "Could not create the record");
       setLoading(false);
     }
-  }
-
-  if (created) {
-    return (
-      <div className="min-h-[100dvh] bg-cream-100">
-        <Navbar showBack backHref="/documentations/ipqc" title="New Entry" />
-        <div className="flex flex-col items-center justify-center min-h-[70dvh] px-6 text-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-success-100 flex items-center justify-center">
-            <CheckCircle2 className="w-8 h-8 text-success-600" />
-          </div>
-          <div>
-            <p className="text-lg font-bold text-sage-800 mb-1">Record Created</p>
-            <p className="text-sm text-sage-500">{created}</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs mt-2">
-            <button
-              onClick={() => router.push(`/documentations/ipqc/view?id=${created}`)}
-              className="flex-1 bg-sage-500 hover:bg-sage-600 text-white py-3 rounded-xl text-sm font-semibold transition-colors"
-            >
-              View Record
-            </button>
-            <button
-              onClick={() => router.push("/documentations/ipqc")}
-              className="flex-1 border border-tan-200 bg-white text-sage-700 py-3 rounded-xl text-sm font-semibold hover:bg-beige-50 transition-colors"
-            >
-              Back to List
-            </button>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (

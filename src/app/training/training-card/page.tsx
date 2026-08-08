@@ -1,7 +1,13 @@
 'use client'
 import DocListPage from '@/components/documentations/DocListPage'
+import TrainingCardExpandedPanel from '@/components/training/TrainingCardExpandedPanel'
 import { DOC_FORMS } from '@/config/doc-forms'
 
 export default function Page() {
-  return <DocListPage config={DOC_FORMS['training-card']} />
+  return (
+    <DocListPage
+      config={DOC_FORMS['training-card']}
+      renderExpanded={(record) => <TrainingCardExpandedPanel record={record} />}
+    />
+  )
 }

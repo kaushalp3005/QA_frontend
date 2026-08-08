@@ -13,9 +13,11 @@ interface Props {
     onSubmit?: (data: Record<string, any>) => Promise<void>
     isEdit?: boolean
   }>
+  /** Where to land after a successful update. Defaults to the record's view page. */
+  redirectAfterUpdate?: string
 }
 
-export default function DocEditWrapper({ config, FormComponent }: Props) {
+export default function DocEditWrapper({ config, FormComponent, redirectAfterUpdate }: Props) {
   const router = useRouter()
   const base = config.basePath ?? '/documentations'
   const params = useParams()
@@ -40,7 +42,7 @@ export default function DocEditWrapper({ config, FormComponent }: Props) {
 
   const handleSubmit = async (data: Record<string, any>) => {
     await docsApi.update(config.formType, id, data)
-    router.push(`${base}/${config.routeSlug}/${id}`)
+    router.push(redirectAfterUpdate ?? `${base}/${config.routeSlug}/${id}`)
   }
 
   if (loading) {

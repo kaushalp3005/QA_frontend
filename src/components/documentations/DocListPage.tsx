@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, Copy, Search, X } from 'lucide-react'
+import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, Copy, Search, X, ChevronRight, Loader2 } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { docsApi, isDocAdminFor } from '@/lib/api/documentations'
@@ -10,9 +10,16 @@ import { PRINTABLE_SLUGS, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/confi
 
 interface Props {
   config: DocFormConfig
+  /**
+   * Opt in to click-to-expand rows. When supplied, each row gets a disclosure
+   * chevron and clicking it reveals this panel underneath. The list endpoint
+   * only returns the summary columns, so the full record is fetched on first
+   * expand and cached for the rest of the visit.
+   */
+  renderExpanded?: (record: Record<string, any>) => ReactNode
 }
 
-export default function DocListPage({ config }: Props) {
+export default function DocListPage({ config, renderExpanded }: Props) {
   const router = useRouter()
   const base = config.basePath ?? '/documentations'
   const [records, setRecords] = useState<Record<string, any>[]>([])
@@ -29,8 +36,45 @@ export default function DocListPage({ config }: Props) {
   const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
   const showDuplicate = DUPLICATABLE_SLUGS.has(config.routeSlug)
 
+  const expandable = typeof renderExpanded === 'function'
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [details, setDetails] = useState<Record<number, Record<string, any>>>({})
+  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null)
+  const [detailErrors, setDetailErrors] = useState<Record<number, string>>({})
+
+  // Column count of the summary table, so the detail row can span it.
+  const bodyColSpan = (expandable ? 1 : 0) + 1 + config.listColumns.length + 1
+
+  const loadDetail = async (id: number) => {
+    setDetailLoadingId(id)
+    setDetailErrors((prev) => {
+      const { [id]: _drop, ...rest } = prev
+      return rest
+    })
+    try {
+      const res = await docsApi.get(config.formType, id)
+      setDetails((prev) => ({ ...prev, [id]: res.data }))
+    } catch (e: any) {
+      setDetailErrors((prev) => ({ ...prev, [id]: e?.message || 'Could not load details' }))
+    } finally {
+      setDetailLoadingId((cur) => (cur === id ? null : cur))
+    }
+  }
+
+  const toggleExpand = (id: number) => {
+    if (expandedId === id) {
+      setExpandedId(null)
+      return
+    }
+    setExpandedId(id)
+    if (!details[id]) loadDetail(id)
+  }
+
   const fetchRecords = async () => {
     setLoading(true)
+    setExpandedId(null)
+    setDetails({})
+    setDetailErrors({})
     try {
       const wh = getStoredWarehouse()
       setWarehouse(wh)
@@ -198,6 +242,7 @@ export default function DocListPage({ config }: Props) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-cream-300 bg-cream-100/70">
+                    {expandable && <th className="w-9 px-2 py-3" aria-label="Expand" />}
                     <th className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">#</th>
                     {config.listColumns.map((col) => (
                       <th key={col} className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">
@@ -208,13 +253,37 @@ export default function DocListPage({ config }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cream-300">
-                  {filtered.map((rec, i) => (
-                    <tr key={rec.id} className="hover:bg-cream-100/60 transition-colors">
+                  {filtered.map((rec, i) => {
+                    const isOpen = expandable && expandedId === rec.id
+                    return (
+                    <Fragment key={rec.id}>
+                    <tr
+                      onClick={expandable ? () => toggleExpand(rec.id) : undefined}
+                      className={`transition-colors ${
+                        isOpen ? 'bg-cream-100/80' : 'hover:bg-cream-100/60'
+                      } ${expandable ? 'cursor-pointer' : ''}`}
+                    >
+                      {expandable && (
+                        <td className="px-2 py-3">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleExpand(rec.id) }}
+                            className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-brand-500 hover:bg-cream-200/70 transition-colors"
+                            aria-expanded={isOpen}
+                            aria-label={isOpen ? 'Collapse details' : 'Expand details'}
+                            title={isOpen ? 'Hide attendees' : 'Show attendees'}
+                          >
+                            <ChevronRight
+                              className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
+                            />
+                          </button>
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-ink-400 font-medium">{(page - 1) * 50 + i + 1}</td>
                       {config.listColumns.map((col) => (
                         <td key={col} className="px-4 py-3 text-ink-600">{formatValue(rec[col])}</td>
                       ))}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => router.push(`${base}/${config.routeSlug}/${rec.id}`)}
@@ -265,7 +334,34 @@ export default function DocListPage({ config }: Props) {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    {isOpen && (
+                      <tr className="bg-cream-100/40">
+                        <td colSpan={bodyColSpan} className="p-0 border-t border-cream-300">
+                          {detailLoadingId === rec.id ? (
+                            <div className="flex items-center gap-2 px-4 py-4 text-xs text-ink-400">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              Loading details…
+                            </div>
+                          ) : detailErrors[rec.id] ? (
+                            <div className="flex items-center gap-3 px-4 py-4 text-xs text-danger-600">
+                              <span>{detailErrors[rec.id]}</span>
+                              <button
+                                type="button"
+                                onClick={() => loadDetail(rec.id)}
+                                className="font-semibold underline hover:text-danger-700"
+                              >
+                                Retry
+                              </button>
+                            </div>
+                          ) : details[rec.id] ? (
+                            renderExpanded!(details[rec.id])
+                          ) : null}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

@@ -27,9 +27,19 @@ const isSignatureKey = (k: string) =>
 
 interface Props {
   config: DocFormConfig
+  /**
+   * Render a JSONB/array field yourself instead of as the generic table.
+   * Return null to fall back to the default. Mirrors DocListPage's
+   * `renderExpanded`, so a form-specific panel serves both pages.
+   */
+  renderJsonField?: (
+    key: string,
+    value: any,
+    record: Record<string, any>
+  ) => React.ReactNode | null
 }
 
-export default function DocViewPage({ config }: Props) {
+export default function DocViewPage({ config, renderJsonField }: Props) {
   const router = useRouter()
   const base = config.basePath ?? '/documentations'
   const params = useParams()
@@ -213,12 +223,15 @@ export default function DocViewPage({ config }: Props) {
         </div>
 
         {/* JSONB / array fields */}
-        {jsonFields.map(([key, val]) => (
-          <div key={key} className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-2 uppercase">{key.replace(/_/g, ' ')}</h2>
-            {renderValue(key, val)}
-          </div>
-        ))}
+        {jsonFields.map(([key, val]) => {
+          const custom = renderJsonField?.(key, val, record) ?? null
+          return (
+            <div key={key} className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-sm font-semibold text-gray-700 mb-2 uppercase">{key.replace(/_/g, ' ')}</h2>
+              {custom ?? renderValue(key, val)}
+            </div>
+          )
+        })}
       </div>
     </DashboardLayout>
   )

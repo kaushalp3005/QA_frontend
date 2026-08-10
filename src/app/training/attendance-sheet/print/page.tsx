@@ -232,7 +232,7 @@ export default function TrainingAttendanceSheetPrintPage() {
                 <th style={{ ...th, width: "80px" }}>Effectiveness method</th>
                 <th style={{ ...th, width: "82px" }}>Effectiveness Scoring Dated:</th>
                 <th style={{ ...th, width: "78px" }}>Results Effective/Non-Effective</th>
-                <th style={{ ...th, width: "84px" }}>Average Scoring (%) (Evaluation &amp; Effectiveness)</th>
+                <th style={{ ...th, width: "84px" }}>Average Scoring (out of 5) (Evaluation &amp; Effectiveness)</th>
                 <th style={{ ...th, width: "84px" }}>Training Status Effective/Refresher/Retraining</th>
               </tr>
             </thead>
@@ -245,17 +245,17 @@ export default function TrainingAttendanceSheetPrintPage() {
                   <td style={tdLeft}>{show(a.signature)}</td>
                   <td style={td}>{list(a.evaluation_method).join(", ")}</td>
                   <td style={td}>
-                    {show(a.evaluation_scoring) && <div>{show(a.evaluation_scoring)}%</div>}
+                    {show(a.evaluation_scoring) && <div>{show(a.evaluation_scoring)} / 5</div>}
                     {a.evaluation_date && <div style={dateNote}>{fmtDate(a.evaluation_date)}</div>}
                   </td>
                   <td style={td}>{show(a.evaluation_result)}</td>
                   <td style={td}>{list(a.effectiveness_method).join(", ")}</td>
                   <td style={td}>
-                    {show(a.effectiveness_scoring) && <div>{show(a.effectiveness_scoring)}%</div>}
+                    {show(a.effectiveness_scoring) && <div>{show(a.effectiveness_scoring)} / 5</div>}
                     {a.effectiveness_date && <div style={dateNote}>{fmtDate(a.effectiveness_date)}</div>}
                   </td>
                   <td style={td}>{show(a.effectiveness_result)}</td>
-                  <td style={td}>{show(a.average_scoring) && `${show(a.average_scoring)}%`}</td>
+                  <td style={td}>{show(a.average_scoring) && `${show(a.average_scoring)} / 5`}</td>
                   <td style={td}>{show(a.training_status)}</td>
                 </tr>
               ))}
@@ -277,7 +277,7 @@ export default function TrainingAttendanceSheetPrintPage() {
               <tr>
                 <td colSpan={2} style={{ ...tdLeft, fontWeight: "bold" }}>Evaluation &amp; Effectiveness Criteria</td>
                 <td colSpan={5} style={{ ...tdLeft, fontSize: "9px" }}>
-                  ≥80% : Effective, 60–79% : Partially Effective (Refresher required), &lt;60% : Not Effective (Retraining mandatory)
+                  ≥4 : Effective, 3–3.9 : Partially Effective (Refresher required), &lt;3 : Not Effective (Retraining mandatory). Scores are out of 5; a score passes above 3.
                 </td>
                 <td colSpan={2} style={{ ...tdLeft, fontWeight: "bold" }}>Corrective Actions Taken</td>
                 <td colSpan={3} style={tdLeft}>

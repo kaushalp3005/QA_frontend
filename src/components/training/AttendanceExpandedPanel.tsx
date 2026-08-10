@@ -39,7 +39,7 @@ const Cell = ({ value }: { value: unknown }) => {
   return <>{s ? s : <Dash />}</>;
 };
 
-const Score = ({ value, suffix = "%" }: { value: unknown; suffix?: string }) => {
+const Score = ({ value, suffix = " / 5" }: { value: unknown; suffix?: string }) => {
   const s = text(value);
   if (!s) return <Dash />;
   return <Pill tone={scoreTone(s)}>{s}{suffix}</Pill>;

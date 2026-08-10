@@ -2,15 +2,27 @@
 import { useState } from "react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import {
+  DRAFT_KEYS,
+  clearDraft,
+  draftTime,
+  readDraft,
+  useDraftAutosave,
+} from "@/components/training/useFormDraft";
+import {
   AddRowButton,
   CardField,
   CriteriaLegend,
   DocHeader,
+  DraftBanner,
   Field,
   OptionChip,
   Pill,
   RemoveRowButton,
   RowCard,
+  SCORE_EFFECTIVE,
+  SCORE_MAX,
+  SCORE_PASS,
+  SCORE_REFRESHER,
   Section,
   SubmitBar,
   Td,
@@ -43,10 +55,14 @@ interface TrainingFormProps {
 }
 
 export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: TrainingFormProps = {}) {
+  // Partial save applies to a blank create form only.
+  const draftEnabled = !initialData && !isEdit;
+  const [draft] = useState(() => (draftEnabled ? readDraft(DRAFT_KEYS.workers) : null));
+  const seed = initialData ?? draft ?? undefined;
   const [rows, setRows] = useState<WorkerRow[]>(() => {
     // DB column is `workers`, not `rows`.
-    if (initialData?.workers && Array.isArray(initialData.workers)) {
-      return initialData.workers.map((r: any, i: number) => ({
+    if (seed?.workers && Array.isArray(seed.workers)) {
+      return seed.workers.map((r: any, i: number) => ({
         id: i + 1,
         name: r.name || "",
         evaluationMethod: r.evaluation_method || "",
@@ -70,23 +86,24 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
     setRows((prev) => prev.map((r) => {
       if (r.id !== id) return r;
       const updated = { ...r, [field]: value };
+      // Scores are out of 5: each result passes strictly above 3, and the
+      // average of the two drives the status band.
       const evalScore = parseFloat(updated.evaluationScoring) || 0;
       const effScore = parseFloat(updated.effectivenessScoring) || 0;
       if (evalScore > 0 && effScore > 0) {
         const avg = (evalScore + effScore) / 2;
         updated.averageScoring = avg.toFixed(1);
-        updated.trainingStatus = avg >= 80 ? "Effective" : avg >= 60 ? "Refresher" : "Retraining";
+        updated.trainingStatus =
+          avg >= SCORE_EFFECTIVE ? "Effective" : avg >= SCORE_REFRESHER ? "Refresher" : "Retraining";
       }
-      if (evalScore > 0) updated.evaluationResult = evalScore >= 60 ? "Pass" : "Fail";
-      if (effScore > 0) updated.effectivenessResult = effScore >= 60 ? "Effective" : "Non-Effective";
+      if (evalScore > 0) updated.evaluationResult = evalScore > SCORE_PASS ? "Pass" : "Fail";
+      if (effScore > 0) updated.effectivenessResult = effScore > SCORE_PASS ? "Effective" : "Non-Effective";
       return updated;
     }));
   };
 
-  const handleSubmitWorkers = async () => {
-    setSubmitting(true);
-    setSuccess(false);
-    const payload: Record<string, any> = {
+  /** The record as it stands — shared by submit and the partial save. */
+  const buildPayload = (): Record<string, any> => ({
       warehouse: getStoredWarehouse(),
       workers: rows.filter((r) => r.name).map((r) => ({
         name: r.name,
@@ -99,7 +116,14 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
         average_scoring: r.averageScoring ? Number(r.averageScoring) : null,
         training_status: r.trainingStatus,
       })),
-    };
+  });
+
+  useDraftAutosave(DRAFT_KEYS.workers, buildPayload(), draftEnabled);
+
+  const handleSubmitWorkers = async () => {
+    setSubmitting(true);
+    setSuccess(false);
+    const payload = buildPayload();
     try {
       if (onSubmit) {
         await onSubmit(payload);
@@ -108,6 +132,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
         await docsApi.create("training-attendance-workers", payload);
         setSuccess(true);
       }
+      clearDraft(DRAFT_KEYS.workers);
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -125,6 +150,16 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
         meta="Issue 03 · Rev 02 · 01/11/2025"
       />
 
+      {draft && (
+        <DraftBanner
+          savedAt={draftTime(draft._savedAt)}
+          onDiscard={() => {
+            clearDraft(DRAFT_KEYS.workers);
+            window.location.reload();
+          }}
+        />
+      )}
+
       <Section
         title="Workers"
         hint={`${filled} of ${rows.length} rows filled · results and status calculate from the scores`}
@@ -138,12 +173,12 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
                 <Th className="w-10">Sr.</Th>
                 <Th className="min-w-[170px] text-left">Name</Th>
                 <Th className="min-w-[120px]">Eval. Method</Th>
-                <Th className="min-w-[80px]">Eval. Score</Th>
+                <Th className="min-w-[80px]">Eval. Score /5</Th>
                 <Th className="min-w-[90px]">Result</Th>
                 <Th className="min-w-[120px] border-l border-cream-300">Effect. Method</Th>
-                <Th className="min-w-[80px]">Effect. Score</Th>
+                <Th className="min-w-[80px]">Effect. Score /5</Th>
                 <Th className="min-w-[120px]">Result</Th>
-                <Th className="min-w-[80px] border-l border-cream-300">Avg %</Th>
+                <Th className="min-w-[80px] border-l border-cream-300">Avg /5</Th>
                 <Th className="min-w-[100px]">Status</Th>
                 <Th className="w-10" />
               </tr>
@@ -162,7 +197,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
                     </select>
                   </Td>
                   <Td>
-                    <input type="number" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className={cellInput} placeholder="%" min="0" max="100" />
+                    <input type="number" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className={cellInput} placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </Td>
                   <Td className="text-center">
                     {row.evaluationResult ? <Pill tone={resultTone(row.evaluationResult)}>{row.evaluationResult}</Pill> : <span className="text-ink-300">—</span>}
@@ -174,13 +209,13 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
                     </select>
                   </Td>
                   <Td>
-                    <input type="number" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className={cellInput} placeholder="%" min="0" max="100" />
+                    <input type="number" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className={cellInput} placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </Td>
                   <Td className="text-center">
                     {row.effectivenessResult ? <Pill tone={resultTone(row.effectivenessResult)}>{row.effectivenessResult}</Pill> : <span className="text-ink-300">—</span>}
                   </Td>
                   <Td className="border-l border-cream-200 text-center">
-                    {row.averageScoring ? <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring}%</Pill> : <span className="text-ink-300">—</span>}
+                    {row.averageScoring ? <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring} / {SCORE_MAX}</Pill> : <span className="text-ink-300">—</span>}
                   </Td>
                   <Td className="text-center">
                     {row.trainingStatus ? <Pill tone={statusTone(row.trainingStatus)}>{row.trainingStatus}</Pill> : <span className="text-ink-300">—</span>}
@@ -220,8 +255,8 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
                       {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </CardField>
-                  <CardField label="Score (%)">
-                    <input type="number" inputMode="numeric" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className="input-base" placeholder="%" min="0" max="100" />
+                  <CardField label="Score (out of 5)">
+                    <input type="number" inputMode="decimal" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className="input-base" placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </CardField>
                 </div>
               </div>
@@ -238,8 +273,8 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
                       {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </CardField>
-                  <CardField label="Score (%)">
-                    <input type="number" inputMode="numeric" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className="input-base" placeholder="%" min="0" max="100" />
+                  <CardField label="Score (out of 5)">
+                    <input type="number" inputMode="decimal" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className="input-base" placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </CardField>
                 </div>
               </div>
@@ -247,7 +282,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
               <div className="flex items-center justify-between rounded-xl bg-cream-100 px-3 py-2">
                 <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">Average score</span>
                 {row.averageScoring ? (
-                  <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring}%</Pill>
+                  <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring} / {SCORE_MAX}</Pill>
                 ) : (
                   <span className="text-xs text-ink-300">Not calculated</span>
                 )}
@@ -272,10 +307,14 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
 interface RefRow { id: number; content: string; }
 
 export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: TrainingFormProps = {}) {
-  const [referenceMaterial, setReferenceMaterial] = useState(initialData?.reference_material || "");
+  // Partial save applies to a blank create form only.
+  const draftEnabled = !initialData && !isEdit;
+  const [draft] = useState(() => (draftEnabled ? readDraft(DRAFT_KEYS.reference) : null));
+  const seed = initialData ?? draft ?? undefined;
+  const [referenceMaterial, setReferenceMaterial] = useState(seed?.reference_material || "");
   const [rows, setRows] = useState<RefRow[]>(() => {
-    if (initialData?.rows && Array.isArray(initialData.rows)) {
-      return initialData.rows.map((r: any, i: number) => ({ id: i + 1, content: r.content || "" }));
+    if (seed?.rows && Array.isArray(seed.rows)) {
+      return seed.rows.map((r: any, i: number) => ({ id: i + 1, content: r.content || "" }));
     }
     return Array.from({ length: 10 }, (_, i) => ({ id: i + 1, content: "" }));
   });
@@ -284,14 +323,19 @@ export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: Traini
   const addRow = () => setRows((prev) => [...prev, { id: prev.length + 1, content: "" }]);
   const removeRow = (id: number) => { if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id)); };
 
+  /** The record as it stands — shared by submit and the partial save. */
+  const buildPayload = (): Record<string, any> => ({
+    warehouse: getStoredWarehouse(),
+    reference_material: referenceMaterial,
+    rows: rows.filter((r) => r.content).map((r) => ({ content: r.content })),
+  });
+
+  useDraftAutosave(DRAFT_KEYS.reference, buildPayload(), draftEnabled);
+
   const handleSubmitRef = async () => {
     setSubmitting(true);
     setSuccess(false);
-    const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse(),
-      reference_material: referenceMaterial,
-      rows: rows.filter((r) => r.content).map((r) => ({ content: r.content })),
-    };
+    const payload = buildPayload();
     try {
       if (onSubmit) {
         await onSubmit(payload);
@@ -300,6 +344,7 @@ export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: Traini
         await docsApi.create("training-reference-sheet", payload);
         setSuccess(true);
       }
+      clearDraft(DRAFT_KEYS.reference);
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -314,6 +359,16 @@ export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: Traini
         docNo="CFPLA.C7.F.03i"
         meta="Issue 03 · Rev 02 · 01/11/2025"
       />
+
+      {draft && (
+        <DraftBanner
+          savedAt={draftTime(draft._savedAt)}
+          onDiscard={() => {
+            clearDraft(DRAFT_KEYS.reference);
+            window.location.reload();
+          }}
+        />
+      )}
 
       <Section title="Reference Material">
         <textarea
@@ -425,12 +480,16 @@ function RatingScale({ value, onSelect }: { value: number; onSelect: (star: numb
 }
 
 export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: TrainingFormProps = {}) {
-  const [participantName, setParticipantName] = useState(initialData?.participant_name || "");
-  const [date, setDate] = useState(initialData?.feedback_date || "");
-  const [trainingProgram, setTrainingProgram] = useState(initialData?.training_program || "");
+  // Partial save applies to a blank create form only.
+  const draftEnabled = !initialData && !isEdit;
+  const [draft] = useState(() => (draftEnabled ? readDraft(DRAFT_KEYS.feedback) : null));
+  const seed = initialData ?? draft ?? undefined;
+  const [participantName, setParticipantName] = useState(seed?.participant_name || "");
+  const [date, setDate] = useState(seed?.feedback_date || "");
+  const [trainingProgram, setTrainingProgram] = useState(seed?.training_program || "");
   // "Others" is stored as "Others: <detail>" directly in mode_of_training (a
   // plain varchar column) so the specifics survive without a dedicated column.
-  const initialMode: string = initialData?.mode_of_training || "";
+  const initialMode: string = seed?.mode_of_training || "";
   const [modeOfTraining, setModeOfTraining] = useState<"Internal" | "External" | "Others" | "">(
     initialMode.startsWith("Others") ? "Others" : (initialMode as "Internal" | "External" | "")
   );
@@ -438,31 +497,36 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
     initialMode.startsWith("Others:") ? initialMode.slice("Others:".length).trim() : ""
   );
   const [ratings, setRatings] = useState<Record<number, { rating: number; comments: string }>>(() => {
-    if (initialData?.ratings && Array.isArray(initialData.ratings)) {
-      return Object.fromEntries(initialData.ratings.map((r: any, i: number) => [i, { rating: r.rating || 0, comments: r.comments || "" }]));
+    if (seed?.ratings && Array.isArray(seed.ratings)) {
+      return Object.fromEntries(seed.ratings.map((r: any, i: number) => [i, { rating: r.rating || 0, comments: r.comments || "" }]));
     }
     return Object.fromEntries(FEEDBACK_PARAMS.map((_, i) => [i, { rating: 0, comments: "" }]));
   });
-  const [improvements, setImprovements] = useState(initialData?.improvement_suggestions || "");
-  const [majorLearning, setMajorLearning] = useState(initialData?.major_learnings || "");
-  const [signature, setSignature] = useState(initialData?.signature || "");
+  const [improvements, setImprovements] = useState(seed?.improvement_suggestions || "");
+  const [majorLearning, setMajorLearning] = useState(seed?.major_learnings || "");
+  const [signature, setSignature] = useState(seed?.signature || "");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  /** The record as it stands — shared by submit and the partial save. */
+  const buildPayload = (): Record<string, any> => ({
+    warehouse: getStoredWarehouse(),
+    participant_name: participantName,
+    feedback_date: date,
+    training_program: trainingProgram,
+    mode_of_training: modeOfTraining === "Others" && otherModeDetail.trim() ? `Others: ${otherModeDetail.trim()}` : modeOfTraining,
+    ratings: FEEDBACK_PARAMS.map((_, i) => ({ rating: ratings[i]?.rating || 0, comments: ratings[i]?.comments || "" })),
+    improvement_suggestions: improvements,
+    major_learnings: majorLearning,
+    signature,
+  });
+
+  useDraftAutosave(DRAFT_KEYS.feedback, buildPayload(), draftEnabled);
 
   const handleSubmitFeedback = async () => {
     setSubmitting(true);
     setSuccess(false);
-    const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse(),
-      participant_name: participantName,
-      feedback_date: date,
-      training_program: trainingProgram,
-      mode_of_training: modeOfTraining === "Others" && otherModeDetail.trim() ? `Others: ${otherModeDetail.trim()}` : modeOfTraining,
-      ratings: FEEDBACK_PARAMS.map((_, i) => ({ rating: ratings[i]?.rating || 0, comments: ratings[i]?.comments || "" })),
-      improvement_suggestions: improvements,
-      major_learnings: majorLearning,
-      signature,
-    };
+    const payload = buildPayload();
     try {
       if (onSubmit) {
         await onSubmit(payload);
@@ -471,6 +535,7 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
         await docsApi.create("training-feedback", payload);
         setSuccess(true);
       }
+      clearDraft(DRAFT_KEYS.feedback);
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -488,6 +553,16 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
         docNo="CFPLA.C7.F.03j"
         meta="Issue 03 · Rev 02 · 01/11/2025"
       />
+
+      {draft && (
+        <DraftBanner
+          savedAt={draftTime(draft._savedAt)}
+          onDiscard={() => {
+            clearDraft(DRAFT_KEYS.feedback);
+            window.location.reload();
+          }}
+        />
+      )}
 
       <Section title="Participant Details">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

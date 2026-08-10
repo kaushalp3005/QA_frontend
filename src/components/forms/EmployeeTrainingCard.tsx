@@ -4,9 +4,17 @@ import Link from "next/link";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { trainingApi, type AttendanceLookupResult } from "@/lib/api/training";
 import {
+  DRAFT_KEYS,
+  clearDraft,
+  draftTime,
+  readDraft,
+  useDraftAutosave,
+} from "@/components/training/useFormDraft";
+import {
   AddRowButton,
   CardField,
   DocHeader,
+  DraftBanner,
   Field,
   Pill,
   RemoveRowButton,
@@ -34,16 +42,20 @@ interface TrainingCardRow {
 const emptyCardRow = (id: number): TrainingCardRow => ({ id, date: "", totalHours: "", topicsCovered: "", trainer: "", acknowledgement: "", sourceAttendanceId: null });
 
 export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: TrainingFormProps = {}) {
-  const [employeeName, setEmployeeName] = useState(initialData?.employee_name || "");
-  const [designation, setDesignation] = useState(initialData?.designation || "");
-  const [trainingNeeds, setTrainingNeeds] = useState(initialData?.training_needs_identified || "");
+  // Partial save applies to a blank create form only.
+  const draftEnabled = !initialData && !isEdit;
+  const [draft] = useState(() => (draftEnabled ? readDraft(DRAFT_KEYS.card) : null));
+  const seed = initialData ?? draft ?? undefined;
+  const [employeeName, setEmployeeName] = useState(seed?.employee_name || "");
+  const [designation, setDesignation] = useState(seed?.designation || "");
+  const [trainingNeeds, setTrainingNeeds] = useState(seed?.training_needs_identified || "");
   const [rows, setRows] = useState<TrainingCardRow[]>(() => {
-    if (initialData?.rows && Array.isArray(initialData.rows)) {
+    if (seed?.rows && Array.isArray(seed.rows)) {
       // Rows seeded before this form existed use different key names for three
       // fields (`topics`, `acknowledgment`, `total_training_hours`). Read both
       // spellings: parsing an old row as blank and then saving would wipe a real
       // training record.
-      return initialData.rows.map((r: any, i: number) => ({
+      return seed.rows.map((r: any, i: number) => ({
         id: i + 1,
         date: r.date || "",
         totalHours: (r.total_hours ?? r.total_training_hours)?.toString() || "",
@@ -90,7 +102,7 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
     const sheetId = Number(raw);
     if (!raw || !Number.isFinite(sheetId) || sheetId <= 0) return;
 
-    const name: string = (initialData?.employee_name || "").trim();
+    const name: string = (seed?.employee_name || "").trim();
     if (!name) {
       setImportNotice({
         tone: "error",
@@ -101,7 +113,7 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
 
     // What the card already holds at mount is the whole truth here: this runs
     // once, before the user can have imported anything by hand.
-    const already = (Array.isArray(initialData?.rows) ? initialData.rows : []).some(
+    const already = (Array.isArray(seed?.rows) ? seed.rows : []).some(
       (r: any) => r?.source_attendance_id === sheetId
     );
     if (already) {
@@ -216,6 +228,25 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
     setPicked([]);
   };
 
+  /** The record as it stands — shared by submit and the partial save. */
+  const buildPayload = (): Record<string, any> => ({
+    warehouse: getStoredWarehouse(),
+    employee_name: employeeName,
+    designation,
+    training_needs_identified: trainingNeeds,
+    rows: rows.filter((r) => r.date || r.topicsCovered).map((r) => ({
+      date: r.date,
+      total_hours: r.totalHours ? Number(r.totalHours) : null,
+      topics_covered: r.topicsCovered,
+      trainer: r.trainer,
+      acknowledgement: r.acknowledgement,
+      // Backend mirrors these into doc_training_card_sources (real FKs).
+      source_attendance_id: r.sourceAttendanceId,
+    })),
+  });
+
+  useDraftAutosave(DRAFT_KEYS.card, buildPayload(), draftEnabled);
+
   const handleSubmitCard = async () => {
     // Designation is what tells two same-named employees apart when the
     // attendance sheet resolves an attendee to this card, so it is required.
@@ -234,21 +265,7 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
     setFormError(null);
     setSubmitting(true);
     setSuccess(false);
-    const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse(),
-      employee_name: employeeName,
-      designation,
-      training_needs_identified: trainingNeeds,
-      rows: rows.filter((r) => r.date || r.topicsCovered).map((r) => ({
-        date: r.date,
-        total_hours: r.totalHours ? Number(r.totalHours) : null,
-        topics_covered: r.topicsCovered,
-        trainer: r.trainer,
-        acknowledgement: r.acknowledgement,
-        // Backend mirrors these into doc_training_card_sources (real FKs).
-        source_attendance_id: r.sourceAttendanceId,
-      })),
-    };
+    const payload = buildPayload();
     try {
       if (onSubmit) {
         await onSubmit(payload);
@@ -257,6 +274,7 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
         await docsApi.create("training-card", payload);
         setSuccess(true);
       }
+      clearDraft(DRAFT_KEYS.card);
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -273,6 +291,16 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
         docNo="CFPLA.C7.F.03k"
         meta="Issue 03 · Rev 02 · 01/11/2025"
       />
+
+      {draft && (
+        <DraftBanner
+          savedAt={draftTime(draft._savedAt)}
+          onDiscard={() => {
+            clearDraft(DRAFT_KEYS.card);
+            window.location.reload();
+          }}
+        />
+      )}
 
       {importNotice && (
         <p

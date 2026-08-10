@@ -2,15 +2,27 @@
 import { useState } from "react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import {
+  DRAFT_KEYS,
+  clearDraft,
+  draftTime,
+  readDraft,
+  useDraftAutosave,
+} from "@/components/training/useFormDraft";
+import {
   AddRowButton,
   CardField,
   CriteriaLegend,
   DocHeader,
+  DraftBanner,
   Field,
   OptionChip,
   Pill,
   RemoveRowButton,
   RowCard,
+  SCORE_EFFECTIVE,
+  SCORE_MAX,
+  SCORE_PASS,
+  SCORE_REFRESHER,
   Section,
   SubmitBar,
   Td,
@@ -55,38 +67,45 @@ interface TrainingAttendanceSheetProps {
 }
 
 export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit }: TrainingAttendanceSheetProps = {}) {
-  const [trainingDate, setTrainingDate] = useState(initialData?.training_date || "");
+  // Partial save applies to a blank create form only — never shadow a record
+  // being edited or duplicated with a stale draft of something else.
+  const draftEnabled = !initialData && !isEdit;
+  const [draft] = useState(() => (draftEnabled ? readDraft(DRAFT_KEYS.attendance) : null));
+  /** Where fields hydrate from: the real record if there is one, else the draft. */
+  const seed = initialData ?? draft ?? undefined;
+
+  const [trainingDate, setTrainingDate] = useState(seed?.training_date || "");
   // DB column is `training_type` (singular) — an array of strings. An "Other"
   // entry is stored as "Other: <detail>" so the specifics survive without a
   // dedicated column; unpack that back into the checkbox + detail text below.
   const [trainingTypes, setTrainingTypes] = useState<string[]>(() => {
-    const raw: string[] = Array.isArray(initialData?.training_type) ? initialData.training_type : [];
+    const raw: string[] = Array.isArray(seed?.training_type) ? seed!.training_type : [];
     return raw.map((t) => (t.startsWith("Other") ? "Other" : t));
   });
   const [otherTrainingTypeDetail, setOtherTrainingTypeDetail] = useState<string>(() => {
-    const raw: string[] = Array.isArray(initialData?.training_type) ? initialData.training_type : [];
+    const raw: string[] = Array.isArray(seed?.training_type) ? seed!.training_type : [];
     const otherEntry = raw.find((t) => t.startsWith("Other:"));
     return otherEntry ? otherEntry.slice("Other:".length).trim() : "";
   });
-  const [startTime, setStartTime] = useState(initialData?.time_start || "");
-  const [endTime, setEndTime] = useState(initialData?.time_end || "");
-  const [conductedBy, setConductedBy] = useState(initialData?.conducted_by || "");
-  const [trainerQualification, setTrainerQualification] = useState(initialData?.trainer_qualification || "");
-  const [venue, setVenue] = useState(initialData?.venue || "");
-  const [keyPoints, setKeyPoints] = useState(initialData?.key_points_covered || "");
-  const [department, setDepartment] = useState(initialData?.department || "");
-  const [language, setLanguage] = useState<string[]>(initialData?.training_language || []);
+  const [startTime, setStartTime] = useState(seed?.time_start || "");
+  const [endTime, setEndTime] = useState(seed?.time_end || "");
+  const [conductedBy, setConductedBy] = useState(seed?.conducted_by || "");
+  const [trainerQualification, setTrainerQualification] = useState(seed?.trainer_qualification || "");
+  const [venue, setVenue] = useState(seed?.venue || "");
+  const [keyPoints, setKeyPoints] = useState(seed?.key_points_covered || "");
+  const [department, setDepartment] = useState(seed?.department || "");
+  const [language, setLanguage] = useState<string[]>(seed?.training_language || []);
   const [effectivenessDays, setEffectivenessDays] = useState<"15" | "30" | "">(
-    initialData?.effectiveness_after_days != null ? (String(initialData.effectiveness_after_days) as "15" | "30") : ""
+    seed?.effectiveness_after_days != null ? (String(seed.effectiveness_after_days) as "15" | "30") : ""
   );
-  const [trainerSign, setTrainerSign] = useState(initialData?.trainer_signature || "");
-  const [fstlSign, setFstlSign] = useState(initialData?.fstl_signature || "");
-  const [effectivenessEvaluatedBy, setEffectivenessEvaluatedBy] = useState(initialData?.effectiveness_evaluated_by || "");
-  const [effectivenessDate, setEffectivenessDate] = useState(initialData?.dated || "");
-  const [correctiveActions, setCorrectiveActions] = useState<string[]>(initialData?.corrective_actions || []);
+  const [trainerSign, setTrainerSign] = useState(seed?.trainer_signature || "");
+  const [fstlSign, setFstlSign] = useState(seed?.fstl_signature || "");
+  const [effectivenessEvaluatedBy, setEffectivenessEvaluatedBy] = useState(seed?.effectiveness_evaluated_by || "");
+  const [effectivenessDate, setEffectivenessDate] = useState(seed?.dated || "");
+  const [correctiveActions, setCorrectiveActions] = useState<string[]>(seed?.corrective_actions || []);
   const [rows, setRows] = useState<AttendeeRow[]>(() => {
-    if (initialData?.attendees && Array.isArray(initialData.attendees)) {
-      return initialData.attendees.map((r: any, i: number) => ({
+    if (seed?.attendees && Array.isArray(seed.attendees)) {
+      return seed.attendees.map((r: any, i: number) => ({
         id: i + 1,
         name: r.name || "",
         designation: r.designation || "",
@@ -121,22 +140,71 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
       if (field === "designation" && String(value).trim()) {
         setRowErrors((errs) => errs.filter((errId) => errId !== id));
       }
-      // Auto-calculate average and status
+      // Scores are out of 5: each result passes strictly above 3, and the
+      // average of the two drives the status band.
       const evalScore = parseFloat(updated.evaluationScoring) || 0;
       const effScore = parseFloat(updated.effectivenessScoring) || 0;
       if (evalScore > 0 && effScore > 0) {
-        const avg = ((evalScore + effScore) / 2);
+        const avg = (evalScore + effScore) / 2;
         updated.averageScoring = avg.toFixed(1);
-        updated.trainingStatus = avg >= 80 ? "Effective" : avg >= 60 ? "Refresher" : "Retraining";
-      } else if (evalScore > 0) {
-        updated.evaluationResult = evalScore >= 60 ? "Pass" : "Fail";
+        updated.trainingStatus =
+          avg >= SCORE_EFFECTIVE ? "Effective" : avg >= SCORE_REFRESHER ? "Refresher" : "Retraining";
       }
+      // Each result follows its own score. Previously the evaluation result
+      // stopped updating as soon as an effectiveness score was entered, and the
+      // effectiveness result was never set at all.
+      if (evalScore > 0) updated.evaluationResult = evalScore > SCORE_PASS ? "Pass" : "Fail";
+      if (effScore > 0) updated.effectivenessResult = effScore > SCORE_PASS ? "Effective" : "Non-Effective";
       return updated;
     }));
   };
 
   const toggleArrayItem = (arr: string[], item: string) =>
     arr.includes(item) ? arr.filter((i) => i !== item) : [...arr, item];
+
+  /**
+   * The record as this form currently stands. Used both for submit and for the
+   * partial save, so a restored draft always reads back exactly as it was left.
+   */
+  const buildPayload = (): Record<string, any> => ({
+    warehouse: getStoredWarehouse(),
+    training_date: trainingDate,
+    training_type: trainingTypes.map((t) =>
+      t === "Other" && otherTrainingTypeDetail.trim() ? `Other: ${otherTrainingTypeDetail.trim()}` : t
+    ),
+    time_start: startTime,
+    time_end: endTime,
+    conducted_by: conductedBy,
+    trainer_qualification: trainerQualification,
+    venue,
+    key_points_covered: keyPoints,
+    department,
+    training_language: language,
+    effectiveness_after_days: effectivenessDays ? Number(effectivenessDays) : null,
+    trainer_signature: trainerSign,
+    fstl_signature: fstlSign,
+    effectiveness_evaluated_by: effectivenessEvaluatedBy,
+    dated: effectivenessDate,
+    corrective_actions: correctiveActions,
+    attendees: rows.filter((r) => r.name).map((r) => ({
+      name: r.name,
+      designation: r.designation,
+      signature: r.signature,
+      evaluation_method: r.evaluationMethod,
+      evaluation_scoring: r.evaluationScoring ? Number(r.evaluationScoring) : null,
+      evaluation_date: r.evaluationDate,
+      evaluation_result: r.evaluationResult,
+      effectiveness_method: r.effectivenessMethod,
+      effectiveness_scoring: r.effectivenessScoring ? Number(r.effectivenessScoring) : null,
+      effectiveness_date: r.effectivenessDate,
+      effectiveness_result: r.effectivenessResult,
+      average_scoring: r.averageScoring ? Number(r.averageScoring) : null,
+      training_status: r.trainingStatus,
+    })),
+  });
+
+  // Partial save: mirror the in-progress form to localStorage as it is typed.
+  useDraftAutosave(DRAFT_KEYS.attendance, buildPayload(), draftEnabled);
 
   const handleSubmit = async () => {
     // Designation is how the Employee Training Card tells two same-named people
@@ -155,42 +223,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
     setFormError(null);
     setSubmitting(true);
     setSuccess(false);
-    const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse(),
-      training_date: trainingDate,
-      training_type: trainingTypes.map((t) =>
-        t === "Other" && otherTrainingTypeDetail.trim() ? `Other: ${otherTrainingTypeDetail.trim()}` : t
-      ),
-      time_start: startTime,
-      time_end: endTime,
-      conducted_by: conductedBy,
-      trainer_qualification: trainerQualification,
-      venue,
-      key_points_covered: keyPoints,
-      department,
-      training_language: language,
-      effectiveness_after_days: effectivenessDays ? Number(effectivenessDays) : null,
-      trainer_signature: trainerSign,
-      fstl_signature: fstlSign,
-      effectiveness_evaluated_by: effectivenessEvaluatedBy,
-      dated: effectivenessDate,
-      corrective_actions: correctiveActions,
-      attendees: rows.filter((r) => r.name).map((r) => ({
-        name: r.name,
-        designation: r.designation,
-        signature: r.signature,
-        evaluation_method: r.evaluationMethod,
-        evaluation_scoring: r.evaluationScoring ? Number(r.evaluationScoring) : null,
-        evaluation_date: r.evaluationDate,
-        evaluation_result: r.evaluationResult,
-        effectiveness_method: r.effectivenessMethod,
-        effectiveness_scoring: r.effectivenessScoring ? Number(r.effectivenessScoring) : null,
-        effectiveness_date: r.effectivenessDate,
-        effectiveness_result: r.effectivenessResult,
-        average_scoring: r.averageScoring ? Number(r.averageScoring) : null,
-        training_status: r.trainingStatus,
-      })),
-    };
+    const payload = buildPayload();
     try {
       if (onSubmit) {
         await onSubmit(payload);
@@ -199,6 +232,8 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
         await docsApi.create("training-attendance", payload);
         setSuccess(true);
       }
+      // Filed — the partial save has done its job.
+      clearDraft(DRAFT_KEYS.attendance);
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -215,6 +250,16 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
         docNo="CFPLA.C7.F.03"
         meta="Issue 03 · Rev 02 · 27/09/2025"
       />
+
+      {draft && (
+        <DraftBanner
+          savedAt={draftTime(draft._savedAt)}
+          onDiscard={() => {
+            clearDraft(DRAFT_KEYS.attendance);
+            window.location.reload();
+          }}
+        />
+      )}
 
       {/* Training details */}
       <Section title="Training Details">
@@ -325,16 +370,16 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                 <Th className="min-w-[110px] text-left" rowSpan={2}>Signature</Th>
                 <Th className="border-l border-cream-300 text-center" colSpan={3}>Evaluation</Th>
                 <Th className="border-l border-cream-300 text-center" colSpan={3}>Effectiveness</Th>
-                <Th className="min-w-[80px] border-l border-cream-300" rowSpan={2}>Avg %</Th>
+                <Th className="min-w-[80px] border-l border-cream-300" rowSpan={2}>Avg /5</Th>
                 <Th className="min-w-[100px]" rowSpan={2}>Status</Th>
                 <Th className="w-10" rowSpan={2} />
               </tr>
               <tr>
                 <Th className="border-l border-cream-300 text-[10px] min-w-[110px]">Method</Th>
-                <Th className="text-[10px] min-w-[70px]">Score</Th>
+                <Th className="text-[10px] min-w-[70px]">Score /5</Th>
                 <Th className="text-[10px] min-w-[90px]">Result</Th>
                 <Th className="border-l border-cream-300 text-[10px] min-w-[110px]">Method</Th>
-                <Th className="text-[10px] min-w-[70px]">Score</Th>
+                <Th className="text-[10px] min-w-[70px]">Score /5</Th>
                 <Th className="text-[10px] min-w-[110px]">Result</Th>
               </tr>
             </thead>
@@ -364,7 +409,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                     </select>
                   </Td>
                   <Td>
-                    <input type="number" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className={cellInput} placeholder="%" min="0" max="100" />
+                    <input type="number" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className={cellInput} placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </Td>
                   <Td>
                     <select value={row.evaluationResult} onChange={(e) => updateRow(row.id, "evaluationResult", e.target.value)} className={cellInput}>
@@ -380,7 +425,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                     </select>
                   </Td>
                   <Td>
-                    <input type="number" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className={cellInput} placeholder="%" min="0" max="100" />
+                    <input type="number" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className={cellInput} placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </Td>
                   <Td>
                     <select value={row.effectivenessResult} onChange={(e) => updateRow(row.id, "effectivenessResult", e.target.value)} className={cellInput}>
@@ -391,7 +436,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                   </Td>
                   <Td className="border-l border-cream-200 text-center">
                     {row.averageScoring ? (
-                      <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring}%</Pill>
+                      <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring} / {SCORE_MAX}</Pill>
                     ) : (
                       <span className="text-ink-300">—</span>
                     )}
@@ -449,8 +494,8 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                       {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </CardField>
-                  <CardField label="Score (%)">
-                    <input type="number" inputMode="numeric" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className="input-base" placeholder="%" min="0" max="100" />
+                  <CardField label="Score (out of 5)">
+                    <input type="number" inputMode="decimal" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className="input-base" placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </CardField>
                 </div>
                 <CardField label="Result" className="mt-3">
@@ -471,8 +516,8 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                       {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </CardField>
-                  <CardField label="Score (%)">
-                    <input type="number" inputMode="numeric" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className="input-base" placeholder="%" min="0" max="100" />
+                  <CardField label="Score (out of 5)">
+                    <input type="number" inputMode="decimal" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className="input-base" placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </CardField>
                 </div>
                 <CardField label="Result" className="mt-3">
@@ -487,7 +532,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
               <div className="flex items-center justify-between rounded-xl bg-cream-100 px-3 py-2">
                 <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">Average score</span>
                 {row.averageScoring ? (
-                  <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring}%</Pill>
+                  <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring} / {SCORE_MAX}</Pill>
                 ) : (
                   <span className="text-xs text-ink-300">Not calculated</span>
                 )}

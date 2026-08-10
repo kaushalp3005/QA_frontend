@@ -152,14 +152,50 @@ export function OptionChip({
   );
 }
 
+/**
+ * Shown when a form restored a partial save, with the way to throw it away.
+ * `onDiscard` is expected to reload the route so every field resets at once.
+ */
+export function DraftBanner({ savedAt, onDiscard }: { savedAt: string; onDiscard: () => void }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-ink-600">
+        <span className="font-semibold">Unsaved draft restored</span>
+        {savedAt && <span className="text-ink-400"> · saved {savedAt}</span>}
+        <span className="text-ink-400"> · nothing is filed until you submit</span>
+      </span>
+      <button
+        type="button"
+        onClick={onDiscard}
+        className="shrink-0 rounded-lg border border-cream-300 bg-white px-2.5 py-1 font-semibold text-ink-500 transition-colors hover:border-danger-300 hover:text-danger-700"
+      >
+        Discard draft
+      </button>
+    </div>
+  );
+}
+
 /* ── Score / status pills ───────────────────────────────────────────── */
 
-/** Colour band shared by every score in these forms: ≥80 / 60–79 / <60. */
+/**
+ * Training scores are marked out of 5 across the whole module.
+ *
+ * A single score passes above 3 (so 3 itself fails). The average of the
+ * evaluation and effectiveness scores drives the status band below.
+ */
+export const SCORE_MAX = 5;
+/** A single evaluation/effectiveness score passes strictly above this. */
+export const SCORE_PASS = 3;
+/** Average at or above this is Effective; at or above SCORE_REFRESHER, Refresher. */
+export const SCORE_EFFECTIVE = 4;
+export const SCORE_REFRESHER = 3;
+
+/** Colour band shared by every score in these forms: ≥4 / 3–3.9 / <3. */
 export function scoreTone(value: string | number | null | undefined) {
   const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));
   if (!Number.isFinite(n) || !String(value ?? "").length) return "none" as const;
-  if (n >= 80) return "good" as const;
-  if (n >= 60) return "warn" as const;
+  if (n >= SCORE_EFFECTIVE) return "good" as const;
+  if (n >= SCORE_REFRESHER) return "warn" as const;
   return "bad" as const;
 }
 
@@ -375,14 +411,15 @@ export function SubmitBar({
   );
 }
 
-/** Legend explaining the ≥80 / 60–79 / <60 bands. */
+/** Legend explaining the ≥4 / 3–3.9 / <3 bands on the 0–5 scale. */
 export function CriteriaLegend() {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-cream-300 bg-cream-100/60 px-3 py-2.5 text-[11px]">
-      <span className="font-bold text-ink-500">Criteria:</span>
-      <Pill tone="good">≥80% Effective</Pill>
-      <Pill tone="warn">60–79% Refresher</Pill>
-      <Pill tone="bad">&lt;60% Retraining</Pill>
+      <span className="font-bold text-ink-500">Criteria (out of 5):</span>
+      <Pill tone="good">≥4 Effective</Pill>
+      <Pill tone="warn">3–3.9 Refresher</Pill>
+      <Pill tone="bad">&lt;3 Retraining</Pill>
+      <span className="text-ink-400">· a score passes above 3</span>
     </div>
   );
 }

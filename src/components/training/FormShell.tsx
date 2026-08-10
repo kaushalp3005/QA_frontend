@@ -1,8 +1,9 @@
 "use client";
 
 import { ReactNode } from "react";
-import { CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { cn } from "@/lib/styles";
+import { draftTime, type DraftState } from "@/components/training/useFormDraft";
 
 /**
  * Shared building blocks for the CFPLA.C7.F.03 training forms.
@@ -190,12 +191,35 @@ export const SCORE_PASS = 3;
 export const SCORE_EFFECTIVE = 4;
 export const SCORE_REFRESHER = 3;
 
+/**
+ * The average of the two scores is carried as a percentage of SCORE_MAX — the
+ * paper format's column is "Average Scoring (%)" and its criteria are written
+ * in percent, so 5/5 reads as 100%. The bands below are the /5 bands scaled.
+ */
+export const SCORE_EFFECTIVE_PCT = (SCORE_EFFECTIVE / SCORE_MAX) * 100; // 80
+export const SCORE_REFRESHER_PCT = (SCORE_REFRESHER / SCORE_MAX) * 100; // 60
+
+/** A 0–SCORE_MAX score as a percentage, trimmed of a trailing ".0". */
+export function toPercent(score: number): string {
+  const pct = (score / SCORE_MAX) * 100;
+  return Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
+}
+
 /** Colour band shared by every score in these forms: ≥4 / 3–3.9 / <3. */
 export function scoreTone(value: string | number | null | undefined) {
   const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));
   if (!Number.isFinite(n) || !String(value ?? "").length) return "none" as const;
   if (n >= SCORE_EFFECTIVE) return "good" as const;
   if (n >= SCORE_REFRESHER) return "warn" as const;
+  return "bad" as const;
+}
+
+/** Same bands as scoreTone, for values already expressed as a percentage. */
+export function percentTone(value: string | number | null | undefined) {
+  const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));
+  if (!Number.isFinite(n) || !String(value ?? "").length) return "none" as const;
+  if (n >= SCORE_EFFECTIVE_PCT) return "good" as const;
+  if (n >= SCORE_REFRESHER_PCT) return "warn" as const;
   return "bad" as const;
 }
 
@@ -379,32 +403,60 @@ export function SubmitBar({
   success,
   onSubmit,
   note,
+  draft,
 }: {
   submitting: boolean;
   isEdit?: boolean;
   success: boolean;
   onSubmit: () => void;
   note?: string;
+  /** Partial save. Omit on forms (or routes) that don't keep a draft. */
+  draft?: DraftState;
 }) {
   return (
     <div className="sticky bottom-0 z-20 -mx-3 mt-2 border-t border-cream-300 bg-cream-50/95 px-3 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:px-5 sm:shadow-card">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[11px] text-ink-400">{note ?? "Prepared by: HR · Approved by: FSTL"}</p>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          {draft && (
+            <span className="text-[11px] text-ink-400">
+              {draft.savedAt
+                ? `Draft saved on this device · ${draftTime(draft.savedAt)}`
+                : "Nothing saved yet"}
+            </span>
+          )}
           {success && (
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success-700">
               <CheckCircle2 className="h-4 w-4" /> Saved
             </span>
           )}
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={submitting}
-            className="btn-primary w-full sm:w-auto"
-          >
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {submitting ? "Submitting…" : isEdit ? "Update Record" : "Submit Record"}
-          </button>
+          <div className="flex items-center gap-2">
+            {draft && (
+              <button
+                type="button"
+                onClick={draft.saveNow}
+                disabled={submitting || !draft.dirty}
+                className="btn-outline shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                title={
+                  draft.dirty
+                    ? "Keep what you have filled in so far on this device — it is not filed until you submit"
+                    : "Nothing filled in yet"
+                }
+              >
+                <Save className="mr-1.5 h-4 w-4" />
+                Save draft
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={submitting}
+              className="btn-primary w-full sm:w-auto"
+            >
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting ? "Submitting…" : isEdit ? "Update Record" : "Submit Record"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -415,11 +467,11 @@ export function SubmitBar({
 export function CriteriaLegend() {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-cream-300 bg-cream-100/60 px-3 py-2.5 text-[11px]">
-      <span className="font-bold text-ink-500">Criteria (out of 5):</span>
-      <Pill tone="good">≥4 Effective</Pill>
-      <Pill tone="warn">3–3.9 Refresher</Pill>
-      <Pill tone="bad">&lt;3 Retraining</Pill>
-      <span className="text-ink-400">· a score passes above 3</span>
+      <span className="font-bold text-ink-500">Criteria (average %):</span>
+      <Pill tone="good">≥80% Effective</Pill>
+      <Pill tone="warn">60–79% Refresher</Pill>
+      <Pill tone="bad">&lt;60% Retraining</Pill>
+      <span className="text-ink-400">· scores are out of 5 (5 = 100%) and pass above 3</span>
     </div>
   );
 }

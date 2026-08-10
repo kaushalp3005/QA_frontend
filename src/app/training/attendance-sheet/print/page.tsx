@@ -37,6 +37,19 @@ function fmtDate(d?: any) {
 
 const show = (v: any) => (v === null || v === undefined || v === "" ? "" : String(v));
 
+/**
+ * `date` (yyyy-mm-dd) moved on by `days`. Local date parts, not toISOString(),
+ * which would shift the day back for timezones ahead of UTC.
+ */
+function addDays(date: any, days: any): string {
+  if (!date || !days) return "";
+  const shifted = new Date(`${String(date)}T00:00:00`);
+  if (Number.isNaN(shifted.getTime())) return "";
+  shifted.setDate(shifted.getDate() + Number(days));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${shifted.getFullYear()}-${pad(shifted.getMonth() + 1)}-${pad(shifted.getDate())}`;
+}
+
 const list = (v: any): string[] => (Array.isArray(v) ? v.filter(Boolean).map(String) : v ? [String(v)] : []);
 
 /** "( )" / "(✓)" — the paper format's tick boxes. */
@@ -93,6 +106,12 @@ export default function TrainingAttendanceSheetPrintPage() {
   const actions = list(record?.corrective_actions);
   const effDays = show(record?.effectiveness_after_days);
 
+  // The two "Dated:" columns follow the training date: evaluation on the day
+  // itself, effectiveness 15/30 days later. Records saved before those dates
+  // were derived hold blanks, so fall back to the same calculation here.
+  const evaluationDated = fmtDate(record?.training_date);
+  const effectivenessDated = fmtDate(addDays(record?.training_date, effDays));
+
   return (
     <div className="min-h-screen bg-gray-300 print:bg-white">
       <div className="print:hidden sticky top-0 z-20 bg-white shadow-md px-5 py-3 flex items-center justify-between">
@@ -133,16 +152,25 @@ export default function TrainingAttendanceSheetPrintPage() {
         >
           {/* ── Document header ── */}
           <table style={tbl}>
+            {/* Percentages, not pixels: a fixed layout whose columns add up to
+                more than the sheet pushes the last ones past the border. */}
+            <colgroup>
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "26%" }} />
+              <col style={{ width: "26%" }} />
+              <col style={{ width: "18%" }} />
+              <col style={{ width: "18%" }} />
+            </colgroup>
             <tbody>
               <tr>
-                <td rowSpan={4} style={{ ...cell, width: "130px", textAlign: "center" }}>
-                  <img src="/candor-logo.jpg" alt="Candor Foods" style={{ width: "95px" }} />
+                <td rowSpan={4} style={{ ...cell, textAlign: "center" }}>
+                  <img src="/candor-logo.jpg" alt="Candor Foods" style={{ width: "95px", maxWidth: "100%" }} />
                 </td>
                 <td colSpan={2} rowSpan={2} style={{ ...cell, textAlign: "center", fontWeight: "bold", fontSize: "14px" }}>
                   CANDOR FOODS PRIVATE LIMITED
                 </td>
-                <td style={{ ...cell, width: "110px" }}>Issue Date:</td>
-                <td style={{ ...cell, width: "110px" }}>{DOC.issueDate}</td>
+                <td style={cell}>Issue Date:</td>
+                <td style={cell}>{DOC.issueDate}</td>
               </tr>
               <tr>
                 <td style={cell}>Issue No:</td>
@@ -169,20 +197,29 @@ export default function TrainingAttendanceSheetPrintPage() {
 
           {/* ── Training details ── */}
           <table style={tbl}>
+            <colgroup>
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "30%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "12.5%" }} />
+              <col style={{ width: "12.5%" }} />
+            </colgroup>
             <tbody>
               <tr>
-                <td style={{ ...cell, width: "130px" }}>Training Date</td>
-                <td style={{ ...cell, width: "150px" }}>{fmtDate(record.training_date)}</td>
-                <td style={{ ...cell, width: "105px" }}>Training Type</td>
+                <td style={cell}>Training Date</td>
+                <td style={cell}>{fmtDate(record.training_date)}</td>
+                <td style={cell}>Training Type</td>
                 <td style={cell}>
                   {TRAINING_TYPES.map((t) => (
                     <Box key={t} on={hasType(t)} label={t} />
                   ))}
                   {otherDetail && <span style={{ fontWeight: "bold" }}>— {otherDetail}</span>}
                 </td>
-                <td style={{ ...cell, width: "50px" }}>Time:</td>
-                <td style={{ ...cell, width: "110px" }}>Start {show(record.time_start)}</td>
-                <td style={{ ...cell, width: "110px" }}>End {show(record.time_end)}</td>
+                <td style={cell}>Time:</td>
+                <td style={cell}>Start {show(record.time_start)}</td>
+                <td style={cell}>End {show(record.time_end)}</td>
               </tr>
               <tr>
                 <td style={cell}>Training Conducted by:</td>
@@ -220,20 +257,34 @@ export default function TrainingAttendanceSheetPrintPage() {
 
           {/* ── Attendees, evaluation & effectiveness ── */}
           <table style={tbl}>
+            <colgroup>
+              <col style={{ width: "3%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "12%" }} />
+            </colgroup>
             <thead>
               <tr>
-                <th style={{ ...th, width: "34px" }}>Sr. No.</th>
-                <th style={{ ...th, width: "160px" }}>Name</th>
-                <th style={{ ...th, width: "105px" }}>Designation</th>
-                <th style={{ ...th, width: "95px" }}>Signature</th>
-                <th style={{ ...th, width: "80px" }}>Evaluation Method</th>
-                <th style={{ ...th, width: "82px" }}>Evaluation Scoring Dated:</th>
-                <th style={{ ...th, width: "66px" }}>Results Pass/Fail</th>
-                <th style={{ ...th, width: "80px" }}>Effectiveness method</th>
-                <th style={{ ...th, width: "82px" }}>Effectiveness Scoring Dated:</th>
-                <th style={{ ...th, width: "78px" }}>Results Effective/Non-Effective</th>
-                <th style={{ ...th, width: "84px" }}>Average Scoring (out of 5) (Evaluation &amp; Effectiveness)</th>
-                <th style={{ ...th, width: "84px" }}>Training Status Effective/Refresher/Retraining</th>
+                <th style={th}>Sr. No.</th>
+                <th style={th}>Name</th>
+                <th style={th}>Designation</th>
+                <th style={th}>Signature</th>
+                <th style={th}>Evaluation Method</th>
+                <th style={th}>Evaluation Scoring Dated:</th>
+                <th style={th}>Results Pass/Fail</th>
+                <th style={th}>Effectiveness method</th>
+                <th style={th}>Effectiveness Scoring Dated:</th>
+                <th style={th}>Results Effective/Non-Effective</th>
+                <th style={th}>Average Scoring (%) (Evaluation &amp; Effectiveness)</th>
+                <th style={th}>Training Status Effective/Refresher/Retraining</th>
               </tr>
             </thead>
             <tbody>
@@ -246,16 +297,21 @@ export default function TrainingAttendanceSheetPrintPage() {
                   <td style={td}>{list(a.evaluation_method).join(", ")}</td>
                   <td style={td}>
                     {show(a.evaluation_scoring) && <div>{show(a.evaluation_scoring)} / 5</div>}
-                    {a.evaluation_date && <div style={dateNote}>{fmtDate(a.evaluation_date)}</div>}
+                    {(fmtDate(a.evaluation_date) || evaluationDated) && (
+                      <div style={dateNote}>{fmtDate(a.evaluation_date) || evaluationDated}</div>
+                    )}
                   </td>
                   <td style={td}>{show(a.evaluation_result)}</td>
                   <td style={td}>{list(a.effectiveness_method).join(", ")}</td>
                   <td style={td}>
                     {show(a.effectiveness_scoring) && <div>{show(a.effectiveness_scoring)} / 5</div>}
-                    {a.effectiveness_date && <div style={dateNote}>{fmtDate(a.effectiveness_date)}</div>}
+                    {(fmtDate(a.effectiveness_date) || effectivenessDated) && (
+                      <div style={dateNote}>{fmtDate(a.effectiveness_date) || effectivenessDated}</div>
+                    )}
                   </td>
                   <td style={td}>{show(a.effectiveness_result)}</td>
-                  <td style={td}>{show(a.average_scoring) && `${show(a.average_scoring)} / 5`}</td>
+                  {/* The paper column is "Average Scoring (%)" — 5/5 reads as 100%. */}
+                  <td style={td}>{show(a.average_scoring) && `${show(a.average_scoring)}%`}</td>
                   <td style={td}>{show(a.training_status)}</td>
                 </tr>
               ))}
@@ -277,7 +333,7 @@ export default function TrainingAttendanceSheetPrintPage() {
               <tr>
                 <td colSpan={2} style={{ ...tdLeft, fontWeight: "bold" }}>Evaluation &amp; Effectiveness Criteria</td>
                 <td colSpan={5} style={{ ...tdLeft, fontSize: "9px" }}>
-                  ≥4 : Effective, 3–3.9 : Partially Effective (Refresher required), &lt;3 : Not Effective (Retraining mandatory). Scores are out of 5; a score passes above 3.
+                  ≥80% : Effective, 60–79% : Partially Effective (Refresher required), &lt;60% : Not Effective (Retraining mandatory). Scores are out of 5 (5 = 100%); a score passes above 3.
                 </td>
                 <td colSpan={2} style={{ ...tdLeft, fontWeight: "bold" }}>Corrective Actions Taken</td>
                 <td colSpan={3} style={tdLeft}>
@@ -326,6 +382,10 @@ const cell: React.CSSProperties = {
   padding: "4px 5px",
   verticalAlign: "middle",
   fontSize: "10px",
+  // Long single tokens ("Qualification/Competencies") would otherwise run out
+  // of the cell and print over the neighbouring column.
+  overflowWrap: "break-word",
+  wordBreak: "break-word",
 };
 
 const th: React.CSSProperties = {
@@ -337,6 +397,8 @@ const th: React.CSSProperties = {
   verticalAlign: "middle",
   background: "#d9d9d9",
   lineHeight: 1.15,
+  overflowWrap: "break-word",
+  wordBreak: "break-word",
 };
 
 const td: React.CSSProperties = {

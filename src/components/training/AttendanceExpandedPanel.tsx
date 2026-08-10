@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CreditCard, Loader2, Users } from "lucide-react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { trainingApi, type CardMatch } from "@/lib/api/training";
-import { Pill, resultTone, scoreTone, statusTone } from "@/components/training/FormShell";
+import { Pill, percentTone, resultTone, scoreTone, statusTone } from "@/components/training/FormShell";
 
 /**
  * The "Attendees, Evaluation & Effectiveness" grid, rendered read-only for the
@@ -43,6 +43,13 @@ const Score = ({ value, suffix = " / 5" }: { value: unknown; suffix?: string }) 
   const s = text(value);
   if (!s) return <Dash />;
   return <Pill tone={scoreTone(s)}>{s}{suffix}</Pill>;
+};
+
+/** The average of the two marks — carried as a percentage of 5, not a /5 mark. */
+const AveragePercent = ({ value }: { value: unknown }) => {
+  const s = text(value);
+  if (!s) return <Dash />;
+  return <Pill tone={percentTone(s)}>{s}%</Pill>;
 };
 
 const Result = ({ value }: { value: unknown }) => {
@@ -160,7 +167,7 @@ export default function AttendanceExpandedPanel({ record }: { record: Record<str
                 <th className={`${th} min-w-[130px]`} rowSpan={2}>Designation</th>
                 <th className={`${th} border-l border-cream-300 text-center`} colSpan={3}>Evaluation</th>
                 <th className={`${th} border-l border-cream-300 text-center`} colSpan={3}>Effectiveness</th>
-                <th className={`${th} border-l border-cream-300 text-center`} rowSpan={2}>Avg</th>
+                <th className={`${th} border-l border-cream-300 text-center`} rowSpan={2}>Avg %</th>
                 <th className={`${th} text-center`} rowSpan={2}>Status</th>
               </tr>
               <tr className="border-b border-cream-300">
@@ -203,7 +210,7 @@ export default function AttendanceExpandedPanel({ record }: { record: Record<str
                   <td className={`${td} border-l border-cream-200`}><Cell value={a.effectiveness_method} /></td>
                   <td className={`${td} text-center`}><Score value={a.effectiveness_scoring} /></td>
                   <td className={`${td} text-center`}><Result value={a.effectiveness_result} /></td>
-                  <td className={`${td} border-l border-cream-200 text-center`}><Score value={a.average_scoring} /></td>
+                  <td className={`${td} border-l border-cream-200 text-center`}><AveragePercent value={a.average_scoring} /></td>
                   <td className={`${td} text-center`}>
                     {a.training_status
                       ? <Pill tone={statusTone(String(a.training_status))}>{a.training_status}</Pill>

@@ -245,7 +245,12 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
     })),
   });
 
-  useDraftAutosave(DRAFT_KEYS.card, buildPayload(), draftEnabled);
+  const draftState = useDraftAutosave(
+    DRAFT_KEYS.card,
+    buildPayload(),
+    draftEnabled,
+    draft?._savedAt ?? null
+  );
 
   const handleSubmitCard = async () => {
     // Designation is what tells two same-named employees apart when the
@@ -274,7 +279,7 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
         await docsApi.create("training-card", payload);
         setSuccess(true);
       }
-      clearDraft(DRAFT_KEYS.card);
+      draftState.forget();
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -576,7 +581,13 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
         </p>
       )}
 
-      <SubmitBar submitting={submitting} isEdit={isEdit} success={success} onSubmit={handleSubmitCard} />
+      <SubmitBar
+        submitting={submitting}
+        isEdit={isEdit}
+        success={success}
+        onSubmit={handleSubmitCard}
+        draft={draftEnabled ? draftState : undefined}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Partial save for the long training forms.
@@ -68,16 +68,65 @@ export function clearDraft(key: string): void {
 }
 
 /**
- * Mirror `data` into localStorage whenever it changes.
+ * Store `json` (already serialised form data) under `key`.
+ *
+ * Returns the timestamp written, or null if storage refused — drafting is a
+ * convenience, so a failure must never interrupt filling in the form, but the
+ * caller needs to know so it doesn't claim a save that didn't happen.
+ */
+function writeJson(key: string, json: string): number | null {
+  const savedAt = Date.now();
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ savedAt, data: JSON.parse(json) }));
+    return savedAt;
+  } catch {
+    return null;
+  }
+}
+
+/** Save `data` as the draft for `key` right now. */
+export function writeDraft(key: string, data: unknown): number | null {
+  return writeJson(key, JSON.stringify(data));
+}
+
+/** What a form needs to show and drive its own partial save. */
+export interface DraftState {
+  /** When the draft was last written, or null when there is nothing stored. */
+  savedAt: number | null;
+  /** Whether the form holds anything worth saving. */
+  dirty: boolean;
+  /** Write the draft immediately — the "Save draft" button. */
+  saveNow: () => void;
+  /** Drop the draft and report as unsaved — after the record is actually filed. */
+  forget: () => void;
+}
+
+/**
+ * Mirror `data` into localStorage whenever it changes, and hand back the state
+ * a form needs to show the user that it did.
  *
  * The very first render is treated as the baseline and never written, so an
  * untouched form leaves no draft behind. Returning to that baseline (the user
  * cleared everything, or restored a draft and undid their edits) removes the
  * draft instead of storing an empty one.
+ *
+ * `restoredAt` is the timestamp of a draft this form was seeded from, so a
+ * restored draft reports as already saved rather than as nothing.
  */
-export function useDraftAutosave(key: string, data: unknown, enabled: boolean): void {
+export function useDraftAutosave(
+  key: string,
+  data: unknown,
+  enabled: boolean,
+  restoredAt?: number | null
+): DraftState {
   const json = JSON.stringify(data);
   const baseline = useRef<string | null>(null);
+  // The button fires outside render, so it needs the current data by ref.
+  const latest = useRef(json);
+  latest.current = json;
+
+  const [savedAt, setSavedAt] = useState<number | null>(restoredAt ?? null);
+  const [dirty, setDirty] = useState<boolean>(Boolean(restoredAt));
 
   useEffect(() => {
     if (!enabled) return;
@@ -87,18 +136,34 @@ export function useDraftAutosave(key: string, data: unknown, enabled: boolean): 
     }
     if (json === baseline.current) {
       clearDraft(key);
+      setSavedAt(null);
+      setDirty(false);
       return;
     }
-    try {
-      window.localStorage.setItem(
-        key,
-        JSON.stringify({ savedAt: Date.now(), data: JSON.parse(json) })
-      );
-    } catch {
-      // Quota exceeded or storage disabled — drafting is a convenience, so
-      // failing to save one must never interrupt filling in the form.
-    }
+    setDirty(true);
+    const at = writeJson(key, json);
+    if (at) setSavedAt(at);
   }, [key, json, enabled]);
+
+  const saveNow = useCallback(() => {
+    if (!enabled) return;
+    const at = writeJson(key, latest.current);
+    if (at) {
+      setSavedAt(at);
+      setDirty(true);
+    }
+  }, [key, enabled]);
+
+  const forget = useCallback(() => {
+    clearDraft(key);
+    setSavedAt(null);
+    setDirty(false);
+    // The filed record is the new baseline: without this, the next keystroke
+    // would compare against the pre-submit state and re-save what was just filed.
+    baseline.current = latest.current;
+  }, [key]);
+
+  return { savedAt, dirty, saveNow, forget };
 }
 
 /** "2:05 pm" — how a restored draft tells the user how old it is. */

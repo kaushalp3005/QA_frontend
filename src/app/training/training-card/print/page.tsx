@@ -132,16 +132,25 @@ export default function TrainingCardPrintPage() {
         >
           {/* ── Document header ── */}
           <table style={tbl}>
+            {/* Percentages, not pixels: a fixed layout whose columns add up to
+                more than the sheet pushes the last ones past the border. */}
+            <colgroup>
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "25.5%" }} />
+              <col style={{ width: "25.5%" }} />
+              <col style={{ width: "18%" }} />
+              <col style={{ width: "18%" }} />
+            </colgroup>
             <tbody>
               <tr>
-                <td rowSpan={4} style={{ ...cell, width: "140px", textAlign: "center" }}>
-                  <img src="/candor-logo.jpg" alt="Candor Foods" style={{ width: "100px" }} />
+                <td rowSpan={4} style={{ ...cell, textAlign: "center" }}>
+                  <img src="/candor-logo.jpg" alt="Candor Foods" style={{ width: "100px", maxWidth: "100%" }} />
                 </td>
                 <td colSpan={2} rowSpan={2} style={{ ...cell, textAlign: "center", fontWeight: "bold", fontSize: "17px" }}>
                   CANDOR FOODS PRIVATE LIMITED
                 </td>
-                <td style={{ ...cell, width: "125px" }}>Issue Date:</td>
-                <td style={{ ...cell, width: "125px", textAlign: "center" }}>{DOC.issueDate}</td>
+                <td style={cell}>Issue Date:</td>
+                <td style={{ ...cell, textAlign: "center" }}>{DOC.issueDate}</td>
               </tr>
               <tr>
                 <td style={cell}>Issue No:</td>
@@ -175,16 +184,24 @@ export default function TrainingCardPrintPage() {
 
           {/* ── Training log ── */}
           <table style={{ ...tbl, marginTop: "8px" }}>
+            <colgroup>
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "32%" }} />
+              <col style={{ width: "22%" }} />
+              <col style={{ width: "21%" }} />
+            </colgroup>
             <thead>
               <tr>
-                <th style={{ ...th, width: "60px" }}>Sr.no</th>
-                <th style={{ ...th, width: "88px" }}>DATE</th>
-                <th style={{ ...th, width: "80px" }}>Total Training Hours</th>
-                <th style={{ ...th, width: "285px" }}>
+                <th style={th}>Sr.no</th>
+                <th style={th}>DATE</th>
+                <th style={th}>Total Training Hours</th>
+                <th style={th}>
                   Brief of Training topics covered with references of the applicable GMP, SOP, SSOP, etc.
                 </th>
-                <th style={{ ...th, width: "245px" }}>Trainer</th>
-                <th style={{ ...th, width: "225px" }}>
+                <th style={th}>Trainer</th>
+                <th style={th}>
                   Acknowledgment by TRAINEE that he/she has received understood &amp; will comply the instructions given in training.
                 </th>
               </tr>
@@ -270,6 +287,10 @@ const cell: React.CSSProperties = {
   padding: "5px 7px",
   verticalAlign: "middle",
   fontSize: "11px",
+  // Long single tokens would otherwise run out of the cell and print over the
+  // neighbouring column.
+  overflowWrap: "break-word",
+  wordBreak: "break-word",
 };
 
 const th: React.CSSProperties = {
@@ -281,6 +302,8 @@ const th: React.CSSProperties = {
   verticalAlign: "middle",
   background: "#d9d9d9",
   lineHeight: 1.2,
+  overflowWrap: "break-word",
+  wordBreak: "break-word",
 };
 
 const td: React.CSSProperties = {

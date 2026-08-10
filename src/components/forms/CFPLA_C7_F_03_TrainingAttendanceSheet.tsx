@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import {
   DRAFT_KEYS,
@@ -19,16 +20,17 @@ import {
   Pill,
   RemoveRowButton,
   RowCard,
-  SCORE_EFFECTIVE,
+  SCORE_EFFECTIVE_PCT,
   SCORE_MAX,
   SCORE_PASS,
-  SCORE_REFRESHER,
+  SCORE_REFRESHER_PCT,
   Section,
   SubmitBar,
   Td,
   Th,
   cellInput,
-  scoreTone,
+  percentTone,
+  toPercent,
   statusTone,
 } from "@/components/training/FormShell";
 
@@ -43,11 +45,9 @@ interface AttendeeRow {
   signature: string;
   evaluationMethod: string[];
   evaluationScoring: string;
-  evaluationDate: string;
   evaluationResult: "Pass" | "Fail" | "";
   effectivenessMethod: string[];
   effectivenessScoring: string;
-  effectivenessDate: string;
   effectivenessResult: "Effective" | "Non-Effective" | "";
   averageScoring: string;
   trainingStatus: "Effective" | "Refresher" | "Retraining" | "";
@@ -55,10 +55,35 @@ interface AttendeeRow {
 
 const emptyRow = (id: number): AttendeeRow => ({
   id, name: "", designation: "", signature: "",
-  evaluationMethod: [], evaluationScoring: "", evaluationDate: "", evaluationResult: "",
-  effectivenessMethod: [], effectivenessScoring: "", effectivenessDate: "", effectivenessResult: "",
+  evaluationMethod: [], evaluationScoring: "", evaluationResult: "",
+  effectivenessMethod: [], effectivenessScoring: "", effectivenessResult: "",
   averageScoring: "", trainingStatus: "",
 });
+
+/**
+ * `date` (yyyy-mm-dd) moved on by `days`, in the same format. Built from local
+ * date parts rather than toISOString(), which would shift the day back for
+ * timezones ahead of UTC. "" when either input is missing.
+ */
+const addDays = (date: string, days: number | string | null | ""): string => {
+  if (!date || !days) return "";
+  const shifted = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(shifted.getTime())) return "";
+  shifted.setDate(shifted.getDate() + Number(days));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${shifted.getFullYear()}-${pad(shifted.getMonth() + 1)}-${pad(shifted.getDate())}`;
+};
+
+/** yyyy-mm-dd → dd/mm/yyyy, for the read-only date hints. */
+const fmtDate = (d: string) => (d ? d.split("-").reverse().join("/") : "");
+
+/** The stored pair of /5 scores as an average percentage, or null if incomplete. */
+const avgPercentOf = (evaluation: any, effectiveness: any): string | null => {
+  const a = parseFloat(String(evaluation ?? ""));
+  const b = parseFloat(String(effectiveness ?? ""));
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return null;
+  return toPercent((a + b) / 2);
+};
 
 interface TrainingAttendanceSheetProps {
   initialData?: Record<string, any>;
@@ -67,6 +92,7 @@ interface TrainingAttendanceSheetProps {
 }
 
 export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit }: TrainingAttendanceSheetProps = {}) {
+  const router = useRouter();
   // Partial save applies to a blank create form only — never shadow a record
   // being edited or duplicated with a stale draft of something else.
   const draftEnabled = !initialData && !isEdit;
@@ -112,13 +138,15 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
         signature: r.signature || "",
         evaluationMethod: r.evaluation_method || [],
         evaluationScoring: r.evaluation_scoring?.toString() || "",
-        evaluationDate: r.evaluation_date || "",
         evaluationResult: r.evaluation_result || "",
         effectivenessMethod: r.effectiveness_method || [],
         effectivenessScoring: r.effectiveness_scoring?.toString() || "",
-        effectivenessDate: r.effectiveness_date || "",
         effectivenessResult: r.effectiveness_result || "",
-        averageScoring: r.average_scoring?.toString() || "",
+        // Recompute from the two scores rather than trusting what was stored:
+        // rows saved before the average moved to a percentage hold a /5 value,
+        // which would otherwise read back as e.g. "4.5%".
+        averageScoring: avgPercentOf(r.evaluation_scoring, r.effectiveness_scoring)
+          ?? (r.average_scoring?.toString() || ""),
         trainingStatus: r.training_status || "",
       }));
     }
@@ -140,15 +168,16 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
       if (field === "designation" && String(value).trim()) {
         setRowErrors((errs) => errs.filter((errId) => errId !== id));
       }
-      // Scores are out of 5: each result passes strictly above 3, and the
-      // average of the two drives the status band.
+      // Scores are entered out of 5; each result passes strictly above 3. The
+      // average is carried as a percentage of 5 (so 4.5/5 → 90%), matching the
+      // paper format's "Average Scoring (%)" column and its % criteria bands.
       const evalScore = parseFloat(updated.evaluationScoring) || 0;
       const effScore = parseFloat(updated.effectivenessScoring) || 0;
       if (evalScore > 0 && effScore > 0) {
-        const avg = (evalScore + effScore) / 2;
-        updated.averageScoring = avg.toFixed(1);
+        const avgPct = parseFloat(toPercent((evalScore + effScore) / 2));
+        updated.averageScoring = toPercent((evalScore + effScore) / 2);
         updated.trainingStatus =
-          avg >= SCORE_EFFECTIVE ? "Effective" : avg >= SCORE_REFRESHER ? "Refresher" : "Retraining";
+          avgPct >= SCORE_EFFECTIVE_PCT ? "Effective" : avgPct >= SCORE_REFRESHER_PCT ? "Refresher" : "Retraining";
       }
       // Each result follows its own score. Previously the evaluation result
       // stopped updating as soon as an effectiveness score was entered, and the
@@ -166,6 +195,11 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
    * The record as this form currently stands. Used both for submit and for the
    * partial save, so a restored draft always reads back exactly as it was left.
    */
+  // The two "Dated:" columns on the paper format are not typed per attendee:
+  // evaluation happens on the training day, and the effectiveness check falls
+  // 15 or 30 days later — whichever was ticked above.
+  const effectivenessScoringDate = addDays(trainingDate, effectivenessDays);
+
   const buildPayload = (): Record<string, any> => ({
     warehouse: getStoredWarehouse(),
     training_date: trainingDate,
@@ -192,11 +226,11 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
       signature: r.signature,
       evaluation_method: r.evaluationMethod,
       evaluation_scoring: r.evaluationScoring ? Number(r.evaluationScoring) : null,
-      evaluation_date: r.evaluationDate,
+      evaluation_date: trainingDate,
       evaluation_result: r.evaluationResult,
       effectiveness_method: r.effectivenessMethod,
       effectiveness_scoring: r.effectivenessScoring ? Number(r.effectivenessScoring) : null,
-      effectiveness_date: r.effectivenessDate,
+      effectiveness_date: effectivenessScoringDate,
       effectiveness_result: r.effectivenessResult,
       average_scoring: r.averageScoring ? Number(r.averageScoring) : null,
       training_status: r.trainingStatus,
@@ -204,7 +238,12 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
   });
 
   // Partial save: mirror the in-progress form to localStorage as it is typed.
-  useDraftAutosave(DRAFT_KEYS.attendance, buildPayload(), draftEnabled);
+  const draftState = useDraftAutosave(
+    DRAFT_KEYS.attendance,
+    buildPayload(),
+    draftEnabled,
+    draft?._savedAt ?? null
+  );
 
   const handleSubmit = async () => {
     // Designation is how the Employee Training Card tells two same-named people
@@ -231,9 +270,11 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
         const { docsApi } = await import("@/lib/api/documentations");
         await docsApi.create("training-attendance", payload);
         setSuccess(true);
+        // Filed — send the user back to the list of attendance sheets.
+        router.push("/training/attendance-sheet");
       }
       // Filed — the partial save has done its job.
-      clearDraft(DRAFT_KEYS.attendance);
+      draftState.forget();
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -338,6 +379,14 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                 />
               ))}
             </div>
+            {/* Both "Dated:" columns are derived, so show what will be filed. */}
+            <p className="mt-2 text-[11px] text-ink-400">
+              {trainingDate
+                ? <>Evaluation dated <b>{fmtDate(trainingDate)}</b>{effectivenessScoringDate
+                    ? <>, effectiveness dated <b>{fmtDate(effectivenessScoringDate)}</b>.</>
+                    : <>. Pick 15 or 30 days to date the effectiveness scoring.</>}</>
+                : "Set the training date above — it dates the evaluation scoring for every attendee."}
+            </p>
           </div>
         </div>
 
@@ -370,7 +419,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                 <Th className="min-w-[110px] text-left" rowSpan={2}>Signature</Th>
                 <Th className="border-l border-cream-300 text-center" colSpan={3}>Evaluation</Th>
                 <Th className="border-l border-cream-300 text-center" colSpan={3}>Effectiveness</Th>
-                <Th className="min-w-[80px] border-l border-cream-300" rowSpan={2}>Avg /5</Th>
+                <Th className="min-w-[80px] border-l border-cream-300" rowSpan={2}>Avg %</Th>
                 <Th className="min-w-[100px]" rowSpan={2}>Status</Th>
                 <Th className="w-10" rowSpan={2} />
               </tr>
@@ -436,7 +485,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                   </Td>
                   <Td className="border-l border-cream-200 text-center">
                     {row.averageScoring ? (
-                      <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring} / {SCORE_MAX}</Pill>
+                      <Pill tone={percentTone(row.averageScoring)}>{row.averageScoring}%</Pill>
                     ) : (
                       <span className="text-ink-300">—</span>
                     )}
@@ -532,7 +581,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
               <div className="flex items-center justify-between rounded-xl bg-cream-100 px-3 py-2">
                 <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">Average score</span>
                 {row.averageScoring ? (
-                  <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring} / {SCORE_MAX}</Pill>
+                  <Pill tone={percentTone(row.averageScoring)}>{row.averageScoring}%</Pill>
                 ) : (
                   <span className="text-xs text-ink-300">Not calculated</span>
                 )}
@@ -590,7 +639,13 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
         </p>
       )}
 
-      <SubmitBar submitting={submitting} isEdit={isEdit} success={success} onSubmit={handleSubmit} />
+      <SubmitBar
+        submitting={submitting}
+        isEdit={isEdit}
+        success={success}
+        onSubmit={handleSubmit}
+        draft={draftEnabled ? draftState : undefined}
+      />
     </div>
   );
 }

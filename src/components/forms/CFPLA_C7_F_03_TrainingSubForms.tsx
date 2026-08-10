@@ -19,17 +19,18 @@ import {
   Pill,
   RemoveRowButton,
   RowCard,
-  SCORE_EFFECTIVE,
+  SCORE_EFFECTIVE_PCT,
   SCORE_MAX,
   SCORE_PASS,
-  SCORE_REFRESHER,
+  SCORE_REFRESHER_PCT,
   Section,
   SubmitBar,
   Td,
   Th,
   cellInput,
+  percentTone,
   resultTone,
-  scoreTone,
+  toPercent,
   statusTone,
 } from "@/components/training/FormShell";
 
@@ -47,6 +48,14 @@ const emptyWorkerRow = (id: number): WorkerRow => ({
   id, name: "", evaluationMethod: "", evaluationScoring: "", evaluationResult: "",
   effectivenessMethod: "", effectivenessScoring: "", effectivenessResult: "", averageScoring: "", trainingStatus: "",
 });
+
+/** The stored pair of /5 scores as an average percentage, or null if incomplete. */
+const avgPercentOf = (evaluation: any, effectiveness: any): string | null => {
+  const a = parseFloat(String(evaluation ?? ""));
+  const b = parseFloat(String(effectiveness ?? ""));
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return null;
+  return toPercent((a + b) / 2);
+};
 
 interface TrainingFormProps {
   initialData?: Record<string, any>;
@@ -71,7 +80,11 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
         effectivenessMethod: r.effectiveness_method || "",
         effectivenessScoring: r.effectiveness_scoring?.toString() || "",
         effectivenessResult: r.effectiveness_result || "",
-        averageScoring: r.average_scoring?.toString() || "",
+        // Recompute from the two scores rather than trusting what was stored:
+        // rows saved before the average moved to a percentage hold a /5 value,
+        // which would otherwise read back as e.g. "4.5%".
+        averageScoring: avgPercentOf(r.evaluation_scoring, r.effectiveness_scoring)
+          ?? (r.average_scoring?.toString() || ""),
         trainingStatus: r.training_status || "",
       }));
     }
@@ -86,15 +99,16 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
     setRows((prev) => prev.map((r) => {
       if (r.id !== id) return r;
       const updated = { ...r, [field]: value };
-      // Scores are out of 5: each result passes strictly above 3, and the
-      // average of the two drives the status band.
+      // Scores are entered out of 5; each result passes strictly above 3. The
+      // average is carried as a percentage of 5 (so 4.5/5 → 90%), matching the
+      // paper format's "Average Scoring (%)" column and its % criteria bands.
       const evalScore = parseFloat(updated.evaluationScoring) || 0;
       const effScore = parseFloat(updated.effectivenessScoring) || 0;
       if (evalScore > 0 && effScore > 0) {
-        const avg = (evalScore + effScore) / 2;
-        updated.averageScoring = avg.toFixed(1);
+        const avgPct = parseFloat(toPercent((evalScore + effScore) / 2));
+        updated.averageScoring = toPercent((evalScore + effScore) / 2);
         updated.trainingStatus =
-          avg >= SCORE_EFFECTIVE ? "Effective" : avg >= SCORE_REFRESHER ? "Refresher" : "Retraining";
+          avgPct >= SCORE_EFFECTIVE_PCT ? "Effective" : avgPct >= SCORE_REFRESHER_PCT ? "Refresher" : "Retraining";
       }
       if (evalScore > 0) updated.evaluationResult = evalScore > SCORE_PASS ? "Pass" : "Fail";
       if (effScore > 0) updated.effectivenessResult = effScore > SCORE_PASS ? "Effective" : "Non-Effective";
@@ -118,7 +132,12 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
       })),
   });
 
-  useDraftAutosave(DRAFT_KEYS.workers, buildPayload(), draftEnabled);
+  const draftState = useDraftAutosave(
+    DRAFT_KEYS.workers,
+    buildPayload(),
+    draftEnabled,
+    draft?._savedAt ?? null
+  );
 
   const handleSubmitWorkers = async () => {
     setSubmitting(true);
@@ -132,7 +151,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
         await docsApi.create("training-attendance-workers", payload);
         setSuccess(true);
       }
-      clearDraft(DRAFT_KEYS.workers);
+      draftState.forget();
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -178,7 +197,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
                 <Th className="min-w-[120px] border-l border-cream-300">Effect. Method</Th>
                 <Th className="min-w-[80px]">Effect. Score /5</Th>
                 <Th className="min-w-[120px]">Result</Th>
-                <Th className="min-w-[80px] border-l border-cream-300">Avg /5</Th>
+                <Th className="min-w-[80px] border-l border-cream-300">Avg %</Th>
                 <Th className="min-w-[100px]">Status</Th>
                 <Th className="w-10" />
               </tr>
@@ -215,7 +234,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
                     {row.effectivenessResult ? <Pill tone={resultTone(row.effectivenessResult)}>{row.effectivenessResult}</Pill> : <span className="text-ink-300">—</span>}
                   </Td>
                   <Td className="border-l border-cream-200 text-center">
-                    {row.averageScoring ? <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring} / {SCORE_MAX}</Pill> : <span className="text-ink-300">—</span>}
+                    {row.averageScoring ? <Pill tone={percentTone(row.averageScoring)}>{row.averageScoring}%</Pill> : <span className="text-ink-300">—</span>}
                   </Td>
                   <Td className="text-center">
                     {row.trainingStatus ? <Pill tone={statusTone(row.trainingStatus)}>{row.trainingStatus}</Pill> : <span className="text-ink-300">—</span>}
@@ -282,7 +301,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
               <div className="flex items-center justify-between rounded-xl bg-cream-100 px-3 py-2">
                 <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">Average score</span>
                 {row.averageScoring ? (
-                  <Pill tone={scoreTone(row.averageScoring)}>{row.averageScoring} / {SCORE_MAX}</Pill>
+                  <Pill tone={percentTone(row.averageScoring)}>{row.averageScoring}%</Pill>
                 ) : (
                   <span className="text-xs text-ink-300">Not calculated</span>
                 )}
@@ -298,7 +317,13 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
 
       <CriteriaLegend />
 
-      <SubmitBar submitting={submitting} isEdit={isEdit} success={success} onSubmit={handleSubmitWorkers} />
+      <SubmitBar
+        submitting={submitting}
+        isEdit={isEdit}
+        success={success}
+        onSubmit={handleSubmitWorkers}
+        draft={draftEnabled ? draftState : undefined}
+      />
     </div>
   );
 }
@@ -330,7 +355,12 @@ export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: Traini
     rows: rows.filter((r) => r.content).map((r) => ({ content: r.content })),
   });
 
-  useDraftAutosave(DRAFT_KEYS.reference, buildPayload(), draftEnabled);
+  const draftState = useDraftAutosave(
+    DRAFT_KEYS.reference,
+    buildPayload(),
+    draftEnabled,
+    draft?._savedAt ?? null
+  );
 
   const handleSubmitRef = async () => {
     setSubmitting(true);
@@ -344,7 +374,7 @@ export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: Traini
         await docsApi.create("training-reference-sheet", payload);
         setSuccess(true);
       }
-      clearDraft(DRAFT_KEYS.reference);
+      draftState.forget();
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -437,7 +467,13 @@ export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: Traini
         </div>
       </Section>
 
-      <SubmitBar submitting={submitting} isEdit={isEdit} success={success} onSubmit={handleSubmitRef} />
+      <SubmitBar
+        submitting={submitting}
+        isEdit={isEdit}
+        success={success}
+        onSubmit={handleSubmitRef}
+        draft={draftEnabled ? draftState : undefined}
+      />
     </div>
   );
 }
@@ -521,7 +557,12 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
     signature,
   });
 
-  useDraftAutosave(DRAFT_KEYS.feedback, buildPayload(), draftEnabled);
+  const draftState = useDraftAutosave(
+    DRAFT_KEYS.feedback,
+    buildPayload(),
+    draftEnabled,
+    draft?._savedAt ?? null
+  );
 
   const handleSubmitFeedback = async () => {
     setSubmitting(true);
@@ -535,7 +576,7 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
         await docsApi.create("training-feedback", payload);
         setSuccess(true);
       }
-      clearDraft(DRAFT_KEYS.feedback);
+      draftState.forget();
     } catch (e: any) {
       alert(e.message || "Submit failed");
     } finally {
@@ -682,7 +723,13 @@ export function TrainingFeedbackRecord({ initialData, onSubmit, isEdit }: Traini
         </div>
       </Section>
 
-      <SubmitBar submitting={submitting} isEdit={isEdit} success={success} onSubmit={handleSubmitFeedback} />
+      <SubmitBar
+        submitting={submitting}
+        isEdit={isEdit}
+        success={success}
+        onSubmit={handleSubmitFeedback}
+        draft={draftEnabled ? draftState : undefined}
+      />
     </div>
   );
 }

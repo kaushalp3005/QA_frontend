@@ -137,9 +137,11 @@ function BatchCodingRegister() {
 
     setLoadingDate(group.date)
     try {
+      // No warehouse filter, matching the listing above — a date must expand to
+      // every entry written on it, whichever plant stamped them.
       // includeDrafts: the listing is where a half-filled entry gets picked back
       // up, so drafts must appear here. Only the printed register hides them.
-      const rows = await printingLabelsApi.byDate(group.date, group.onPage[0]?.warehouse, true)
+      const rows = await printingLabelsApi.byDate(group.date, null, true)
       setEntriesByDate((m) => ({ ...m, [group.date]: rows.length ? rows : group.onPage }))
     } catch (err: any) {
       setError(err.message || 'Failed to load entries for this date')

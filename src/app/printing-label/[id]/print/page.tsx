@@ -61,8 +61,11 @@ export default function PrintEntryPage() {
           setEntries([data])
           return
         }
+        // No warehouse filter, matching the register listing — the printed sheet
+        // must hold exactly the entries the expanded date row shows, or rows go
+        // missing from a controlled document without saying so.
         // byDate excludes drafts by default, so the sheet holds filed entries only.
-        const sameDay = await printingLabelsApi.byDate(data.entry_date, data.warehouse)
+        const sameDay = await printingLabelsApi.byDate(data.entry_date, null)
         if (cancelled) return
         // Fall back to the single entry if the day query somehow misses it.
         setEntries(sameDay.length ? sameDay : [data])

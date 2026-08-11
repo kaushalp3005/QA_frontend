@@ -158,7 +158,13 @@ export function detailOf(record: PrintingLabelRecord, parameter: string): string
 // get real types instead of Record<string, any>.
 export const printingLabelsApi = {
   list: async (params: Record<string, any> = {}) => {
-    const res = await docsApi.list(FORM_TYPE, params)
+    // `warehouse: null` switches off docsApi's default plant filter. This
+    // register is one book for the printing team, not one per plant: entries
+    // are still stamped with a warehouse (scoped admins need it to delete), but
+    // filtering the listing by the browser's active plant hides every entry
+    // whenever that plant is not the one the entry was written under — which is
+    // the default on any browser that has never picked a plant.
+    const res = await docsApi.list(FORM_TYPE, { warehouse: null, ...params })
     return { ...res, records: (res.records ?? []) as unknown as PrintingLabelRecord[] }
   },
 

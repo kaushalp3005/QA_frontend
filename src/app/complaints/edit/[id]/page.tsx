@@ -118,6 +118,11 @@ export default function EditComplaintPage() {
         itemSubcategory: data.articles?.[0]?.subcategory || complaint.itemSubcategory,
         itemDescription: data.articles?.[0]?.itemDescription || complaint.itemDescription,
         batchCode: data.batchCode || complaint.batchCode,
+        // Blank means "cleared", so fall back to the stored value only when the
+        // form never carried the field at all.
+        batchNo: data.batchNo ?? complaint.batchNo ?? '',
+        packingDate: data.packingDate ?? complaint.packingDate ?? '',
+        expDate: data.expDate ?? complaint.expDate ?? '',
         quantityRejected: data.quantityRejected || complaint.quantityRejected,
         quantityApproved: data.quantityApproved || complaint.quantityApproved,
         uom: data.articles?.[0]?.uom || complaint.uom,
@@ -223,6 +228,9 @@ export default function EditComplaintPage() {
       : mapComplaintNatureToCategory(complaint.complaintNature || 'FOOD_SAFETY'),
     complaintSubcategory: complaint.complaintSubcategory || complaint.otherComplaintNature || '',
     complaintReceiveDate: complaint.receivedDate,
+    batchNo: complaint.batchNo || '',
+    packingDate: complaint.packingDate || '',
+    expDate: complaint.expDate || '',
     problemStatement: complaint.problemStatement || complaint.remarks || '',
     measuresToResolve: (complaint.measuresToResolve || 'rca_capa') as 'rtv' | 'rca_capa' | 'fishbone' | 'replacement' | 'refund' | 'other',
     remarks: complaint.remarks || '',

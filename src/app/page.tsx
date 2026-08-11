@@ -3,15 +3,16 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { isAuthenticated } from '@/lib/api/auth'
+import { landingPathFromStorage } from '@/lib/landing'
 
 export default function HomePage() {
   const router = useRouter()
-  
+
   useEffect(() => {
-    // If authenticated, redirect to dashboard
-    // If not, redirect to login
+    // If authenticated, redirect to the first section this user can view
+    // (not everyone has the dashboard). If not, redirect to login.
     if (isAuthenticated()) {
-      router.push('/dashboard')
+      router.push(landingPathFromStorage())
     } else {
       router.push('/login')
     }

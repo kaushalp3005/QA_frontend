@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import ModuleGuard from '@/components/ModuleGuard'
 import PageHeader from '@/components/ui/PageHeader'
 import { Spinner } from '@/components/ui/Loader'
 import { formatDateShort } from '@/lib/date-utils'
@@ -105,7 +106,17 @@ interface ComplaintRecord {
   status: string
 }
 
+/** Wrapped below so the dashboard's data fetching never runs for a user who
+ *  lacks the `dashboard` module grant. */
 export default function DashboardPage() {
+  return (
+    <ModuleGuard module="dashboard">
+      <DashboardContent />
+    </ModuleGuard>
+  )
+}
+
+function DashboardContent() {
   const { currentCompany } = useCompany()
   const [canReports, setCanReports] = useState(false)
   const [rcaRecords, setRcaRecords] = useState<RCARecord[]>([])

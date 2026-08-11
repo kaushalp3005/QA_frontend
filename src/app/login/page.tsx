@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { Spinner } from '@/components/ui/Loader'
 import ThemeToggle from '@/components/ui/ThemeToggle'
+import { landingPathFor, type StoredPermissions } from '@/lib/landing'
 
 interface LoginFormData {
   email: string
@@ -49,6 +50,7 @@ export default function LoginPage() {
       localStorage.setItem('access_token', data.access_token)
       localStorage.setItem('user', JSON.stringify(data))
 
+      let permissions: StoredPermissions = {}
       if (data.companies && data.companies.length > 0) {
         localStorage.setItem('company', data.companies[0].code)
         try {
@@ -58,7 +60,8 @@ export default function LoginPage() {
           )
           if (permsResp.ok) {
             const permsData = await permsResp.json()
-            localStorage.setItem('permissions', JSON.stringify(permsData.permissions || {}))
+            permissions = permsData.permissions || {}
+            localStorage.setItem('permissions', JSON.stringify(permissions))
           }
         } catch (permError) {
           console.error('Failed to fetch permissions:', permError)
@@ -67,7 +70,13 @@ export default function LoginPage() {
 
       const urlParams = new URLSearchParams(window.location.search)
       const returnUrl = urlParams.get('returnUrl')
-      router.push(returnUrl ? decodeURIComponent(returnUrl) : '/dashboard')
+      // Not every user can see the dashboard — land them on their first
+      // viewable section instead of a page that would just deny them.
+      router.push(
+        returnUrl
+          ? decodeURIComponent(returnUrl)
+          : landingPathFor(data.email, permissions),
+      )
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.')
     } finally {

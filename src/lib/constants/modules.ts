@@ -16,6 +16,7 @@ export const COMPANIES = ["CFPL", "CDPL"] as const;
 export type CompanyCode = (typeof COMPANIES)[number];
 
 export const QC_MODULES: { code: string; label: string }[] = [
+  { code: "dashboard", label: "Dashboard" },
   { code: "complaints", label: "Complaints" },
   { code: "license_tracker", label: "License Tracker" },
   { code: "vendor_coa", label: "Vendor COA" },
@@ -25,6 +26,9 @@ export const QC_MODULES: { code: string; label: string }[] = [
   { code: "documentations", label: "Documentations" },
   { code: "training", label: "Training" },
   { code: "ni_report", label: "NI Report" },
+  // The stored module_code stays `section_1`: it is the key in
+  // qc_module_permissions rows that already exist, so only the label moves.
+  { code: "section_1", label: "Printing Label" },
 ];
 
 export const PERMISSION_FLAGS = [

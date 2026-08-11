@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { isAuthenticated, getAuthToken, getStoredCompany, logout } from '@/lib/api/auth'
 import { clearSession } from '@/lib/auth'
+import { landingPathFromStorage } from '@/lib/landing'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -50,7 +51,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         if (returnUrl) {
           router.push(returnUrl)
         } else {
-        router.push('/dashboard')
+          router.push(landingPathFromStorage())
         }
         return
       }

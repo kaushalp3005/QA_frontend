@@ -54,6 +54,21 @@ export function formatDateISO(dateString: string | Date | null | undefined): str
   return date.toISOString().split('T')[0] // Returns YYYY-MM-DD format
 }
 
+/**
+ * Today's date in the *browser's* timezone as YYYY-MM-DD, for prefilling
+ * <input type="date">.
+ *
+ * Deliberately not `new Date().toISOString().split('T')[0]` — that converts to
+ * UTC first, so in IST (UTC+5:30) it yields YESTERDAY's date at any time
+ * between 00:00 and 05:30 local. A shift-start entry would be dated a day
+ * early. Building from the local getters avoids the conversion entirely.
+ */
+export function todayLocalISO(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 // Relative time formatting (e.g., "2 hours ago")
 export function formatRelativeTime(dateString: string | Date): string {
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString

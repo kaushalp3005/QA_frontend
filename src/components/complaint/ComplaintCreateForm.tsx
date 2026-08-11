@@ -35,6 +35,11 @@ const complaintFormSchema = z.object({
   complaintCategory: z.enum(['food_safety', 'non_food_safety']),
   complaintSubcategory: z.string().min(1, 'Complaint subcategory is required'),
   complaintReceiveDate: z.string().min(1, 'Date of complaint receive is required'),
+  // Batch details off the complained-about pack. Optional: a complaint often
+  // arrives before the pack itself does.
+  batchNo: z.string().optional(),
+  packingDate: z.string().optional(),
+  expDate: z.string().optional(),
   problemStatement: z.string().min(1, 'Problem statement is required'),
   measuresToResolve: z.enum(['rtv', 'rca_capa', 'fishbone', 'replacement', 'refund', 'other']).optional(),
   remarks: z.string().optional(),
@@ -117,6 +122,9 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing, onIm
       complaintCategory: initialData?.complaintCategory || 'food_safety',
       complaintSubcategory: initialData?.complaintSubcategory || '',
       complaintReceiveDate: initialData?.complaintReceiveDate || new Date().toISOString().split('T')[0],
+      batchNo: initialData?.batchNo || '',
+      packingDate: initialData?.packingDate || '',
+      expDate: initialData?.expDate || '',
       problemStatement: initialData?.problemStatement || '',
       measuresToResolve: initialData?.measuresToResolve || 'rtv',
       remarks: initialData?.remarks || '',
@@ -403,6 +411,43 @@ function ComplaintCreateForm({ onSubmit, isLoading, initialData, isEditing, onIm
                 {errors.complaintReceiveDate && (
                   <p className="text-sm text-red-600">{errors.complaintReceiveDate.message}</p>
                 )}
+              </div>
+
+              {/* Batch No. */}
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Batch No.
+                </label>
+                <input
+                  type="text"
+                  {...register('batchNo')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Batch number on the pack"
+                />
+              </div>
+
+              {/* Packing Date */}
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Packing Date
+                </label>
+                <input
+                  type="date"
+                  {...register('packingDate')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Expiry Date */}
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Expiry Date
+                </label>
+                <input
+                  type="date"
+                  {...register('expDate')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
 
               {/* Nature of Complaint Category */}

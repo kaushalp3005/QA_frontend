@@ -299,6 +299,9 @@ export default function ComplaintsPage() {
                       Title
                     </th>
                     <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
+                      Batch No
+                    </th>
+                    <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
                       Receive Date
                     </th>
                     <th className="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider px-5 py-3">
@@ -320,6 +323,9 @@ export default function ComplaintsPage() {
                       </td>
                       <td className="px-5 py-3 text-sm text-ink-600 max-w-xs truncate">
                         {complaint.remarks || complaint.itemDescription}
+                      </td>
+                      <td className="px-5 py-3 font-mono text-sm text-ink-600 whitespace-nowrap">
+                        {complaint.batchNo || '—'}
                       </td>
                       <td className="px-5 py-3 text-sm text-ink-600 whitespace-nowrap">
                         {formatDateShort(complaint.receivedDate)}

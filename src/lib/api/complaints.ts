@@ -15,6 +15,11 @@ export interface ComplaintFormData {
   itemSubcategory: string
   itemDescription: string
   batchCode: string
+  /** Internal production batch number — distinct from the batch code on the pack. */
+  batchNo?: string
+  /** yyyy-mm-dd, or '' when not recorded. */
+  expDate?: string
+  packingDate?: string
   quantityRejected: number
   quantityApproved: number
   uom: string
@@ -46,6 +51,9 @@ export interface ComplaintResponse {
   itemSubcategory: string
   itemDescription: string
   batchCode: string
+  batchNo?: string
+  expDate?: string
+  packingDate?: string
   quantityRejected: number
   quantityApproved: number
   uom: string

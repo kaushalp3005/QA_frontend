@@ -4,24 +4,12 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import {
-  LayoutDashboard,
-  FileText,
-  Settings,
-  BarChart3,
-  X,
-  Shield,
-  Search,
-  ClipboardCheck,
-  ClipboardList,
-  BookOpen,
-  GraduationCap,
-  Beaker,
-  Wrench,
-} from 'lucide-react'
+import { Settings, X } from 'lucide-react'
 import { cn } from '@/lib/styles'
 import { getStoredUser, getAuthToken } from '@/lib/api/auth'
 import { isSuperAdmin as checkIsSuperAdmin } from '@/lib/constants/modules'
+import { NAVIGATION } from '@/lib/constants/navigation'
+import { landingPathFromStorage } from '@/lib/landing'
 import { getMyPermissions } from '@/lib/api/settings'
 
 interface SidebarProps {
@@ -29,33 +17,21 @@ interface SidebarProps {
   onClose: () => void
 }
 
-// `moduleCode` matches qc_module_permissions.module_code; used to gate sidebar
-// visibility by the user's can_view flag. Items with no moduleCode are always shown.
-const navigation = [
-  { name: 'Dashboard',       href: '/dashboard',       icon: LayoutDashboard },
-  { name: 'Complaints',      href: '/complaints',      icon: FileText,        moduleCode: 'complaints' },
-  { name: 'License Tracker', href: '/license-tracker', icon: Shield,          moduleCode: 'license_tracker' },
-  { name: 'Vendor COA',      href: '/vendor-coa',      icon: ClipboardCheck,  moduleCode: 'vendor_coa' },
-  { name: 'RCA / CAPA',      href: '/rca-capa',        icon: Search,          moduleCode: 'rca_capa' },
-  { name: 'Fishbone',        href: '/fishbone',        icon: BarChart3,       moduleCode: 'fishbone' },
-  { name: 'Lab Reports',     href: '/lab-reports',     icon: Beaker,          moduleCode: 'lab_reports' },
-  { name: 'Documentations',  href: '/documentations',  icon: BookOpen,        moduleCode: 'documentations' },
-  { name: 'Training',        href: '/training',        icon: GraduationCap,   moduleCode: 'training' },
-  { name: 'NI Report',       href: '/ni-report',       icon: ClipboardList,   moduleCode: 'ni_report' },
-  { name: 'PM Inspection',   href: '/pm-inspection',   icon: Wrench,          moduleCode: 'pm_inspection' },
-]
-
 const settingsNavItem = { name: 'Settings', href: '/settings', icon: Settings }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [viewable, setViewable] = useState<Set<string> | null>(null)
+  // Resolved client-side (localStorage is not available during SSR): the brand
+  // link must not point at /dashboard for a user who cannot view it.
+  const [brandHref, setBrandHref] = useState('/dashboard')
 
   useEffect(() => {
     const user = getStoredUser()
     const isSA = checkIsSuperAdmin(user?.email)
     setIsSuperAdmin(isSA)
+    setBrandHref(landingPathFromStorage())
 
     // Super admins see everything — no need for the API call
     if (isSA) { setViewable(new Set()); return }
@@ -85,8 +61,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     }
   }, [isOpen])
 
-  const visibleNav = navigation.filter((item) => {
-    if (!item.moduleCode) return true
+  const visibleNav = NAVIGATION.filter((item) => {
     if (isSuperAdmin) return true
     if (viewable === null) return false
     return viewable.has(item.moduleCode)
@@ -116,7 +91,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Header / Brand */}
           <div className="px-5 py-5 border-b border-cream-300">
             <div className="flex items-center justify-between gap-3">
-              <Link href="/dashboard" className="flex items-center gap-3 group">
+              <Link href={brandHref} className="flex items-center gap-3 group">
                 <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-white shadow-soft ring-1 ring-cream-300 group-hover:shadow-lift transition-all">
                   <Image
                     src="/candor-logo.jpg"

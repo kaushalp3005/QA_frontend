@@ -1,7 +1,7 @@
 // frontend/src/lib/api/documentations.ts
 
 import { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
-import { getUserEmail, isFullAdmin, lockedWarehouse } from '@/lib/warehouseAccess'
+import { adminScope, getUserEmail, isFullAdmin } from '@/lib/warehouseAccess'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
@@ -219,5 +219,8 @@ export function isDocAdmin(): boolean {
 export function isDocAdminFor(warehouse?: string | null): boolean {
   if (isDocAdmin()) return true
   if (!warehouse) return false
-  return lockedWarehouse() === warehouse
+  // adminScope(), NOT lockedWarehouse(): plant-pinned accounts are confined to a
+  // warehouse without administering it, and reading the lock here would hand
+  // every one of them admin rights over their own plant's records.
+  return adminScope() === warehouse
 }

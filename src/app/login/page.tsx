@@ -206,17 +206,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Sample creds */}
-          <div className="mt-6 pt-5 border-t border-cream-300">
-            <p className="text-[11px] text-ink-400 text-center mb-2.5 font-semibold tracking-wider uppercase">
-              Sample Credentials
-            </p>
-            <div className="rounded-lg bg-cream-100 border border-cream-300 p-3 text-xs space-y-1 font-mono">
-              <p className="text-ink-500">quality.inward@candorfoods.in</p>
-              <p className="text-ink-400">abhishekdalvi</p>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}

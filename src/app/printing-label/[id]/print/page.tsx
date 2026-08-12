@@ -140,6 +140,9 @@ export default function PrintEntryPage() {
         .entry td.stack { vertical-align: top; text-align: center; padding-top: 6px; font-weight: bold; }
         .entry td.param { text-align: left; font-weight: 600; }
         .entry td.details { text-align: left; }
+        /* A ticked parameter with nothing typed prints as a tick, so a verified
+           check is never mistaken for one nobody performed. */
+        .entry td.details .tick { display: block; text-align: center; font-weight: bold; }
         .entry td.sample { text-align: center; padding: 4px; }
         .entry td.sample img { max-width: 100%; max-height: 85mm; object-fit: contain; display: block; margin: 0 auto; }
         .entry td.sample .none { color: #666; font-style: italic; }
@@ -286,7 +289,7 @@ function EntryTable({ entry }: { entry: PrintingLabelRecord }) {
         <tr>
           <th>Date</th>
           <th>Parameter</th>
-          <th>Details</th>
+          <th>Details Verified</th>
           <th>Actual Label Sample</th>
           <th>Printed By</th>
           <th>Approved By</th>
@@ -301,7 +304,18 @@ function EntryTable({ entry }: { entry: PrintingLabelRecord }) {
               </td>
             )}
             <td className="param">{row.parameter}</td>
-            <td className="details">{row.details}</td>
+            {/* A ticked parameter is a verified one: print what was typed, or a
+                tick when nothing was. The synthetic blank row (no parameter)
+                stays empty — there is nothing there to have verified. */}
+            <td className="details">
+              {row.details ? (
+                row.details
+              ) : row.checked && row.parameter ? (
+                <span className="tick">✓</span>
+              ) : (
+                ''
+              )}
+            </td>
             {i === 0 && (
               <td className="sample" rowSpan={span}>
                 {entry.actual_label_url ? (

@@ -17,8 +17,8 @@ import {
   normalizeParameters,
   printingLabelsApi,
   type PrintingLabelRecord,
+  canDeleteEntries,
 } from '@/lib/api/printingLabels'
-import { isDocAdminFor } from '@/lib/api/documentations'
 
 export default function ViewEntryPage() {
   return (
@@ -87,7 +87,7 @@ function EntryDetail() {
   const rows = checkedParameters(record)
   const totalParameters = normalizeParameters(record.parameters).length
   // Delete is admin-only server-side; hide the control when it would 403.
-  const canDelete = isDocAdminFor(record.warehouse)
+  const canDelete = canDeleteEntries(record.warehouse)
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -130,7 +130,7 @@ function EntryDetail() {
         <div className="surface-card overflow-hidden">
           <div className="border-b border-cream-300 px-5 py-3">
             <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">
-              Parameter &amp; Details
+              Parameter &amp; Details Verified
               <span className="ml-2 rounded-full bg-cream-200 px-2 py-0.5 text-[11px] font-bold text-ink-500">
                 {rows.length}/{totalParameters}
               </span>
@@ -152,7 +152,11 @@ function EntryDetail() {
                       >
                         {row.parameter}
                       </th>
-                      <td className="px-5 py-2.5 text-sm text-ink-600">{row.details || '—'}</td>
+                      {/* Same rule as the printed sheet: a ticked parameter with
+                          nothing typed reads as verified, not as missing. */}
+                      <td className="px-5 py-2.5 text-sm text-ink-600">
+                        {row.details || <span className="font-bold text-success-700">✓</span>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

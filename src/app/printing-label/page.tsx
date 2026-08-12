@@ -20,6 +20,7 @@ import WarehouseSelector from '@/components/ui/WarehouseSelector'
 import { formatDateShort } from '@/lib/date-utils'
 import { isDocAdminFor } from '@/lib/api/documentations'
 import {
+  canDeleteEntries,
   detailOf,
   DOC_META,
   isDraft,
@@ -443,8 +444,9 @@ function DateRows({
                             >
                               <Pencil className="h-4 w-4" />
                             </Link>
-                            {/* Delete is admin-only server-side; hide it when it would 403. */}
-                            {isDocAdminFor(r.warehouse) && (
+                            {/* Mirrors the server's delete rule, so the button is
+                                only offered when it would actually succeed. */}
+                            {canDeleteEntries(r.warehouse) && (
                               <button
                                 type="button"
                                 onClick={() => onDelete(r)}

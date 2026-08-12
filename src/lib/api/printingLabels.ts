@@ -7,12 +7,43 @@
 // Only the label-sample image needs its own transport, because it lands in
 // s3://complaint-module-images/printing_labels/ rather than the complaints prefix.
 
-import { docsApi } from '@/lib/api/documentations'
+import { docsApi, isDocAdminFor } from '@/lib/api/documentations'
+import { isSuperAdmin } from '@/lib/constants/modules'
+import { getUserEmail } from '@/lib/warehouseAccess'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 /** DOC_REGISTRY slug — must match qc/config/doc_registry.py. */
 export const FORM_TYPE = 'printing-labels'
+
+/** qc_module_permissions.module_code governing this register. The route and
+ *  labels say "Printing Label", but the permission code stayed `section_1` from
+ *  when the section was created — renaming it would mean migrating every
+ *  granted row, so both names coexist. Mirrored in qc/routers/printing_labels.py. */
+export const MODULE_CODE = 'section_1'
+
+/**
+ * May the signed-in account delete register entries?
+ *
+ * Mirrors the server rule in printing_labels.py::_may_delete — a documentation
+ * admin (full, or scoped to this record's plant), or anyone holding can_delete
+ * on the module. Pass the record's warehouse so a scoped admin is judged
+ * against the right plant.
+ *
+ * Returns false during SSR (no localStorage); every caller renders after a
+ * client-side fetch, so nothing flips between server and client HTML.
+ */
+export function canDeleteEntries(warehouse?: string | null): boolean {
+  if (typeof window === 'undefined') return false
+  if (isDocAdminFor(warehouse)) return true
+  if (isSuperAdmin(getUserEmail())) return true
+  try {
+    const perms = JSON.parse(localStorage.getItem('permissions') || '{}')
+    return Boolean(perms?.[MODULE_CODE]?.delete)
+  } catch {
+    return false
+  }
+}
 
 /** Controlled-document metadata for the register. Single source of truth: the
  *  printed header/footer and every page subtitle read from here, so a document
@@ -183,7 +214,24 @@ export const printingLabelsApi = {
     return { ...res, data: res.data as unknown as PrintingLabelRecord }
   },
 
-  remove: (id: number) => docsApi.delete(FORM_TYPE, id),
+  /** Delete an entry (and its S3 label sample).
+   *
+   *  Not docsApi.delete: the generic route only ever allows a documentation
+   *  admin, so the Printing account would get a 403. This endpoint honours the
+   *  module's can_delete grant instead, and authorises off the bearer token
+   *  rather than a client-supplied email header. */
+  remove: async (id: number) => {
+    const token = localStorage.getItem('access_token')
+    const res = await fetch(`${API_BASE}/api/printing-labels/entries/${id}`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || 'Failed to delete entry')
+    }
+    return res.json() as Promise<{ success: boolean; message: string }>
+  },
 
   /** Every entry recorded on one date, oldest first — one page of the register.
    *  Served by a dedicated endpoint because the generic /api/docs listing only
@@ -192,7 +240,12 @@ export const printingLabelsApi = {
     const qs = new URLSearchParams({ date })
     if (warehouse) qs.set('warehouse', warehouse)
     if (includeDrafts) qs.set('include_drafts', 'true')
-    const res = await fetch(`${API_BASE}/api/printing-labels/by-date?${qs}`)
+    // Token required: the server derives the caller's pinned plant from it and
+    // overrides `warehouse` accordingly.
+    const token = localStorage.getItem('access_token')
+    const res = await fetch(`${API_BASE}/api/printing-labels/by-date?${qs}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }))
       throw new Error(err.detail || 'Failed to load entries for this date')

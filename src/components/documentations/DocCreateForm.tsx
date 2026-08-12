@@ -9,6 +9,7 @@ type DocFormComponent = React.ComponentType<{
   initialData?: Record<string, any>
   onSubmit?: (data: Record<string, any>) => Promise<void>
   isEdit?: boolean
+  [prop: string]: any
 }>
 
 interface Props {
@@ -22,6 +23,8 @@ interface Props {
    * Pass a module-level constant — a fresh array each render defeats memoing.
    */
   prefillFields?: readonly string[]
+  /** Extra props handed straight to the form, e.g. state a page shares between forms. */
+  formProps?: Record<string, any>
 }
 
 // Identity / bookkeeping fields belonging to the record being copied. They must
@@ -43,7 +46,7 @@ function stripIdentity(record: Record<string, any>): Record<string, any> {
  * passes no `onSubmit`, so the form falls back to `docsApi.create` and saves a
  * NEW record rather than updating the one it was copied from.
  */
-function DocCreateFormInner({ formType, FormComponent, prefillFields }: Props) {
+function DocCreateFormInner({ formType, FormComponent, prefillFields, formProps }: Props) {
   const searchParams = useSearchParams()
   const duplicateFrom = searchParams.get('duplicateFrom')
 
@@ -98,7 +101,7 @@ function DocCreateFormInner({ formType, FormComponent, prefillFields }: Props) {
           Prefilled from the training attendance sheet — check the details, complete the card, then submit to save it.
         </div>
       )}
-      <FormComponent initialData={initialData ?? prefill ?? undefined} />
+      <FormComponent initialData={initialData ?? prefill ?? undefined} {...formProps} />
     </div>
   )
 }

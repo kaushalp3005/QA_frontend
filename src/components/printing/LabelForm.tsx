@@ -66,13 +66,14 @@ function resolveApprover(b: EntryBlock): string {
 }
 
 interface LabelFormProps {
-  /** Existing record when editing; omitted when creating. Editing is always
-   *  single-block — one record cannot become several. */
+  /** Existing record when editing; omitted when creating. */
   record?: PrintingLabelRecord
 }
 
-/** Create/edit form for the Batch Coding Register. Creating supports several
- *  entries at once against one date; each block mirrors the paper form. */
+/** Create/edit form for the Batch Coding Register. Several entries can be filled
+ *  against one date in a single pass, on either page: on the edit page the
+ *  opened record is updated in place and any block added beside it becomes a new
+ *  record. Each block mirrors the paper form. */
 export default function LabelForm({ record }: LabelFormProps) {
   const router = useRouter()
   const isEdit = Boolean(record)
@@ -231,6 +232,15 @@ export default function LabelForm({ record }: LabelFormProps) {
   const anyUploading = busyBlocks.size > 0
   const saving = savingMode !== null
   const draftIds = blocks.map((b) => b.savedId).filter(Boolean) as number[]
+  // Blocks that will become new rows — everything except the record being edited.
+  const newCount = blocks.filter((b) => b.savedId !== record?.id).length
+
+  /** Label for a block. On the edit page the opened record is called out by id
+   *  so it is obvious which one is being changed rather than added. */
+  function headingFor(block: EntryBlock, index: number): string {
+    if (isEdit && block.savedId === record?.id) return `Editing entry #${record?.id}`
+    return `Entry ${index + 1}`
+  }
 
   return (
     <form onSubmit={handleSubmit} className="max-w-4xl space-y-5">
@@ -282,20 +292,28 @@ export default function LabelForm({ record }: LabelFormProps) {
         <EntryBlockFields
           key={block.key}
           block={block}
-          index={i}
-          showHeading={!isEdit}
-          canRemove={!isEdit && blocks.length > 1}
+          heading={headingFor(block, i)}
+          // A lone block on the edit page needs no heading — there is nothing to
+          // tell it apart from. Adding a second one makes labels necessary.
+          showHeading={!isEdit || blocks.length > 1}
+          // The record being edited cannot be removed here: this form edits it,
+          // it does not delete it. Blocks added alongside can go.
+          canRemove={blocks.length > 1 && block.savedId !== record?.id}
           onChange={(patch) => updateBlock(block.key, patch)}
           onRemove={() => removeBlock(block.key)}
           onBusyChange={(busy) => setBlockBusy(block.key, busy)}
         />
       ))}
 
-      {!isEdit && (
-        <button type="button" onClick={addBlock} className="btn-base btn-outline">
-          <Plus className="h-4 w-4" />
-          Add another entry
-        </button>
+      <button type="button" onClick={addBlock} className="btn-base btn-outline">
+        <Plus className="h-4 w-4" />
+        Add another entry
+      </button>
+      {isEdit && blocks.length > 1 && (
+        <p className="text-[11px] font-medium text-ink-300">
+          Added entries are saved as new records against the same date — the entry you opened
+          is updated in place.
+        </p>
       )}
 
       {partialSavedAt !== null && (
@@ -320,7 +338,9 @@ export default function LabelForm({ record }: LabelFormProps) {
           {savingMode === 'final'
             ? 'Submitting…'
             : isEdit
-              ? 'Save changes'
+              ? newCount > 0
+                ? `Save changes + ${newCount} new`
+                : 'Save changes'
               : `Submit ${blocks.length > 1 ? `${blocks.length} entries` : 'entry'}`}
         </button>
         <button
@@ -351,7 +371,9 @@ export default function LabelForm({ record }: LabelFormProps) {
 
 interface EntryBlockFieldsProps {
   block: EntryBlock
-  index: number
+  /** Rendered label — the parent decides, so the edit page can name the record
+   *  it opened rather than just numbering it. */
+  heading: string
   showHeading: boolean
   canRemove: boolean
   onChange: (patch: Partial<EntryBlock>) => void
@@ -361,7 +383,7 @@ interface EntryBlockFieldsProps {
 
 function EntryBlockFields({
   block,
-  index,
+  heading,
   showHeading,
   canRemove,
   onChange,
@@ -446,7 +468,7 @@ function EntryBlockFields({
       {showHeading && (
         <div className="flex items-center justify-between gap-3 px-1">
           <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">
-            Entry {index + 1}
+            {heading}
           </h2>
           {canRemove && (
             <button
@@ -544,7 +566,7 @@ function EntryBlockFields({
       <div className="surface-card overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-cream-300 px-5 py-3">
           <h3 className="text-sm font-bold uppercase tracking-wide text-ink-500">
-            Parameter &amp; Details
+            Parameter &amp; Details Verified
             <span className="ml-2 rounded-full bg-cream-200 px-2 py-0.5 text-[11px] font-bold text-ink-500">
               {checkedCount}/{parameters.length}
             </span>

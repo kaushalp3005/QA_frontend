@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SignaturePicker from "@/components/ui/SignaturePicker";
 import {
@@ -130,17 +130,29 @@ export function FirstAidBoxRecord({ initialData, onSubmit, isEdit }: FirstAidBox
 // ===================== F.30 — Traceability Report =====================
 interface IngRow { id: number; ingredient: string; lotNo: string; supplier: string; poNo: string; receivedQty: string; issuedQty: string; dateOfIssuance: string; }
 interface PackRow { id: number; material: string; lotNo: string; supplier: string; poNo: string; issuanceDate: string; qualityApprovalDate: string; inwardQty: string; usedQty: string; }
-const TRACE_DOCS = ["Sales order contract", "Job Card Issuance", "Raw Material Purchase Order", "Raw material invoice (GRN)", "Incoming Vehicle Inspection record", "Fumigation Record (if applicable)", "RM quality Inspection Report", "RM Issuance Record", "Pre-production Inspection Checklist", "Daily Cleaning", "Equipment Cleaning Record", "CCP Monitoring Record", "Product weight & sealing check", "In-process quality check", "X-ray / Metal detection record", "Finished Good COA", "Dispatch Record"];
+/** Shared with the Mock Recall format, which reviews the same document set. */
+export const TRACE_DOCS = ["Sales order contract", "Job Card Issuance", "Raw Material Purchase Order", "Raw material invoice (GRN)", "Incoming Vehicle Inspection record", "Fumigation Record (if applicable)", "RM quality Inspection Report", "RM Issuance Record", "Pre-production Inspection Checklist", "Daily Cleaning", "Equipment Cleaning Record", "CCP Monitoring Record", "Product weight & sealing check", "In-process quality check", "X-ray / Metal detection record", "Finished Good COA", "Dispatch Record"];
+
+/** Yes/No answer per document in the review checklist. */
+export type DocChecks = Record<string, "Yes" | "No" | "">;
 
 interface TraceabilityReportProps {
   initialData?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => Promise<void>;
   isEdit?: boolean;
+  /**
+   * Lift the Documents Review Checklist out of the form. The Mock Recall format
+   * reviews the same documents against the same batch, so the create page owns
+   * one answer set and both tabs read and write it. Left out, the form keeps
+   * its own copy — which is what the standalone edit page wants.
+   */
+  docChecks?: DocChecks;
+  onDocChecksChange?: React.Dispatch<React.SetStateAction<DocChecks>>;
 }
 
 /** Rebuild the Yes/No map from the stored `documents_review` JSONB. Accepts the
  *  current [{document, status}] shape and the older [{document, checked}] one. */
-function readDocChecks(src: any): Record<string, "Yes" | "No" | ""> {
+export function readDocChecks(src: any): Record<string, "Yes" | "No" | ""> {
   const out: Record<string, "Yes" | "No" | ""> = {};
   if (Array.isArray(src)) {
     for (const r of src) {
@@ -155,7 +167,7 @@ function readDocChecks(src: any): Record<string, "Yes" | "No" | ""> {
   return out;
 }
 
-export function TraceabilityReport({ initialData, onSubmit, isEdit }: TraceabilityReportProps = {}) {
+export function TraceabilityReport({ initialData, onSubmit, isEdit, docChecks: sharedDocChecks, onDocChecksChange }: TraceabilityReportProps = {}) {
   const router = useRouter();
   const [date, setDate] = useState(initialData?.report_date || ""); const [startTime, setStartTime] = useState(initialData?.start_time || ""); const [productName, setProductName] = useState(initialData?.product_name || "");
   const [batchNumber, setBatchNumber] = useState(initialData?.batch_number || ""); const [workOrderNo, setWorkOrderNo] = useState(initialData?.work_order_no || ""); const [packingDate, setPackingDate] = useState(initialData?.packing_date || "");
@@ -173,7 +185,17 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit }: Traceabili
     }
     return [{ id: 1, material: "", lotNo: "", supplier: "", poNo: "", issuanceDate: "", qualityApprovalDate: "", inwardQty: "", usedQty: "" }];
   });
-  const [docChecks, setDocChecks] = useState<Record<string, "Yes" | "No" | "">>(() => readDocChecks(initialData?.documents_review));
+  const [ownDocChecks, setOwnDocChecks] = useState<DocChecks>(() => readDocChecks(initialData?.documents_review));
+  const docChecks = sharedDocChecks ?? ownDocChecks;
+  const setDocChecks = onDocChecksChange ?? setOwnDocChecks;
+  // Duplicating a record: seed the shared set once, since the page that owns it
+  // has no idea which record is being copied.
+  const seededShared = useRef(false);
+  useEffect(() => {
+    if (seededShared.current || !onDocChecksChange || !initialData?.documents_review) return;
+    seededShared.current = true;
+    onDocChecksChange(readDocChecks(initialData.documents_review));
+  }, [initialData, onDocChecksChange]);
   const [rmQty, setRmQty] = useState(initialData?.rm_quantity?.toString() || ""); const [fgProduced, setFgProduced] = useState(initialData?.total_fg_produced?.toString() || ""); const [rejectionQty, setRejectionQty] = useState(initialData?.rejection_qty?.toString() || ""); const [stockBalance, setStockBalance] = useState(initialData?.stock_balance?.toString() || "");
   const [conclusion, setConclusion] = useState(initialData?.overall_conclusion || ""); const [preparedBy, setPreparedBy] = useState(initialData?.prepared_by || ""); const [reviewedBy, setReviewedBy] = useState(initialData?.reviewed_by || "");
   // Id of the record this form is bound to. On the create page it is null until

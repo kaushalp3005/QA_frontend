@@ -80,6 +80,7 @@ export const DUPLICATABLE_SLUGS = new Set<string>([
   "eyewash-refill",
   "first-aid-box",
   "traceability",
+  "mock-recall",
   "pre-weighing",
   "fly-catcher",
   "ccp-roasting-bar",
@@ -129,6 +130,7 @@ export const DOC_FORMS: Record<string, DocFormConfig> = {
   "first-aid-box":           { formType: "first-aid-box",             routeSlug: "first-aid-box",             label: "First Aid Box Record",             docNo: "CFPLA.C7.F.29",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   // ── Batch 2 (15) ──
   "traceability":            { formType: "traceability",              routeSlug: "traceability",              label: "Traceability Report",              docNo: "CFPLA.C3.F.30",  dateField: "report_date",     listColumns: ["report_date", "product_name", "batch_number", "warehouse"] },
+  "mock-recall":             { formType: "mock-recall",               routeSlug: "mock-recall",               label: "Mock Recall",                      docNo: "CFPLA.C3.F.31",  dateField: "recall_date",     listColumns: ["recall_date", "product_name", "batch_number", "recall_efficiency_pct", "warehouse"] },
   "lux-monitoring":          { formType: "lux-monitoring",            routeSlug: "lux-monitoring",            label: "Lux Monitoring Record",            docNo: "CFPLA.C4.F.32",  dateField: "check_date",      listColumns: ["check_date", "checked_by", "warehouse", "status"] },
   "pre-weighing":            { formType: "pre-weighing",              routeSlug: "pre-weighing",              label: "Pre Weighing Check Record",        docNo: "CFPLA.C6.F.34",  dateField: "check_date",      listColumns: ["check_date", "customer", "product", "warehouse"] },
   "fly-catcher":             { formType: "fly-catcher",               routeSlug: "fly-catcher",               label: "Daily Fly Catcher Check",          docNo: "CFPLA.C7.F.37",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },

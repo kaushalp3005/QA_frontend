@@ -89,6 +89,7 @@ const DOCS: DocItem[] = [
   { href: '/documentations/eyewash-refill', title: 'Eye Wash Bottle Refilling', description: 'Eye Wash Bottle Refilling Record (CFPLA.C7.F.27)', icon: EyeOff, category: 'Safety' },
   { href: '/documentations/first-aid-box', title: 'First Aid Box', description: 'First Aid Box Record (CFPLA.C7.F.29)', icon: Cross, category: 'Safety' },
   { href: '/documentations/traceability', title: 'Traceability Report', description: 'Traceability Report (CFPLA.C3.F.30)', icon: Compass, category: 'Records' },
+  { href: '/documentations/mock-recall', title: 'Mock Recall', description: 'Mock Recall Format (CFPLA.C3.F.31)', icon: Siren, category: 'Records' },
   { href: '/documentations/lux-monitoring', title: 'Lux Monitoring', description: 'Lux Monitoring Record (CFPLA.C4.F.32)', icon: Sun, category: 'Maintenance' },
   { href: '/documentations/pre-weighing', title: 'Pre Weighing Check', description: 'Pre Weighing Check Record (CFPLA.C6.F.34)', icon: Scale, category: 'QC' },
   { href: '/documentations/fly-catcher', title: 'Daily Fly Catcher Check', description: 'Daily Checks for Fly Catcher - Inhouse (CFPLA.C7.F.37)', icon: Bug, category: 'Hygiene' },

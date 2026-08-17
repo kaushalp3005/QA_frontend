@@ -54,11 +54,7 @@ export default function Page() {
       </div>
 
       <div hidden={activeTab !== "mock-recall"} className="space-y-5">
-        <MockRecall
-          docChecks={docChecks}
-          onDocChecksChange={setDocChecks}
-          saveDisabledNote="Saving is off until the mock-recall record type is added to the backend."
-        />
+        <MockRecall docChecks={docChecks} onDocChecksChange={setDocChecks} />
       </div>
     </DocFormShell>
   );

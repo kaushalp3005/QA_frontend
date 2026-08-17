@@ -38,8 +38,6 @@ interface MockRecallProps {
   initialData?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => Promise<void>;
   isEdit?: boolean;
-  /** Saving is blocked until the backend `mock-recall` form type exists. */
-  saveDisabledNote?: string;
   /**
    * Shared Documents Review Checklist — the same documents the Traceability
    * Report reviews, so the create page owns one answer set for both tabs.
@@ -53,7 +51,6 @@ export default function MockRecall({
   initialData,
   onSubmit,
   isEdit,
-  saveDisabledNote,
   docChecks: sharedDocChecks,
   onDocChecksChange,
 }: MockRecallProps = {}) {
@@ -647,9 +644,8 @@ export default function MockRecall({
           Prepared by: <span className="font-semibold text-ink-500">FST</span>
           <span className="mx-2 text-cream-300">|</span>
           Approved by: <span className="font-semibold text-ink-500">FSTL</span>
-          {saveDisabledNote && <span className="block mt-1 text-warning-700">{saveDisabledNote}</span>}
         </p>
-        <button onClick={handleSubmit} disabled={submitting || !!saveDisabledNote} className="btn-primary">
+        <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
           {submitting ? "Submitting..." : isEdit ? "Update Record" : "Submit Record"}
         </button>
       </div>

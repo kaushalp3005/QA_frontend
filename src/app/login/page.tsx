@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { Spinner } from '@/components/ui/Loader'
 import ThemeToggle from '@/components/ui/ThemeToggle'
@@ -48,6 +49,10 @@ export default function LoginPage() {
 
       const data = await response.json()
       localStorage.setItem('access_token', data.access_token)
+      // The access token now lives 15 minutes. Without the refresh token
+      // stored alongside it, FetchInterceptor has nothing to renew with and
+      // the user would be bounced to /login every quarter of an hour.
+      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
       localStorage.setItem('user', JSON.stringify(data))
 
       let permissions: StoredPermissions = {}
@@ -171,9 +176,14 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[11px] text-ink-300 mt-1.5 font-medium">
-                Format: firstname+lastname (e.g. <span className="font-mono">shraddhajadhav</span>)
-              </p>
+              <div className="flex justify-end mt-2">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-semibold text-brand-500 hover:text-brand-600"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             {/* Error */}

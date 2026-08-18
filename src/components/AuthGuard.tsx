@@ -29,8 +29,10 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     const checkAuth = () => {
-      // Public routes that don't need authentication
-      const publicRoutes = ['/login', '/']
+      // Public routes that don't need authentication. /forgot-password must be
+      // here — the whole point of that page is that the user cannot sign in,
+      // so guarding it would redirect them to the page they are stuck on.
+      const publicRoutes = ['/login', '/forgot-password', '/']
 
       // Check if current route is public
       const isPublicRoute = publicRoutes.includes(pathname)

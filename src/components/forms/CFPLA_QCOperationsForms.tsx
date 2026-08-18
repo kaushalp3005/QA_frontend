@@ -9,6 +9,11 @@ import {
   type SignatureOption,
 } from "@/lib/signatures";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import DocumentsReviewChecklist, {
+  buildDocReviewPayload,
+  readDocReview,
+  type DocReview,
+} from "@/components/forms/DocumentsReviewChecklist";
 
 // ===================== F.29 — First Aid Box Record =====================
 interface FirstAidRow { id: number; boxNo: string; itemName: string; issueDate: string; expiryDate: string; qtyIssued: string; responsiblePerson: string; }
@@ -130,11 +135,6 @@ export function FirstAidBoxRecord({ initialData, onSubmit, isEdit }: FirstAidBox
 // ===================== F.30 — Traceability Report =====================
 interface IngRow { id: number; ingredient: string; lotNo: string; supplier: string; poNo: string; receivedQty: string; issuedQty: string; dateOfIssuance: string; }
 interface PackRow { id: number; material: string; lotNo: string; supplier: string; poNo: string; issuanceDate: string; qualityApprovalDate: string; inwardQty: string; usedQty: string; }
-/** Shared with the Mock Recall format, which reviews the same document set. */
-export const TRACE_DOCS = ["Sales order contract", "Job Card Issuance", "Raw Material Purchase Order", "Raw material invoice (GRN)", "Incoming Vehicle Inspection record", "Fumigation Record (if applicable)", "RM quality Inspection Report", "RM Issuance Record", "Pre-production Inspection Checklist", "Daily Cleaning", "Equipment Cleaning Record", "CCP Monitoring Record", "Product weight & sealing check", "In-process quality check", "X-ray / Metal detection record", "Finished Good COA", "Dispatch Record"];
-
-/** Yes/No answer per document in the review checklist. */
-export type DocChecks = Record<string, "Yes" | "No" | "">;
 
 interface TraceabilityReportProps {
   initialData?: Record<string, any>;
@@ -146,25 +146,8 @@ interface TraceabilityReportProps {
    * one answer set and both tabs read and write it. Left out, the form keeps
    * its own copy — which is what the standalone edit page wants.
    */
-  docChecks?: DocChecks;
-  onDocChecksChange?: React.Dispatch<React.SetStateAction<DocChecks>>;
-}
-
-/** Rebuild the Yes/No map from the stored `documents_review` JSONB. Accepts the
- *  current [{document, status}] shape and the older [{document, checked}] one. */
-export function readDocChecks(src: any): Record<string, "Yes" | "No" | ""> {
-  const out: Record<string, "Yes" | "No" | ""> = {};
-  if (Array.isArray(src)) {
-    for (const r of src) {
-      if (!r || typeof r !== "object" || !r.document) continue;
-      out[r.document] = r.status === "Yes" || r.status === "No" ? r.status : r.checked ? "Yes" : "";
-    }
-  } else if (src && typeof src === "object") {
-    for (const [k, v] of Object.entries(src)) {
-      if (v === "Yes" || v === "No") out[k] = v;
-    }
-  }
-  return out;
+  docChecks?: DocReview;
+  onDocChecksChange?: React.Dispatch<React.SetStateAction<DocReview>>;
 }
 
 export function TraceabilityReport({ initialData, onSubmit, isEdit, docChecks: sharedDocChecks, onDocChecksChange }: TraceabilityReportProps = {}) {
@@ -185,7 +168,7 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit, docChecks: s
     }
     return [{ id: 1, material: "", lotNo: "", supplier: "", poNo: "", issuanceDate: "", qualityApprovalDate: "", inwardQty: "", usedQty: "" }];
   });
-  const [ownDocChecks, setOwnDocChecks] = useState<DocChecks>(() => readDocChecks(initialData?.documents_review));
+  const [ownDocChecks, setOwnDocChecks] = useState<DocReview>(() => readDocReview(initialData?.documents_review));
   const docChecks = sharedDocChecks ?? ownDocChecks;
   const setDocChecks = onDocChecksChange ?? setOwnDocChecks;
   // Duplicating a record: seed the shared set once, since the page that owns it
@@ -194,7 +177,7 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit, docChecks: s
   useEffect(() => {
     if (seededShared.current || !onDocChecksChange || !initialData?.documents_review) return;
     seededShared.current = true;
-    onDocChecksChange(readDocChecks(initialData.documents_review));
+    onDocChecksChange(readDocReview(initialData.documents_review));
   }, [initialData, onDocChecksChange]);
   const [rmQty, setRmQty] = useState(initialData?.rm_quantity?.toString() || ""); const [fgProduced, setFgProduced] = useState(initialData?.total_fg_produced?.toString() || ""); const [rejectionQty, setRejectionQty] = useState(initialData?.rejection_qty?.toString() || ""); const [stockBalance, setStockBalance] = useState(initialData?.stock_balance?.toString() || "");
   const [conclusion, setConclusion] = useState(initialData?.overall_conclusion || ""); const [preparedBy, setPreparedBy] = useState(initialData?.prepared_by || ""); const [reviewedBy, setReviewedBy] = useState(initialData?.reviewed_by || "");
@@ -216,7 +199,7 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit, docChecks: s
     qty_produced: qtyProduced ? Number(qtyProduced) : null,
     ingredients: ingredients.filter((r) => r.ingredient).map((r) => ({ ingredient: r.ingredient, lot_no: r.lotNo, supplier: r.supplier, po_no: r.poNo, received_qty: r.receivedQty, issued_qty: r.issuedQty, date_of_issuance: r.dateOfIssuance })),
     packing_materials: packMaterials.filter((r) => r.material).map((r) => ({ material: r.material, lot_no: r.lotNo, supplier: r.supplier, po_no: r.poNo, issuance_date: r.issuanceDate, quality_approval_date: r.qualityApprovalDate, inward_qty: r.inwardQty, used_qty: r.usedQty })),
-    documents_review: TRACE_DOCS.filter((d) => docChecks[d]).map((d) => ({ document: d, status: docChecks[d] })),
+    documents_review: buildDocReviewPayload(docChecks),
     rm_quantity: rmQty ? Number(rmQty) : null, total_fg_produced: fgProduced ? Number(fgProduced) : null,
     rejection_qty: rejectionQty ? Number(rejectionQty) : null, stock_balance: stockBalance ? Number(stockBalance) : null,
     overall_conclusion: conclusion, prepared_by: preparedBy, reviewed_by: reviewedBy,
@@ -337,43 +320,7 @@ export function TraceabilityReport({ initialData, onSubmit, isEdit, docChecks: s
         </div>
       </section>
 
-      <section className="surface-card overflow-hidden">
-        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
-          <h2 className="text-sm font-bold text-ink-600">Documents Review Checklist</h2>
-        </header>
-        <div className="divide-y divide-cream-300">
-          {TRACE_DOCS.map((doc, i) => (
-            <div key={i} className="flex items-center px-4 sm:px-5 py-2 gap-3 hover:bg-cream-100/60">
-              <span className="w-6 text-xs text-ink-400 font-medium">{i + 1}.</span>
-              <span className="flex-1 text-sm text-ink-500">{doc}</span>
-              {/* Plain buttons, not a label wrapping an `sr-only` radio: the hidden
-                  radio is absolutely positioned against the app's `fixed inset-0`
-                  shell, so focusing it made the browser scroll <main> far past the
-                  content and the page went blank. */}
-              <div className="flex gap-1.5 shrink-0" role="radiogroup" aria-label={doc}>
-                {(["Yes", "No"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    role="radio"
-                    aria-checked={docChecks[doc] === v}
-                    onClick={() => setDocChecks((p) => ({ ...p, [doc]: p[doc] === v ? "" : v }))}
-                    className={`px-2.5 py-1 !min-h-0 rounded-md border text-[11px] font-semibold cursor-pointer transition-colors ${
-                      docChecks[doc] === v
-                        ? v === "Yes"
-                          ? "bg-success-50 border-success-200 text-success-700"
-                          : "bg-danger-50 border-danger-200 text-danger-600"
-                        : "border-cream-300 text-ink-400 hover:bg-cream-100"
-                    }`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <DocumentsReviewChecklist value={docChecks} onChange={setDocChecks} batchNumber={batchNumber} />
 
       <section className="surface-card p-4 sm:p-5">
         <h2 className="text-sm font-bold text-ink-600 mb-3">Conclusion & Approvals</h2>

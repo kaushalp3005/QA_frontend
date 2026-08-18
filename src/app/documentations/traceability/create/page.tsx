@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Compass } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
-import { TraceabilityReport, type DocChecks } from "@/components/forms/CFPLA_QCOperationsForms";
+import { TraceabilityReport } from "@/components/forms/CFPLA_QCOperationsForms";
+import { type DocReview } from "@/components/forms/DocumentsReviewChecklist";
 import MockRecall from "@/components/forms/CFPLA_C3_F_31_MockRecall";
 import DocCreateForm from "@/components/documentations/DocCreateForm";
 
@@ -19,8 +20,9 @@ export default function Page() {
   const meta = TABS.find((t) => t.key === activeTab) ?? TABS[0];
   // One Documents Review Checklist for both tabs: the two formats review the
   // same documents for the same batch, so an answer given on either side is the
-  // answer on both, and each record still files its own copy.
-  const [docChecks, setDocChecks] = useState<DocChecks>({});
+  // answer on both — supporting photos included — and each record still files
+  // its own copy.
+  const [docChecks, setDocChecks] = useState<DocReview>({});
 
   return (
     <DocFormShell title={meta.title} docNo={meta.docNo} icon={Compass} width="lg">

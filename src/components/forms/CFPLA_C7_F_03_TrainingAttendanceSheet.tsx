@@ -77,6 +77,55 @@ const addDays = (date: string, days: number | string | null | ""): string => {
 /** yyyy-mm-dd → dd/mm/yyyy, for the read-only date hints. */
 const fmtDate = (d: string) => (d ? d.split("-").reverse().join("/") : "");
 
+/**
+ * Columns that are the same for every attendee of one session, so typing them
+ * on a row copies them down to every row beneath it. Editing row 1 therefore
+ * fills the whole column, which is how these sheets are actually filled in —
+ * one training, one designation level, one evaluation method.
+ *
+ * Per-field, not per-row: correcting a Designation never disturbs the scores
+ * already typed below it. Name and Signature are deliberately absent.
+ */
+const FILL_DOWN_FIELDS = [
+  "designation",
+  "evaluationMethod",
+  "evaluationScoring",
+  "effectivenessMethod",
+  "effectivenessScoring",
+] as const;
+
+const fillsDown = (field: keyof AttendeeRow) => (FILL_DOWN_FIELDS as readonly string[]).includes(field);
+
+/** Clone before storing: the method columns are string[], and sharing one array
+ *  across rows would make them a single value wearing several hats. */
+const cloned = (value: any) => (Array.isArray(value) ? [...value] : value);
+
+/**
+ * Results, average and status all follow from the two /5 scores, so they are
+ * recomputed for every row a value lands in — including the rows it copied into.
+ *
+ * Scores are entered out of 5 and each result passes strictly above 3. The
+ * average is carried as a percentage of 5 (so 4.5/5 → 90%), matching the paper
+ * format's "Average Scoring (%)" column and its % criteria bands.
+ */
+const withDerived = (row: AttendeeRow): AttendeeRow => {
+  const updated = { ...row };
+  const evalScore = parseFloat(updated.evaluationScoring) || 0;
+  const effScore = parseFloat(updated.effectivenessScoring) || 0;
+  if (evalScore > 0 && effScore > 0) {
+    const avgPct = parseFloat(toPercent((evalScore + effScore) / 2));
+    updated.averageScoring = toPercent((evalScore + effScore) / 2);
+    updated.trainingStatus =
+      avgPct >= SCORE_EFFECTIVE_PCT ? "Effective" : avgPct >= SCORE_REFRESHER_PCT ? "Refresher" : "Retraining";
+  }
+  // Each result follows its own score. Previously the evaluation result stopped
+  // updating as soon as an effectiveness score was entered, and the
+  // effectiveness result was never set at all.
+  if (evalScore > 0) updated.evaluationResult = evalScore > SCORE_PASS ? "Pass" : "Fail";
+  if (effScore > 0) updated.effectivenessResult = effScore > SCORE_PASS ? "Effective" : "Non-Effective";
+  return updated;
+};
+
 /** The stored pair of /5 scores as an average percentage, or null if incomplete. */
 const avgPercentOf = (evaluation: any, effectiveness: any): string | null => {
   const a = parseFloat(String(evaluation ?? ""));
@@ -84,6 +133,48 @@ const avgPercentOf = (evaluation: any, effectiveness: any): string | null => {
   if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return null;
   return toPercent((a + b) / 2);
 };
+
+/**
+ * The rows after writing `value` into `field` of row `id`.
+ *
+ * When the column is one of the shared ones, the value is also copied into
+ * every row below — the value typed on the first attendee reaches the last one
+ * without being retyped. Copying is per-field, so correcting a Designation
+ * never disturbs the scores already typed underneath it. Rows above the edited
+ * one are always left alone.
+ *
+ * Pure and exported so the fill-down can be tested without rendering the form.
+ */
+export function applyRowEdit(
+  rows: AttendeeRow[],
+  id: number,
+  field: keyof AttendeeRow,
+  value: any
+): AttendeeRow[] {
+  const startIdx = rows.findIndex((r) => r.id === id);
+  if (startIdx === -1) return rows;
+  const copiesDown = fillsDown(field);
+  return rows.map((r, i) => {
+    if (i < startIdx || (i > startIdx && !copiesDown)) return r;
+    return withDerived({ ...r, [field]: cloned(value) });
+  });
+}
+
+/**
+ * The rows with one more attendee on the end.
+ *
+ * The new row inherits the shared columns from the row above, so appending an
+ * attendee after those columns were filled does not leave a hole part-way down
+ * one. Ids come from the highest in use, not the row count: `length + 1`
+ * repeats an id as soon as a middle row has been removed, and two rows
+ * answering to one id means editing either edits both.
+ */
+export function appendRow(rows: AttendeeRow[]): AttendeeRow[] {
+  const seeded = emptyRow(rows.reduce((max, r) => Math.max(max, r.id), 0) + 1);
+  const last = rows[rows.length - 1];
+  if (last) for (const field of FILL_DOWN_FIELDS) (seeded as any)[field] = cloned(last[field]);
+  return [...rows, withDerived(seeded)];
+}
 
 interface TrainingAttendanceSheetProps {
   initialData?: Record<string, any>;
@@ -158,34 +249,20 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
   const [rowErrors, setRowErrors] = useState<number[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const addRow = () => setRows((prev) => [...prev, emptyRow(prev.length + 1)]);
+  const addRow = () => setRows(appendRow);
   const removeRow = (id: number) => { if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id)); };
 
   const updateRow = (id: number, field: keyof AttendeeRow, value: any) => {
-    setRows((prev) => prev.map((r) => {
-      if (r.id !== id) return r;
-      const updated = { ...r, [field]: value };
-      if (field === "designation" && String(value).trim()) {
-        setRowErrors((errs) => errs.filter((errId) => errId !== id));
-      }
-      // Scores are entered out of 5; each result passes strictly above 3. The
-      // average is carried as a percentage of 5 (so 4.5/5 → 90%), matching the
-      // paper format's "Average Scoring (%)" column and its % criteria bands.
-      const evalScore = parseFloat(updated.evaluationScoring) || 0;
-      const effScore = parseFloat(updated.effectivenessScoring) || 0;
-      if (evalScore > 0 && effScore > 0) {
-        const avgPct = parseFloat(toPercent((evalScore + effScore) / 2));
-        updated.averageScoring = toPercent((evalScore + effScore) / 2);
-        updated.trainingStatus =
-          avgPct >= SCORE_EFFECTIVE_PCT ? "Effective" : avgPct >= SCORE_REFRESHER_PCT ? "Refresher" : "Retraining";
-      }
-      // Each result follows its own score. Previously the evaluation result
-      // stopped updating as soon as an effectiveness score was entered, and the
-      // effectiveness result was never set at all.
-      if (evalScore > 0) updated.evaluationResult = evalScore > SCORE_PASS ? "Pass" : "Fail";
-      if (effScore > 0) updated.effectivenessResult = effScore > SCORE_PASS ? "Effective" : "Non-Effective";
-      return updated;
-    }));
+    if (field === "designation" && String(value).trim()) {
+      // Every row the value lands in now has a designation, so none of them are
+      // still flagged as missing one.
+      const startIdx = rows.findIndex((r) => r.id === id);
+      const reached = new Set(
+        rows.slice(startIdx === -1 ? rows.length : startIdx, fillsDown(field) ? undefined : startIdx + 1).map((r) => r.id)
+      );
+      setRowErrors((errs) => errs.filter((errId) => !reached.has(errId)));
+    }
+    setRows((prev) => applyRowEdit(prev, id, field, value));
   };
 
   const toggleArrayItem = (arr: string[], item: string) =>

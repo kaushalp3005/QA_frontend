@@ -1,8 +1,13 @@
 "use client";
 import { useState } from "react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
-// The checklist is the same document set the Traceability Report reviews.
-import { TRACE_DOCS, readDocChecks, type DocChecks } from "@/components/forms/CFPLA_QCOperationsForms";
+// The checklist is the same document set the Traceability Report reviews,
+// photos included, so both formats render the one component.
+import DocumentsReviewChecklist, {
+  buildDocReviewPayload,
+  readDocReview,
+  type DocReview,
+} from "@/components/forms/DocumentsReviewChecklist";
 
 /*
  * CFPLA.C3.F.31 — Mock Recall Format (Issue 03 · Rev 02 · 01/10/2025).
@@ -43,8 +48,8 @@ interface MockRecallProps {
    * Report reviews, so the create page owns one answer set for both tabs.
    * Left out, the form keeps its own copy.
    */
-  docChecks?: DocChecks;
-  onDocChecksChange?: React.Dispatch<React.SetStateAction<DocChecks>>;
+  docChecks?: DocReview;
+  onDocChecksChange?: React.Dispatch<React.SetStateAction<DocReview>>;
 }
 
 export default function MockRecall({
@@ -143,7 +148,7 @@ export default function MockRecall({
   const [endTime, setEndTime] = useState(d?.end_time || "");
 
   // ── Documents review checklist ──
-  const [ownDocChecks, setOwnDocChecks] = useState<DocChecks>(() => readDocChecks(d?.documents_review));
+  const [ownDocChecks, setOwnDocChecks] = useState<DocReview>(() => readDocReview(d?.documents_review));
   const docChecks = sharedDocChecks ?? ownDocChecks;
   const setDocChecks = onDocChecksChange ?? setOwnDocChecks;
 
@@ -196,7 +201,7 @@ export default function MockRecall({
     balance_stock_qty: balanceStock,
     recall_efficiency_pct: num(efficiencyPct),
     end_time: endTime,
-    documents_review: TRACE_DOCS.filter((doc) => docChecks[doc]).map((doc) => ({ document: doc, status: docChecks[doc] })),
+    documents_review: buildDocReviewPayload(docChecks),
   });
 
   const handleSubmit = async () => {
@@ -599,39 +604,7 @@ export default function MockRecall({
       </section>
 
       {/* ── Documents review checklist ── */}
-      <section className="surface-card overflow-hidden">
-        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
-          <h2 className="text-sm font-bold text-ink-600">Documents Review Checklist</h2>
-        </header>
-        <div className="divide-y divide-cream-300">
-          {TRACE_DOCS.map((doc, i) => (
-            <div key={doc} className="flex items-center px-4 sm:px-5 py-2 gap-3 hover:bg-cream-100/60">
-              <span className="w-6 text-xs text-ink-400 font-medium">{i + 1}.</span>
-              <span className="flex-1 text-sm text-ink-500">{doc}</span>
-              <div className="flex gap-1.5 shrink-0" role="radiogroup" aria-label={doc}>
-                {(["Yes", "No"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    role="radio"
-                    aria-checked={docChecks[doc] === v}
-                    onClick={() => setDocChecks((p) => ({ ...p, [doc]: p[doc] === v ? "" : v }))}
-                    className={`px-2.5 py-1 !min-h-0 rounded-md border text-[11px] font-semibold cursor-pointer transition-colors ${
-                      docChecks[doc] === v
-                        ? v === "Yes"
-                          ? "bg-success-50 border-success-200 text-success-700"
-                          : "bg-danger-50 border-danger-200 text-danger-600"
-                        : "border-cream-300 text-ink-400 hover:bg-cream-100"
-                    }`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <DocumentsReviewChecklist value={docChecks} onChange={setDocChecks} batchNumber={batchNumber} />
 
       {message && (
         <div className={`surface-card p-3 text-sm font-medium ${message.kind === "ok" ? "border-l-4 border-success-500 text-success-800 bg-success-50" : "border-l-4 border-danger-500 text-danger-700 bg-danger-50"}`}>

@@ -11,6 +11,7 @@ import {
   ComplaintSource,
   ComplaintStatus,
 } from '@/types';
+import { refreshTokens, getAuthToken } from '@/lib/api/auth';
 
 class APIClient {
   private client: AxiosInstance;
@@ -43,20 +44,24 @@ class APIClient {
           !(original as any)._retried
         ) {
           (original as any)._retried = true;
-          const baseURL = original.baseURL || this.client.defaults.baseURL || '';
-          try {
-            const refreshRes = await axios.post(`${baseURL}/auth/refresh`, null, {
-              headers: { Authorization: original.headers?.Authorization as string },
-            });
-            const newToken: string = refreshRes.data.access_token;
-            if (newToken && typeof window !== 'undefined') {
-              localStorage.setItem('access_token', newToken);
-            }
+          // Delegate to the ONE shared refresh in lib/api/auth.
+          //
+          // This used to POST /auth/refresh with no body, passing the old
+          // access token in the Authorization header — the contract the
+          // backend had before refresh tokens existed. Against the current API
+          // that is a 422, so the refresh always failed and every 401 became a
+          // logout.
+          //
+          // Delegating also keeps refreshes single-flight across BOTH http
+          // clients. Refresh tokens rotate, so two concurrent refreshes would
+          // present the same spent token twice — which the server correctly
+          // reads as theft and answers by revoking the whole session.
+          const refreshed = await refreshTokens();
+          if (refreshed) {
+            const newToken = getAuthToken();
             original.headers = original.headers || {};
-            original.headers.Authorization = `Bearer ${newToken}`;
+            if (newToken) original.headers.Authorization = `Bearer ${newToken}`;
             return this.client.request(original);
-          } catch {
-            // Refresh failed — proceed with force-logout
           }
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('force-logout'));

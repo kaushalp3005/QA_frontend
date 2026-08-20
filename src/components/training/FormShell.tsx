@@ -350,16 +350,29 @@ export function RowCard({
 /** Small stacked label + control used inside <RowCard>. */
 export function CardField({
   label,
+  action,
   className,
   children,
 }: {
   label: string;
+  /** Optional control shown at the right of the label — e.g. a fill-all button.
+   *  The label keeps its plain layout when nothing is passed, so the cards in
+   *  every other form are untouched. */
+  action?: ReactNode;
   className?: string;
   children: ReactNode;
 }) {
+  const labelText = "text-[10px] font-bold uppercase tracking-wide text-ink-400";
   return (
     <div className={cn("min-w-0", className)}>
-      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-ink-400">{label}</p>
+      {action ? (
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <p className={labelText}>{label}</p>
+          {action}
+        </div>
+      ) : (
+        <p className={cn("mb-1", labelText)}>{label}</p>
+      )}
       {children}
     </div>
   );

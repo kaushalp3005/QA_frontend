@@ -42,6 +42,7 @@ export const PRINTABLE_SLUGS = new Set<string>([
   "gmp-ghp-inspection",
   "inprocess-qc-after-processing",
   "ccp-puffer",
+  "daily-pest-inspection",
   // Training forms (basePath /training — these are routeSlugs, not formTypes).
   "attendance-sheet",
   "training-card",
@@ -138,6 +139,10 @@ export const DOC_FORMS: Record<string, DocFormConfig> = {
   "vehicle-inspection":      { formType: "vehicle-inspection",        routeSlug: "vehicle-inspection",        label: "Incoming Vehicle Inspection",      docNo: "CFPLA.C3.F.45",  dateField: "inspection_date", listColumns: ["inspection_date", "vendor_name", "vehicle_number", "warehouse"] },
   "outgoing-vehicle-inspection": { formType: "outgoing-vehicle-inspection", routeSlug: "outgoing-vehicle-inspection", label: "Outgoing Vehicle Inspection", docNo: "CFPLA.C5.F.46", dateField: "dispatch_date",  listColumns: ["dispatch_date", "customer_name", "vehicle_number", "warehouse"] },
   "glass-brittle-check":     { formType: "glass-brittle-check",       routeSlug: "glass-brittle-check",       label: "Glass & Brittle Check Record",     docNo: "CFPLA.C4.F.48",  dateField: "year",            listColumns: ["year", "warehouse", "created_by"] },
+  // W202 files this as CFPLA.C4.F.47, A185 as CFPLB.C4.RA.04 — same layout,
+  // different areas and header block (see config/dailyPestAreas.ts). docNo here
+  // is only the list-page fallback; the printed sheet reads the per-plant one.
+  "daily-pest-inspection":   { formType: "daily-pest-inspection",     routeSlug: "daily-pest-inspection",     label: "Daily Pest Inspection Report",     docNo: "CFPLA.C4.F.47",  dateField: "month",           listColumns: ["month", "checked_by", "verified_by", "warehouse"] },
   "preventive-maintenance":  { formType: "preventive-maintenance",    routeSlug: "preventive-maintenance",    label: "Preventive Maintenance Checklist", docNo: "CFPLA.C4.F.50a", dateField: "month",           listColumns: ["month", "checked_by", "warehouse"] },
   "new-equipment-clearance": { formType: "new-equipment-clearance",   routeSlug: "new-equipment-clearance",   label: "New Equipment Clearance",          docNo: "CFPLA.C4.F.51",  dateField: "commissioning_date", listColumns: ["commissioning_date", "equipment_name", "warehouse"] },
   "waste-disposal":          { formType: "waste-disposal",            routeSlug: "waste-disposal",            label: "Waste Disposal Record",            docNo: "CFPLA.C4.F.52",  dateField: "month",           listColumns: ["month", "area", "warehouse"] },

@@ -93,6 +93,7 @@ const DOCS: DocItem[] = [
   { href: '/documentations/lux-monitoring', title: 'Lux Monitoring', description: 'Lux Monitoring Record (CFPLA.C4.F.32)', icon: Sun, category: 'Maintenance' },
   { href: '/documentations/pre-weighing', title: 'Pre Weighing Check', description: 'Pre Weighing Check Record (CFPLA.C6.F.34)', icon: Scale, category: 'QC' },
   { href: '/documentations/fly-catcher', title: 'Daily Fly Catcher Check', description: 'Daily Checks for Fly Catcher - Inhouse (CFPLA.C7.F.37)', icon: Bug, category: 'Hygiene' },
+  { href: '/documentations/daily-pest-inspection', title: 'Daily Pest Inspection', description: 'Daily Pest Inspection Report (CFPLA.C4.F.47 / CFPLB.C4.RA.04)', icon: Bug, category: 'Hygiene' },
   { href: '/documentations/ccp-roasting-bar', title: 'CCP Roasting (Bar Line)', description: 'CCP Roasting Temp & Time - Bar Line (CFPLA.C2.F.43)', icon: Flame, category: 'CCP', tone: 'warning' },
   { href: '/documentations/vehicle-inspection', title: 'Incoming Vehicle Inspection', description: 'Incoming Vehicle Inspection Record (CFPLA.C3.F.45)', icon: Truck, category: 'QC' },
   { href: '/documentations/outgoing-vehicle-inspection', title: 'Outgoing Vehicle Inspection', description: 'Outgoing Vehicle Inspection Record (CFPLA.C5.F.46)', icon: Truck, category: 'QC' },

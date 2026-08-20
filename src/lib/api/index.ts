@@ -1,5 +1,6 @@
 import { Session, User, ApiResponse, IPQCRecord, DropdownData, Factory, Floor, SKUResult } from "@/types";
-import { getToken, clearIPQCSession } from "../auth";
+import { clearIPQCSession } from "../auth";
+import { getFreshAccessToken, refreshTokens, getAuthToken, getRefreshToken } from "./auth";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -7,51 +8,35 @@ interface RequestOptions extends RequestInit {
   headers?: Record<string, string>;
 }
 
-// ── Token refresh helpers ───────────────────
-let _refreshPromise: Promise<string | null> | null = null;
+// ── Auth ─────────────────────────────────────────────────────────────────────
+// Tokens are handled by lib/api/auth.ts and NOWHERE else.
+//
+// This module used to keep its own refresh, which POSTed to /auth/refresh with
+// no body and the ACCESS token in an Authorization header. The endpoint takes
+// {"refresh_token": "..."} as its body, so that call could only ever answer 422
+// — every 401 fell straight through to the logout branch below. With a 15-minute
+// access token and IPQC forms that take longer than that to fill, Save reliably
+// logged the user out and lost the entry. (It landed them on the dashboard, not
+// the login screen, because clearIPQCSession() leaves the complaint-module
+// tokens intact and AuthGuard bounces an authenticated user off /login.)
+//
+// Two rules now keep that from coming back:
+//
+//   1. Renew BEFORE sending, not after failing. getFreshAccessToken() refreshes
+//      when the token is expired or within its 30s skew, so a form that took an
+//      hour to fill still saves with a live token and never sees a 401.
+//
+//   2. ONE refresh implementation. Refresh tokens rotate, and the server treats
+//      a re-presented one as theft and revokes the whole chain. Two modules with
+//      separate single-flight guards can present the same token concurrently and
+//      log the user out for real — so this defers to refreshTokens(), whose
+//      guard is the only one.
 let _redirecting = false;
-
-async function tryRefreshToken(): Promise<string | null> {
-  const oldToken = getToken();
-  if (!oldToken) return null;
-
-  try {
-    const res = await fetch(`${BASE}/auth/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${oldToken}`,
-      },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const newToken: string = data.access_token;
-    if (newToken && typeof window !== "undefined") {
-      // Persist the refreshed token so future requests use it
-      localStorage.setItem("access_token", newToken);
-      const ipqcToken = localStorage.getItem("ipqc_token");
-      if (ipqcToken) localStorage.setItem("ipqc_token", newToken);
-    }
-    return newToken;
-  } catch {
-    return null;
-  }
-}
-
-/** Deduplicated refresh — concurrent callers share one in-flight attempt. */
-function refreshOnce(): Promise<string | null> {
-  if (!_refreshPromise) {
-    _refreshPromise = tryRefreshToken().finally(() => {
-      _refreshPromise = null;
-    });
-  }
-  return _refreshPromise;
-}
 
 async function request<T = any>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json", ...options.headers };
 
-  const token = getToken();
+  const token = await getFreshAccessToken();
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -59,21 +44,29 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
 
   if (res.status === 401) {
-    // Try silent token refresh before giving up
-    const newToken = await refreshOnce();
-    if (newToken) {
-      // Retry the original request with the fresh token
-      headers["Authorization"] = `Bearer ${newToken}`;
+    // Pre-send renewal should have prevented this, so a 401 here means the
+    // token died in flight or was revoked. One refresh, one replay.
+    const refreshed = await refreshTokens();
+
+    if (refreshed) {
+      const fresh = getAuthToken();
+      if (fresh) headers["Authorization"] = `Bearer ${fresh}`;
       const retry = await fetch(`${BASE}${path}`, { ...options, headers });
       if (retry.ok) return retry.json();
-      // If retry also fails with 401, fall through to logout
-      if (retry.status !== 401) {
-        const err = await retry.json().catch(() => ({ detail: retry.statusText }));
-        throw new Error(err.detail || `Request failed: ${retry.status}`);
-      }
+      // We hold a token the server just issued, so this is NOT an expired
+      // session. Surface it as an error and leave the user's work on screen
+      // rather than logging them out and losing it.
+      const err = await retry.json().catch(() => ({ detail: retry.statusText }));
+      throw new Error(err.detail?.message || err.detail || err.message || `Request failed: ${retry.status}`);
     }
 
-    // Refresh failed or retry still 401 — clear session and redirect once
+    // refreshTokens() clears the stored tokens only when the SERVER rejects the
+    // refresh. Still holding one means the request never got there — a network
+    // blip is not a logout.
+    if (getRefreshToken()) {
+      throw new Error("Could not reach the server — check your connection and try again");
+    }
+
     clearIPQCSession();
     if (typeof window !== "undefined" && !_redirecting) {
       _redirecting = true;

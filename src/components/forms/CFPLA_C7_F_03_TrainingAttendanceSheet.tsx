@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowDownToLine } from "lucide-react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import {
   DRAFT_KEYS,
@@ -78,15 +79,17 @@ const addDays = (date: string, days: number | string | null | ""): string => {
 const fmtDate = (d: string) => (d ? d.split("-").reverse().join("/") : "");
 
 /**
- * Columns that are the same for every attendee of one session, so typing them
- * on a row copies them down to every row beneath it. Editing row 1 therefore
- * fills the whole column, which is how these sheets are actually filled in —
- * one training, one designation level, one evaluation method.
+ * Columns that are usually identical for every attendee of one session — one
+ * training, one designation level, one evaluation method.
  *
- * Per-field, not per-row: correcting a Designation never disturbs the scores
- * already typed below it. Name and Signature are deliberately absent.
+ * These used to copy down on their own the moment a row above was typed, which
+ * meant correcting row 1 silently rewrote rows already filled in below it. Each
+ * of these columns now carries its own Fill All button instead: spreading a
+ * value is something the user asks for, not something that happens to them.
+ *
+ * Name and Signature are deliberately absent — they are never shared.
  */
-const FILL_DOWN_FIELDS = [
+const SHARED_FIELDS = [
   "designation",
   "evaluationMethod",
   "evaluationScoring",
@@ -94,11 +97,15 @@ const FILL_DOWN_FIELDS = [
   "effectivenessScoring",
 ] as const;
 
-const fillsDown = (field: keyof AttendeeRow) => (FILL_DOWN_FIELDS as readonly string[]).includes(field);
+type SharedField = (typeof SHARED_FIELDS)[number];
 
 /** Clone before storing: the method columns are string[], and sharing one array
  *  across rows would make them a single value wearing several hats. */
 const cloned = (value: any) => (Array.isArray(value) ? [...value] : value);
+
+/** Nothing to spread: "" for the text and score columns, [] for the method
+ *  columns, which hold string arrays. */
+const isBlank = (value: any) => (Array.isArray(value) ? value.length === 0 : !String(value ?? "").trim());
 
 /**
  * Results, average and status all follow from the two /5 scores, so they are
@@ -137,13 +144,10 @@ const avgPercentOf = (evaluation: any, effectiveness: any): string | null => {
 /**
  * The rows after writing `value` into `field` of row `id`.
  *
- * When the column is one of the shared ones, the value is also copied into
- * every row below — the value typed on the first attendee reaches the last one
- * without being retyped. Copying is per-field, so correcting a Designation
- * never disturbs the scores already typed underneath it. Rows above the edited
- * one are always left alone.
+ * Only that row changes. Spreading a value across the sheet is the Fill All
+ * button's job now — see SHARED_FIELDS.
  *
- * Pure and exported so the fill-down can be tested without rendering the form.
+ * Pure and exported so the row maths can be tested without rendering the form.
  */
 export function applyRowEdit(
   rows: AttendeeRow[],
@@ -151,13 +155,27 @@ export function applyRowEdit(
   field: keyof AttendeeRow,
   value: any
 ): AttendeeRow[] {
-  const startIdx = rows.findIndex((r) => r.id === id);
-  if (startIdx === -1) return rows;
-  const copiesDown = fillsDown(field);
-  return rows.map((r, i) => {
-    if (i < startIdx || (i > startIdx && !copiesDown)) return r;
-    return withDerived({ ...r, [field]: cloned(value) });
-  });
+  return rows.map((r) => (r.id === id ? withDerived({ ...r, [field]: cloned(value) }) : r));
+}
+
+/**
+ * Every row given the same value in `field` — what a Fill All button does.
+ *
+ * The value comes from row `fromId`. The column-header button passes none, and
+ * the first row that actually holds a value is used instead, so the button
+ * works whether the sheet was started on the first attendee or the third.
+ *
+ * Rows that already have a value are overwritten: filling the column is the
+ * whole point of pressing it, and unlike the old automatic copy-down it only
+ * happens when asked. Returns the rows untouched when there is nothing to
+ * spread, so an accidental press on an empty column is a no-op.
+ *
+ * Pure and exported so the fill can be tested without rendering the form.
+ */
+export function fillColumn(rows: AttendeeRow[], field: SharedField, fromId?: number): AttendeeRow[] {
+  const source = fromId != null ? rows.find((r) => r.id === fromId) : rows.find((r) => !isBlank(r[field]));
+  if (!source || isBlank(source[field])) return rows;
+  return rows.map((r) => withDerived({ ...r, [field]: cloned(source[field]) }));
 }
 
 /**
@@ -165,15 +183,37 @@ export function applyRowEdit(
  *
  * The new row inherits the shared columns from the row above, so appending an
  * attendee after those columns were filled does not leave a hole part-way down
- * one. Ids come from the highest in use, not the row count: `length + 1`
- * repeats an id as soon as a middle row has been removed, and two rows
- * answering to one id means editing either edits both.
+ * one. This is not the copy-down that Fill All replaced: a brand-new blank row
+ * has nothing of its own to lose, so seeding it overwrites nobody's typing.
+ *
+ * Ids come from the highest in use, not the row count: `length + 1` repeats an
+ * id as soon as a middle row has been removed, and two rows answering to one id
+ * means editing either edits both.
  */
 export function appendRow(rows: AttendeeRow[]): AttendeeRow[] {
   const seeded = emptyRow(rows.reduce((max, r) => Math.max(max, r.id), 0) + 1);
   const last = rows[rows.length - 1];
-  if (last) for (const field of FILL_DOWN_FIELDS) (seeded as any)[field] = cloned(last[field]);
+  if (last) for (const field of SHARED_FIELDS) (seeded as any)[field] = cloned(last[field]);
   return [...rows, withDerived(seeded)];
+}
+
+/**
+ * Copies one shared column into every attendee. Sits under the column heading
+ * on the desktop grid and beside the field label on each mobile card.
+ */
+function FillAllButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`Fill every attendee's ${label} with this value`}
+      aria-label={`Fill every attendee's ${label} with this value`}
+      className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-md border border-cream-300 bg-cream-50 px-1.5 py-0.5 !min-h-0 text-[9px] font-bold uppercase tracking-wide text-ink-400 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600"
+    >
+      <ArrowDownToLine className="h-2.5 w-2.5" />
+      Fill all
+    </button>
+  );
 }
 
 interface TrainingAttendanceSheetProps {
@@ -253,16 +293,25 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
   const removeRow = (id: number) => { if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id)); };
 
   const updateRow = (id: number, field: keyof AttendeeRow, value: any) => {
+    // The edit reaches this row and no other, so only this row can stop being
+    // flagged for a missing designation.
     if (field === "designation" && String(value).trim()) {
-      // Every row the value lands in now has a designation, so none of them are
-      // still flagged as missing one.
-      const startIdx = rows.findIndex((r) => r.id === id);
-      const reached = new Set(
-        rows.slice(startIdx === -1 ? rows.length : startIdx, fillsDown(field) ? undefined : startIdx + 1).map((r) => r.id)
-      );
-      setRowErrors((errs) => errs.filter((errId) => !reached.has(errId)));
+      setRowErrors((errs) => errs.filter((errId) => errId !== id));
     }
     setRows((prev) => applyRowEdit(prev, id, field, value));
+  };
+
+  /**
+   * Copy one shared column into every attendee, from the column header or from
+   * a mobile card. `fromId` is the card's row; the header passes none and takes
+   * the first row holding a value.
+   */
+  const fillAll = (field: SharedField, fromId?: number) => {
+    const next = fillColumn(rows, field, fromId);
+    if (next === rows) return;
+    setRows(next);
+    // Every row now carries the designation that was spread, so none are missing one.
+    if (field === "designation") setRowErrors([]);
   };
 
   const toggleArrayItem = (arr: string[], item: string) =>
@@ -482,7 +531,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
       {/* Attendees */}
       <Section
         title="Attendees, Evaluation & Effectiveness"
-        hint={`${filledAttendees} of ${rows.length} rows filled · scores auto-calculate the average and status`}
+        hint={`${filledAttendees} of ${rows.length} rows filled · scores auto-calculate the average and status · “Fill all” copies a shared column to every attendee`}
         bodyClassName="p-0"
       >
         {/* Desktop: full record grid */}
@@ -492,7 +541,12 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
               <tr>
                 <Th className="w-10" rowSpan={2}>Sr.</Th>
                 <Th className="min-w-[150px] text-left" rowSpan={2}>Name</Th>
-                <Th className="min-w-[120px] text-left" rowSpan={2}>Designation *</Th>
+                <Th className="min-w-[120px] text-left" rowSpan={2}>
+                  <span className="flex flex-col items-start gap-1">
+                    Designation *
+                    <FillAllButton label="designation" onClick={() => fillAll("designation")} />
+                  </span>
+                </Th>
                 <Th className="min-w-[110px] text-left" rowSpan={2}>Signature</Th>
                 <Th className="border-l border-cream-300 text-center" colSpan={3}>Evaluation</Th>
                 <Th className="border-l border-cream-300 text-center" colSpan={3}>Effectiveness</Th>
@@ -501,11 +555,31 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                 <Th className="w-10" rowSpan={2} />
               </tr>
               <tr>
-                <Th className="border-l border-cream-300 text-[10px] min-w-[110px]">Method</Th>
-                <Th className="text-[10px] min-w-[70px]">Score /5</Th>
+                <Th className="border-l border-cream-300 text-[10px] min-w-[110px]">
+                  <span className="flex flex-col items-center gap-1">
+                    Method
+                    <FillAllButton label="evaluation method" onClick={() => fillAll("evaluationMethod")} />
+                  </span>
+                </Th>
+                <Th className="text-[10px] min-w-[86px]">
+                  <span className="flex flex-col items-center gap-1">
+                    Score /5
+                    <FillAllButton label="evaluation score" onClick={() => fillAll("evaluationScoring")} />
+                  </span>
+                </Th>
                 <Th className="text-[10px] min-w-[90px]">Result</Th>
-                <Th className="border-l border-cream-300 text-[10px] min-w-[110px]">Method</Th>
-                <Th className="text-[10px] min-w-[70px]">Score /5</Th>
+                <Th className="border-l border-cream-300 text-[10px] min-w-[110px]">
+                  <span className="flex flex-col items-center gap-1">
+                    Method
+                    <FillAllButton label="effectiveness method" onClick={() => fillAll("effectivenessMethod")} />
+                  </span>
+                </Th>
+                <Th className="text-[10px] min-w-[86px]">
+                  <span className="flex flex-col items-center gap-1">
+                    Score /5
+                    <FillAllButton label="effectiveness score" onClick={() => fillAll("effectivenessScoring")} />
+                  </span>
+                </Th>
                 <Th className="text-[10px] min-w-[110px]">Result</Th>
               </tr>
             </thead>
@@ -597,7 +671,10 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                 <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} className="input-base" placeholder="Attendee name" />
               </CardField>
               <div className="grid grid-cols-2 gap-3">
-                <CardField label="Designation">
+                <CardField
+                  label="Designation"
+                  action={<FillAllButton label="designation" onClick={() => fillAll("designation", row.id)} />}
+                >
                   <input
                     type="text"
                     value={row.designation}
@@ -614,13 +691,19 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
               <div className="rounded-xl border border-cream-300 bg-cream-100/50 p-3">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-brand-500">Evaluation</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <CardField label="Method">
+                  <CardField
+                    label="Method"
+                    action={<FillAllButton label="evaluation method" onClick={() => fillAll("evaluationMethod", row.id)} />}
+                  >
                     <select value={row.evaluationMethod[0] || ""} onChange={(e) => updateRow(row.id, "evaluationMethod", e.target.value ? [e.target.value] : [])} className="input-base">
                       <option value="">Select</option>
                       {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </CardField>
-                  <CardField label="Score (out of 5)">
+                  <CardField
+                    label="Score (out of 5)"
+                    action={<FillAllButton label="evaluation score" onClick={() => fillAll("evaluationScoring", row.id)} />}
+                  >
                     <input type="number" inputMode="decimal" value={row.evaluationScoring} onChange={(e) => updateRow(row.id, "evaluationScoring", e.target.value)} className="input-base" placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </CardField>
                 </div>
@@ -636,13 +719,19 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
               <div className="rounded-xl border border-cream-300 bg-cream-100/50 p-3">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-brand-500">Effectiveness</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <CardField label="Method">
+                  <CardField
+                    label="Method"
+                    action={<FillAllButton label="effectiveness method" onClick={() => fillAll("effectivenessMethod", row.id)} />}
+                  >
                     <select value={row.effectivenessMethod[0] || ""} onChange={(e) => updateRow(row.id, "effectivenessMethod", e.target.value ? [e.target.value] : [])} className="input-base">
                       <option value="">Select</option>
                       {EVAL_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </CardField>
-                  <CardField label="Score (out of 5)">
+                  <CardField
+                    label="Score (out of 5)"
+                    action={<FillAllButton label="effectiveness score" onClick={() => fillAll("effectivenessScoring", row.id)} />}
+                  >
                     <input type="number" inputMode="decimal" value={row.effectivenessScoring} onChange={(e) => updateRow(row.id, "effectivenessScoring", e.target.value)} className="input-base" placeholder={`0–${SCORE_MAX}`} min="0" max={SCORE_MAX} step="0.5" />
                   </CardField>
                 </div>

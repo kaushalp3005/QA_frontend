@@ -1,14 +1,21 @@
 "use client";
 import { useRef, useState } from "react";
-import { ImagePlus, Loader2, X } from "lucide-react";
-import { uploadReviewImage, deleteReviewImage, validateReviewImage } from "@/lib/api/traceabilityDocs";
+import { FileText, Loader2, Paperclip, X } from "lucide-react";
+import {
+  REVIEW_FILE_ACCEPT,
+  deleteReviewFile,
+  fileNameFromUrl,
+  isPdfUrl,
+  uploadReviewFile,
+  validateReviewFile,
+} from "@/lib/api/traceabilityDocs";
 
 /*
  * Documents Review Checklist — shared by the Traceability Report
  * (CFPLA.C3.F.30) and the Mock Recall (CFPLA.C3.F.31).
  *
  * Both formats review the same document set for the same batch, so the answers
- * and the supporting photos live here rather than being duplicated in each
+ * and the supporting attachments live here rather than being duplicated in each
  * form. The create page owns one answer set across its two tabs; each record
  * still files its own copy into its own `documents_review` jsonb column.
  */
@@ -34,9 +41,15 @@ export const TRACE_DOCS = [
   "Dispatch Record",
 ];
 
-/** One document's review: the Yes/No answer plus any supporting photos. */
+/** One document's review: the Yes/No answer plus any supporting attachments. */
 export interface DocReviewEntry {
   status: "Yes" | "No" | "";
+  /**
+   * S3 URLs of the evidence — photos of the document AND the document's own
+   * PDF, in one list. The key stays `images` because that is what every record
+   * written so far stores it under, and splitting PDFs into a second key would
+   * mean every reader of `documents_review` had to learn about both.
+   */
   images: string[];
 }
 
@@ -80,8 +93,9 @@ export function readDocReview(src: any): DocReview {
 /**
  * Serialize for the `documents_review` column.
  *
- * A document is filed when it has an answer OR a photo — answering nothing but
- * attaching evidence is a real state, and dropping it would lose the upload.
+ * A document is filed when it has an answer OR an attachment — answering
+ * nothing but attaching evidence is a real state, and dropping it would lose
+ * the upload.
  * `images` is omitted when empty so untouched records keep the exact shape they
  * have always had.
  */
@@ -122,14 +136,14 @@ export default function DocumentsReviewChecklist({ value, onChange, batchNumber 
     setErrors((p) => ({ ...p, [doc]: "" }));
 
     for (const file of picked) {
-      const invalid = validateReviewImage(file);
+      const invalid = validateReviewFile(file);
       if (invalid) {
         setErrors((p) => ({ ...p, [doc]: invalid }));
         continue;
       }
       setUploading((p) => ({ ...p, [doc]: (p[doc] || 0) + 1 }));
       try {
-        const url = await uploadReviewImage(file, { batch: batchNumber, document: doc });
+        const url = await uploadReviewFile(file, { batch: batchNumber, document: doc });
         patch(doc, (e) => ({ ...e, images: [...e.images, url] }));
       } catch (err: any) {
         setErrors((p) => ({ ...p, [doc]: err?.message || "Upload failed" }));
@@ -139,11 +153,11 @@ export default function DocumentsReviewChecklist({ value, onChange, batchNumber 
     }
   };
 
-  const removeImage = (doc: string, url: string) => {
+  const removeAttachment = (doc: string, url: string) => {
     // Drop it from the form first: an orphaned S3 object is less harmful than a
     // thumbnail the user cannot get rid of, so the delete is best-effort.
     patch(doc, (e) => ({ ...e, images: e.images.filter((u) => u !== url) }));
-    void deleteReviewImage(url);
+    void deleteReviewFile(url);
   };
 
   return (
@@ -151,7 +165,8 @@ export default function DocumentsReviewChecklist({ value, onChange, batchNumber 
       <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
         <h2 className="text-sm font-bold text-ink-600">Documents Review Checklist</h2>
         <p className="text-[11px] text-ink-400 mt-0.5">
-          Attach a photo of each document as supporting evidence — JPEG, PNG or WebP, up to 10MB each.
+          Attach each document as supporting evidence — a photo (JPEG, PNG or WebP, up to 10MB) or
+          the document itself as a PDF (up to 25MB).
         </p>
       </header>
       <div className="divide-y divide-cream-300">
@@ -196,7 +211,7 @@ export default function DocumentsReviewChecklist({ value, onChange, batchNumber 
                     inputs.current[doc] = el;
                   }}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept={REVIEW_FILE_ACCEPT}
                   multiple
                   className="hidden"
                   onChange={(e) => {
@@ -209,12 +224,12 @@ export default function DocumentsReviewChecklist({ value, onChange, batchNumber 
                   type="button"
                   onClick={() => inputs.current[doc]?.click()}
                   disabled={busy}
-                  title={`Attach a photo of ${doc}`}
-                  aria-label={`Attach a photo of ${doc}`}
+                  title={`Attach a photo or PDF of ${doc}`}
+                  aria-label={`Attach a photo or PDF of ${doc}`}
                   className="shrink-0 inline-flex items-center gap-1 px-2 py-1 !min-h-0 rounded-md border border-cream-300 text-[11px] font-semibold text-ink-400 hover:bg-cream-100 disabled:opacity-50"
                 >
-                  {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
-                  <span className="hidden sm:inline">{busy ? "Uploading" : "Photo"}</span>
+                  {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{busy ? "Uploading" : "Attach"}</span>
                   {entry.images.length > 0 && (
                     <span className="text-brand-500">({entry.images.length})</span>
                   )}
@@ -225,18 +240,37 @@ export default function DocumentsReviewChecklist({ value, onChange, batchNumber 
                 <div className="flex flex-wrap gap-2 mt-2 ml-9">
                   {entry.images.map((url) => (
                     <div key={url} className="relative group">
-                      <a href={url} target="_blank" rel="noopener noreferrer" title="Open full size">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={doc}
-                          className="w-16 h-16 object-cover rounded-md border border-cream-300"
-                        />
-                      </a>
+                      {/* A PDF has no thumbnail to show, so it gets a tile of the
+                          same 64px footprint carrying its filename instead — the
+                          row stays aligned however the evidence was attached. */}
+                      {isPdfUrl(url) ? (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={fileNameFromUrl(url)}
+                          className="w-16 h-16 flex flex-col items-center justify-center gap-0.5 rounded-md border border-cream-300 bg-danger-50 px-1 text-danger-600 hover:bg-danger-100 transition-colors"
+                        >
+                          <FileText className="w-5 h-5" />
+                          <span className="text-[9px] font-semibold leading-none">PDF</span>
+                          <span className="w-full truncate text-center text-[8px] text-ink-400 leading-none">
+                            {fileNameFromUrl(url)}
+                          </span>
+                        </a>
+                      ) : (
+                        <a href={url} target="_blank" rel="noopener noreferrer" title="Open full size">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={doc}
+                            className="w-16 h-16 object-cover rounded-md border border-cream-300"
+                          />
+                        </a>
+                      )}
                       <button
                         type="button"
-                        onClick={() => removeImage(doc, url)}
-                        aria-label={`Remove photo from ${doc}`}
+                        onClick={() => removeAttachment(doc, url)}
+                        aria-label={`Remove attachment from ${doc}`}
                         className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-5 h-5 !min-h-0 rounded-full bg-white border border-cream-300 text-ink-400 hover:text-danger-600 hover:bg-danger-50 shadow-soft"
                       >
                         <X className="w-3 h-3" />

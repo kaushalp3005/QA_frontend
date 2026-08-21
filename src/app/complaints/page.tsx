@@ -11,7 +11,7 @@ import { useCompany } from '@/contexts/CompanyContext'
 import { usePermissions } from '@/hooks/usePermissions'
 import PageHeader from '@/components/ui/PageHeader'
 import { Spinner, Skeleton } from '@/components/ui/Loader'
-import ComplaintCategoryTrend from '@/components/complaint/ComplaintCategoryTrend'
+import ComplaintCategoryTrend, { DEFAULT_RANGE } from '@/components/complaint/ComplaintCategoryTrend'
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -51,6 +51,10 @@ export default function ComplaintsPage() {
   // a request while still letting the input stay responsive.
   const [search, setSearch] = useState('')
   const [activeSearch, setActiveSearch] = useState('')
+  // Owned here rather than inside the trend card because both the chart and the
+  // list below it are filtered by this one range — the card reports its date
+  // pickers back up. Starts on the same default the card has always shown.
+  const [range, setRange] = useState(DEFAULT_RANGE)
   const limit = 20
 
   useEffect(() => {
@@ -62,7 +66,7 @@ export default function ComplaintsPage() {
   // on an empty page of a much shorter result set.
   useEffect(() => {
     setPage(1)
-  }, [activeSearch, currentCompany])
+  }, [activeSearch, currentCompany, range])
 
   useEffect(() => {
     // Load complaints from API
@@ -72,6 +76,8 @@ export default function ComplaintsPage() {
         const response = await getComplaints({
           company: currentCompany,
           search: activeSearch || undefined,
+          fromDate: range.fromDate,
+          toDate: range.toDate,
           page,
           limit
         })
@@ -86,7 +92,7 @@ export default function ComplaintsPage() {
     }
 
     loadComplaints()
-  }, [currentCompany, page, activeSearch])
+  }, [currentCompany, page, activeSearch, range])
 
   const handleVideoUpload = async (complaintId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -210,7 +216,11 @@ export default function ComplaintsPage() {
           }
         />
 
-        <ComplaintCategoryTrend />
+        <ComplaintCategoryTrend
+          fromDate={range.fromDate}
+          toDate={range.toDate}
+          onRangeChange={setRange}
+        />
 
         {/* Search — one box, matches lot/batch, customer or item */}
         <div className="surface-card p-3 sm:p-4 mb-4 animate-fade-in-up">
@@ -235,11 +245,21 @@ export default function ComplaintsPage() {
               </button>
             )}
           </div>
-          {activeSearch && !isLoading && (
+          {/* Always shown, not just while searching: the list is scoped to the
+              trend card's date range, so the range has to be readable from here
+              or a missing complaint looks like a missing record. */}
+          {!isLoading && (
             <p className="mt-2 text-xs text-ink-400">
               <span className="font-semibold text-ink-600 tabular-nums">{total}</span>{' '}
-              {total === 1 ? 'complaint' : 'complaints'} matching{' '}
-              <span className="font-semibold text-ink-600">&ldquo;{activeSearch}&rdquo;</span>
+              {total === 1 ? 'complaint' : 'complaints'}
+              {activeSearch && (
+                <> matching <span className="font-semibold text-ink-600">&ldquo;{activeSearch}&rdquo;</span></>
+              )}
+              {' '}received between{' '}
+              <span className="font-semibold text-ink-600">{formatDateShort(range.fromDate)}</span>
+              {' and '}
+              <span className="font-semibold text-ink-600">{formatDateShort(range.toDate)}</span>
+              {' · adjust the dates above to widen the range'}
             </p>
           )}
         </div>
@@ -262,8 +282,8 @@ export default function ComplaintsPage() {
               <h3 className="mt-4 text-sm font-semibold text-ink-500">No complaints found</h3>
               <p className="mt-1 text-xs text-ink-400">
                 {activeSearch
-                  ? `Nothing matches "${activeSearch}". Try a different lot/batch code, customer or item.`
-                  : 'Get started by creating a new complaint.'}
+                  ? `Nothing matches "${activeSearch}" between ${formatDateShort(range.fromDate)} and ${formatDateShort(range.toDate)}. Try a different lot/batch code, customer or item, or widen the date range above.`
+                  : `No complaints were received between ${formatDateShort(range.fromDate)} and ${formatDateShort(range.toDate)}. Widen the date range above to see older ones.`}
               </p>
               {activeSearch && (
                 <div className="mt-5">

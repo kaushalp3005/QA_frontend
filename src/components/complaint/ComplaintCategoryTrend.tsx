@@ -50,16 +50,24 @@ function formatMonthLabel(month: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
+/** yyyy-mm-dd from local date parts. NOT toISOString(), which converts to UTC
+ *  and so returns yesterday's date all night for timezones ahead of it — in IST
+ *  that hid today's complaints from the range until 05:30. */
+function isoLocal(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 function isoDaysAgo(days: number): string {
   const d = new Date()
   d.setDate(d.getDate() - days)
-  return d.toISOString().split('T')[0]
+  return isoLocal(d)
 }
 
 function firstOfMonthMonthsAgo(months: number): string {
   const d = new Date()
   d.setMonth(d.getMonth() - months, 1)
-  return d.toISOString().split('T')[0]
+  return isoLocal(d)
 }
 
 const TODAY = isoDaysAgo(0)
@@ -107,12 +115,45 @@ function CategoryTooltip({ active, payload, label, isDark }: {
   )
 }
 
-export default function ComplaintCategoryTrend() {
+/** The range the card starts on, and the one the complaints list filters by
+ *  until the user picks another. Exported so the page can seed its own state
+ *  from the same value instead of duplicating the number 5. */
+export const DEFAULT_RANGE = { fromDate: firstOfMonthMonthsAgo(5), toDate: TODAY }
+
+interface ComplaintCategoryTrendProps {
+  /**
+   * Lift the date range out of the card. The complaints list below is filtered
+   * by the same range, so the page owns it and the card reports changes back —
+   * a chart headed "N complaints in range" over a table showing a different set
+   * is just two answers to one question.
+   *
+   * Left out, the card keeps its own range and nothing else sees it.
+   */
+  fromDate?: string
+  toDate?: string
+  onRangeChange?: (range: { fromDate: string; toDate: string }) => void
+}
+
+export default function ComplaintCategoryTrend({
+  fromDate: controlledFrom,
+  toDate: controlledTo,
+  onRangeChange,
+}: ComplaintCategoryTrendProps = {}) {
   const { currentCompany } = useCompany()
   const isDark = useIsDarkMode()
 
-  const [fromDate, setFromDate] = useState(() => firstOfMonthMonthsAgo(5))
-  const [toDate, setToDate] = useState(TODAY)
+  const [ownFromDate, setOwnFromDate] = useState(DEFAULT_RANGE.fromDate)
+  const [ownToDate, setOwnToDate] = useState(DEFAULT_RANGE.toDate)
+  const fromDate = controlledFrom ?? ownFromDate
+  const toDate = controlledTo ?? ownToDate
+
+  const setRange = (next: { fromDate: string; toDate: string }) => {
+    setOwnFromDate(next.fromDate)
+    setOwnToDate(next.toDate)
+    onRangeChange?.(next)
+  }
+  const setFromDate = (value: string) => setRange({ fromDate: value, toDate })
+  const setToDate = (value: string) => setRange({ fromDate, toDate: value })
   const [data, setData] = useState<CategoryTrendResponse['data'] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -165,7 +206,7 @@ export default function ComplaintCategoryTrend() {
             {PRESETS.map((p) => (
               <button
                 key={p.label}
-                onClick={() => { setFromDate(p.from()); setToDate(TODAY) }}
+                onClick={() => setRange({ fromDate: p.from(), toDate: TODAY })}
                 className={cn(
                   'px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors',
                   fromDate === p.from() && toDate === TODAY

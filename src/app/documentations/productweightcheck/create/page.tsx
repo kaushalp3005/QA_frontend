@@ -165,9 +165,14 @@ export default function ProductWeightSealCheckRecord() {
       if (raw) {
         const parsed = JSON.parse(raw) as { savedAt: number; data: { products?: ProductEntry[] } };
         if (parsed.savedAt && Date.now() - parsed.savedAt < DRAFT_TTL_MS) {
-          if (Array.isArray(parsed.data.products) && parsed.data.products.length > 0) {
+          const stored = Array.isArray(parsed.data.products) ? parsed.data.products : [];
+          // A draft written by the previous build can still hold products that
+          // were already filed. Never restore one: a blank Create New page must
+          // not come back holding a record that exists in the database.
+          const unsaved = stored.filter((p) => p?.savedId == null);
+          if (unsaved.length > 0) {
             // never restore a stale "saving" flag
-            setProducts(parsed.data.products.map((p) => ({ ...p, saving: false })));
+            setProducts(unsaved.map((p) => ({ ...p, saving: false })));
           }
         } else {
           localStorage.removeItem(DRAFT_KEY);
@@ -179,10 +184,25 @@ export default function ProductWeightSealCheckRecord() {
     hydrated.current = true;
   }, [continueId, duplicateFrom]);
 
+  // Mirror only the UNSAVED products into the draft.
+  //
+  // A product carrying a savedId is already in the database — it is reachable
+  // from the list page and cannot be lost, so drafting it protects nothing and
+  // did real harm: submitting stamps every product with an id and then removes
+  // the draft, but that same state change re-runs this effect, which wrote the
+  // just-filed record straight back. Within the 5-minute window the next
+  // "Create New" then opened pre-filled with the record just saved. The
+  // per-product Save button left the same residue.
+  //
+  // Keying the draft on what is still unsaved makes that impossible: once
+  // everything is filed there is nothing left to draft, so this removes the key
+  // rather than rewriting it, whatever order the effect and the submit run in.
   useEffect(() => {
     if (!hydrated.current || continueId || duplicateFrom) return; // don't draft-cache the Continue/Duplicate session
+    const unsaved = products.filter((p) => p.savedId == null);
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), data: { products } }));
+      if (unsaved.length === 0) localStorage.removeItem(DRAFT_KEY);
+      else localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), data: { products: unsaved } }));
     } catch {}
   }, [products, continueId, duplicateFrom]);
 

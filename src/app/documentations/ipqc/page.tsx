@@ -16,6 +16,14 @@ import PageHeader from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Loader";
 
 
+/**
+ * Records are always ordered by the date on the record, newest first — not by
+ * when the row happened to be created. Editing a record's date to today is
+ * meant to move it to the top of the list, which ordering by created_at never
+ * did. Ties inside one date fall back to id on the server.
+ */
+const ORDER = { sort_by: "check_date", sort_order: "desc" } as const;
+
 export default function IPQCListPage() {
 
   const router = useRouter();
@@ -124,6 +132,7 @@ export default function IPQCListPage() {
           from_date: fromDate || undefined,
           to_date: toDate || undefined,
           warehouse,
+          ...ORDER,
         });
         setAllRecords([]);
         setRecords(res.records);
@@ -142,6 +151,7 @@ export default function IPQCListPage() {
             from_date: fromDate || undefined,
             to_date: toDate || undefined,
             warehouse,
+            ...ORDER,
           });
           collected.push(...res.records);
           if (!res.records.length || res.records.length < CHUNK) break;

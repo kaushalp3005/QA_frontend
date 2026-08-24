@@ -9,6 +9,7 @@ import SignatureCell from '@/components/ui/SignatureCell'
 import SignaturePicker from '@/components/ui/SignaturePicker'
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse } from '@/lib/signatures'
 import { detectorsForWarehouse, findDetector } from '@/lib/metalDetectors'
+import RecordsPagination, { pageCount, pageSlice } from '@/components/documentations/RecordsPagination'
 import MetalDetectorEditRows from '@/components/metaldetector/MetalDetectorEditRows'
 import { isDocAdmin, isDocAdminFor, ADMIN_EMAIL } from '@/lib/api/documentations'
 
@@ -105,6 +106,7 @@ interface MDRecordWithEntries extends MetalDetectorRecord {
 export default function MetalDetectorPage() {
   const router = useRouter()
   const [records, setRecords] = useState<MetalDetectorRecord[]>([])
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [warehouse, setWarehouse] = useState<WarehouseCode>('A185')
@@ -547,6 +549,18 @@ export default function MetalDetectorPage() {
       )
     : records
 
+  // Search spans every record, not just the page on screen, so the page number
+  // has to come back to 1 — page 4 of an unfiltered list is usually past the
+  // end of a filtered one. A warehouse switch replaces the whole set, so it
+  // starts from the top too.
+  useEffect(() => { setPage(1) }, [search, warehouse])
+
+  const totalPages = pageCount(filteredRecords.length)
+  // Guard against a page left stranded past the end when the list shrinks —
+  // a delete, a warehouse switch, or a search typed while on a later page.
+  const safePage = Math.min(page, totalPages)
+  const visibleRecords = pageSlice(filteredRecords, safePage)
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -702,7 +716,7 @@ export default function MetalDetectorPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredRecords.map((record) => (
+                    {visibleRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-gray-50">
                         <td className="px-2 py-3 align-middle">
                           <div className="text-sm font-medium text-gray-900 truncate">{record.entry_date}</div>
@@ -802,6 +816,12 @@ export default function MetalDetectorPage() {
                   </tbody>
                 </table>
               </div>
+              <RecordsPagination
+                page={safePage}
+                totalPages={totalPages}
+                total={filteredRecords.length}
+                onPageChange={setPage}
+              />
             </div>
           ) : records.length > 0 ? (
             <div className="px-6 py-12 text-center">

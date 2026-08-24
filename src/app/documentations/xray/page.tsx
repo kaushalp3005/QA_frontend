@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import RecordsPagination, { pageCount, pageSlice } from '@/components/documentations/RecordsPagination'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ArrowLeft, Plus, Calendar, Package, Check, Clock, Eye, Loader2, Trash2, Printer, Search, X, Play } from 'lucide-react'
@@ -14,6 +15,7 @@ export default function XRayDetectionPage() {
   const [records, setRecords] = useState<XRayRecordSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [isAuthorized, setIsAuthorized] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
@@ -78,6 +80,17 @@ export default function XRayDetectionPage() {
         ].some((v) => (v ?? '').toString().toLowerCase().includes(query))
       )
     : records
+
+  // Search spans every sheet, not just the page on screen, so the page number
+  // has to come back to 1 — page 4 of an unfiltered list is usually past the
+  // end of a filtered one.
+  useEffect(() => { setPage(1) }, [search])
+
+  const totalPages = pageCount(filtered.length)
+  // Guard against a page left stranded past the end when the list shrinks
+  // (a delete, or a search typed while on a later page).
+  const safePage = Math.min(page, totalPages)
+  const visible = pageSlice(filtered, safePage)
 
   return (
     <DashboardLayout>
@@ -187,7 +200,7 @@ export default function XRayDetectionPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filtered.map((record) => (
+                  {visible.map((record) => (
                     <tr key={record.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {fmtDate(record.check_date)}
@@ -229,6 +242,13 @@ export default function XRayDetectionPage() {
                   ))}
                 </tbody>
               </table>
+              <RecordsPagination
+                page={safePage}
+                totalPages={totalPages}
+                total={filtered.length}
+                onPageChange={setPage}
+                noun="sheets"
+              />
             </div>
           ) : records.length > 0 ? (
             <div className="px-6 py-12 text-center">

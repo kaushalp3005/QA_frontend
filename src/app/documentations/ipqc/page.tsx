@@ -32,7 +32,8 @@ export default function IPQCListPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const PER_PAGE = 20;
+  // 50 a page, matching every other documentation record list.
+  const PER_PAGE = 50;
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");

@@ -83,11 +83,29 @@ export async function createXRayBatch(data: XRayBatchCreateInput): Promise<XRayB
 }
 
 /** List all batches (newest first), without entries. */
+/**
+ * Every X-Ray sheet, newest first.
+ *
+ * Fetched in chunks and concatenated: the endpoint caps `limit` at 1000 and
+ * defaults to 200, so a plain call silently dropped every sheet past the 200th
+ * — and the list page counts, searches and paginates over the whole set.
+ */
 export async function getXRayRecords(): Promise<XRayRecordSummary[]> {
-  const res = await fetch(`${API_BASE_URL}/xray/`, { headers: { ...authHeaders() } })
-  if (!res.ok) throw new Error('Failed to fetch X-Ray records')
-  const data = await res.json()
-  return data.records || []
+  const CHUNK = 500
+  const all: XRayRecordSummary[] = []
+  // Bounded so a server that keeps reporting more than it returns cannot spin
+  // here forever; 20 chunks is 10k sheets, far past any real register.
+  for (let i = 0; i < 20; i++) {
+    const res = await fetch(`${API_BASE_URL}/xray/?skip=${all.length}&limit=${CHUNK}`, {
+      headers: { ...authHeaders() },
+    })
+    if (!res.ok) throw new Error('Failed to fetch X-Ray records')
+    const data = await res.json()
+    const batch: XRayRecordSummary[] = data.records || []
+    all.push(...batch)
+    if (batch.length < CHUNK || all.length >= (data.total ?? all.length)) break
+  }
+  return all
 }
 
 /** Get one batch with all its entries. */

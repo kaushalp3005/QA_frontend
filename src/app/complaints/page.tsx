@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Plus, Edit, Clock, AlertCircle, Video, X, Trash2, Eye, FileText, Search } from 'lucide-react'
+import { Plus, Edit, AlertCircle, Video, X, Trash2, Eye, FileText, Search } from 'lucide-react'
 import Link from 'next/link'
 import { getComplaints, uploadSampleVideo, deleteSampleVideo, deleteComplaint, type ComplaintResponse } from '@/lib/api/complaints'
 import { formatDateShort } from '@/lib/date-utils'
@@ -12,6 +12,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import PageHeader from '@/components/ui/PageHeader'
 import { Spinner, Skeleton } from '@/components/ui/Loader'
 import ComplaintCategoryTrend, { DEFAULT_RANGE } from '@/components/complaint/ComplaintCategoryTrend'
+import MeasureAction from '@/components/complaint/MeasureAction'
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -173,9 +174,11 @@ export default function ComplaintsPage() {
     router.push(`/rca-capa/create?complaintId=${complaintId}`)
   }
 
-  const handleFishbone = (complaintId: string) => {
-    // Navigate to Fishbone Analysis creation page with complaint ID
-    router.push(`/fishbone/create?complaintId=${complaintId}`)
+  const handleFishbone = (complaintId: string, id: number) => {
+    // Navigate to Fishbone Analysis creation page with complaint ID. The numeric
+    // id rides along so the form can pull the complaint directly instead of
+    // hunting for it in a page of the list.
+    router.push(`/fishbone/create?complaintId=${complaintId}&id=${id}`)
   }
 
   const handleDeleteComplaint = async (id: number, complaintId: string) => {
@@ -423,27 +426,14 @@ export default function ComplaintsPage() {
                             </button>
                           )}
 
-                          {complaint.measuresToResolve === 'rca_capa' && canCreate('rca_capa') && (
-                            <button
-                              onClick={() => handleRcaCapa(complaint.complaintId)}
-                              className="inline-flex items-center px-2 py-1 text-[11px] font-semibold rounded-md bg-success-50 text-success-700 hover:bg-success-100 transition-colors"
-                              title="Create RCA/CAPA"
-                            >
-                              <Clock className="w-3 h-3 mr-1" />
-                              RCA/CAPA
-                            </button>
-                          )}
-
-                          {complaint.measuresToResolve === 'fishbone' && canCreate('fishbone') && (
-                            <button
-                              onClick={() => handleFishbone(complaint.complaintId)}
-                              className="inline-flex items-center px-2 py-1 text-[11px] font-semibold rounded-md bg-brand-50 text-brand-500 hover:bg-brand-100 transition-colors"
-                              title="Create Fishbone"
-                            >
-                              <AlertCircle className="w-3 h-3 mr-1" />
-                              Fishbone
-                            </button>
-                          )}
+                          {/* The row follows the "Measures to Resolve" pick:
+                              RCA/CAPA and Fishbone open their analysis form,
+                              every other measure is shown as a badge. */}
+                          <MeasureAction
+                            measure={complaint.measuresToResolve}
+                            onRcaCapa={() => handleRcaCapa(complaint.complaintId)}
+                            onFishbone={() => handleFishbone(complaint.complaintId, complaint.id)}
+                          />
 
                           {canDelete('complaints') && (
                             <button

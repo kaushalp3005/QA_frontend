@@ -31,6 +31,7 @@ import type { ComplaintResponse } from '@/lib/api/complaints'
 import { useCompany } from '@/contexts/CompanyContext'
 import { canAccessReports } from '@/lib/api/reports'
 import { Calendar } from 'lucide-react'
+import { measureBadge, measureLabel } from '@/lib/constants/measures'
 
 interface RCARecord {
   rca_id: number
@@ -467,24 +468,11 @@ function DashboardContent() {
             const ccfsComplaints = complaintRecords.filter(c => c.complaintId?.startsWith('CCFS'))
             const ccnfsComplaints = complaintRecords.filter(c => c.complaintId?.startsWith('CCNFS'))
 
-            const measureConfig: Record<string, { label: string; badge: string }> = {
-              replacement: { label: 'Replacement', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
-              rca_capa: { label: 'RCA/CAPA', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
-              fishbone: { label: 'Fishbone', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-              rtv: { label: 'RTV', badge: 'bg-teal-50 text-teal-700 border-teal-200' },
-              refund: { label: 'Refund', badge: 'bg-warning-50 text-warning-700 border-warning-200' },
-              other: { label: 'Other', badge: 'bg-cream-200 text-ink-500 border-cream-300' },
-            }
-
-            const getMeasureLabel = (measure: string) => {
-              if (!measure) return 'Not Specified'
-              return measureConfig[measure.toLowerCase()]?.label || measure.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-            }
-
-            const getMeasureBadge = (measure: string) => {
-              if (!measure) return 'bg-cream-200 text-ink-500 border-cream-300'
-              return measureConfig[measure.toLowerCase()]?.badge || 'bg-cream-200 text-ink-500 border-cream-300'
-            }
+            // Labels and badges come from the shared measure config, which the
+            // complaints list reads too — both must agree on what "rca_capa" is
+            // called and what colour it wears.
+            const getMeasureLabel = measureLabel
+            const getMeasureBadge = measureBadge
 
             const getMeasureCount = (list: ComplaintRecord[], measure: string) =>
               list.filter(c => c.measuresToResolve?.toLowerCase() === measure.toLowerCase()).length

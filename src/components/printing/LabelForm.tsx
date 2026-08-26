@@ -3,13 +3,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Camera, FileClock, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-react'
+import { Camera, CopyPlus, FileClock, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-react'
 import { todayLocalISO } from '@/lib/date-utils'
 import { cn } from '@/lib/styles'
 import { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
+import RecreateSidebar, { type RecreateItem } from '@/components/printing/RecreateSidebar'
 import {
   APPROVED_BY_OPTIONS,
+  APPROVED_BY_OPTIONS_A185,
   APPROVED_BY_OTHER,
+  approvedByOptions,
+  printedByOptions,
   emptyParameters,
   normalizeParameters,
   printingLabelsApi,
@@ -21,7 +25,9 @@ import {
   type PrintingLabelRecord,
 } from '@/lib/api/printingLabels'
 
-const KNOWN_APPROVERS: readonly string[] = APPROVED_BY_OPTIONS
+// Both plants' lists: a stored approver is "known" — and so reopens on the
+// pick-list rather than as "Other" — whichever register it came from.
+const KNOWN_APPROVERS: readonly string[] = [...APPROVED_BY_OPTIONS, ...APPROVED_BY_OPTIONS_A185]
 
 /** One register entry being composed. The date lives on the parent: a batch of
  *  entries is written against a single date, the way one page of the paper book
@@ -35,6 +41,13 @@ interface EntryBlock {
   savedId: number | null
   parameters: ParameterRow[]
   labelUrl: string | null
+  /** The photo belongs to another entry — this block was recreated from it and
+   *  points at the same S3 object. Dropping or replacing the image here must
+   *  therefore leave the file alone, or the entry it came from goes blank. */
+  labelBorrowed: boolean
+  /** Where this block was copied from, ready to display — `#128` for a filed
+   *  entry, `Entry 2` for another block on this page. Null when it is original. */
+  copiedFrom: string | null
   printedBy: string
   printedOn: string
   /** Select value — either a known approver, APPROVED_BY_OTHER, or ''. */
@@ -43,7 +56,10 @@ interface EntryBlock {
   approvedByOther: string
 }
 
-function newBlock(key: number, record?: PrintingLabelRecord): EntryBlock {
+/** @param clone copy `record`'s content into a brand-new entry rather than
+ *  reopening it — "Recreate". The id is dropped so saving files a new row, and
+ *  the label photo is marked borrowed. */
+function newBlock(key: number, record?: PrintingLabelRecord, clone = false): EntryBlock {
   // "Approved By" is a pick-list with an escape hatch. An existing entry whose
   // approver is not on the list (an older record, or a name typed before the
   // list existed) reopens as "Other" with the name intact rather than losing it.
@@ -51,9 +67,11 @@ function newBlock(key: number, record?: PrintingLabelRecord): EntryBlock {
   const known = Boolean(stored) && KNOWN_APPROVERS.includes(stored)
   return {
     key,
-    savedId: record?.id ?? null,
+    savedId: clone ? null : record?.id ?? null,
     parameters: record ? normalizeParameters(record.parameters) : emptyParameters(),
     labelUrl: record?.actual_label_url ?? null,
+    labelBorrowed: clone && Boolean(record?.actual_label_url),
+    copiedFrom: clone && record ? `#${record.id}` : null,
     printedBy: record?.printed_by ?? '',
     printedOn: record?.printed_on ?? '',
     approvedBy: stored ? (known ? stored : APPROVED_BY_OTHER) : '',
@@ -63,6 +81,34 @@ function newBlock(key: number, record?: PrintingLabelRecord): EntryBlock {
 
 function resolveApprover(b: EntryBlock): string {
   return b.approvedBy === APPROVED_BY_OTHER ? b.approvedByOther.trim() : b.approvedBy.trim()
+}
+
+/** Copy a block into a new, unsaved one. The label photo is not re-uploaded —
+ *  both blocks point at the same object, which is why the copy is marked
+ *  borrowed and every delete path checks before removing the file. */
+function cloneBlock(key: number, source: EntryBlock, from: string): EntryBlock {
+  return {
+    ...source,
+    key,
+    savedId: null,
+    parameters: source.parameters.map((r) => ({ ...r })),
+    labelBorrowed: Boolean(source.labelUrl),
+    copiedFrom: from,
+  }
+}
+
+function blockDetail(b: EntryBlock, parameter: string): string {
+  return (b.parameters.find((r) => r.parameter === parameter)?.details ?? '').trim()
+}
+
+/** Bring a block into view after it is added — a copy appended below the fold
+ *  reads as "nothing happened". */
+function scrollToBlock(key: number) {
+  setTimeout(() => {
+    document
+      .getElementById(`entry-block-${key}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, 60)
 }
 
 interface LabelFormProps {
@@ -88,6 +134,9 @@ export default function LabelForm({ record }: LabelFormProps) {
   const [savingMode, setSavingMode] = useState<null | 'draft' | 'final'>(null)
   const [partialSavedAt, setPartialSavedAt] = useState<number | null>(null)
   const [error, setError] = useState('')
+
+  /** Ids written by the last submit — drives the "filed" banner. */
+  const [filedIds, setFiledIds] = useState<number[]>([])
 
   // Default a new entry to today. Set after mount rather than in the useState
   // initializer: this component is prerendered on the server, and computing the
@@ -120,10 +169,28 @@ export default function LabelForm({ record }: LabelFormProps) {
   function removeBlock(key: number) {
     setBlocks((bs) => {
       const gone = bs.find((b) => b.key === key)
+      const rest = bs.filter((b) => b.key !== key)
       // Drop the block's uploaded image too, or it is orphaned in S3 forever.
-      if (gone?.labelUrl) deleteLabelImage(gone.labelUrl).catch(() => {})
-      return bs.filter((b) => b.key !== key)
+      // Not when it is borrowed (a filed entry owns it) and not while a copy
+      // still points at the same object.
+      const shared = Boolean(gone?.labelUrl) && rest.some((b) => b.labelUrl === gone!.labelUrl)
+      if (gone?.labelUrl && !gone.labelBorrowed && !shared) {
+        deleteLabelImage(gone.labelUrl).catch(() => {})
+      }
+      return rest
     })
+  }
+
+  /** The sidebar's "Recreate" — copy one of the entries already in the form
+   *  into a new one at the bottom. Same photo and details; edit what differs. */
+  function recreateBlock(key: number) {
+    const index = blocks.findIndex((b) => b.key === key)
+    const source = blocks[index]
+    if (!source) return
+    const newKey = nextKey.current++
+    setBlocks((bs) => [...bs, cloneBlock(newKey, source, labelOfBlock(source, index))])
+    setError('')
+    scrollToBlock(newKey)
   }
 
   function setBlockBusy(key: number, busy: boolean) {
@@ -215,6 +282,33 @@ export default function LabelForm({ record }: LabelFormProps) {
     if (ids) setPartialSavedAt(Date.now())
   }
 
+  /** The rows just written, as records — synthesised from what was submitted so
+   *  the sidebar and the reloaded form need no extra round-trip. */
+  function snapshotFiled(ids: number[]): PrintingLabelRecord[] {
+    return blocks.map((b, i) => ({
+      id: ids[i],
+      entry_date: entryDate,
+      parameters: b.parameters,
+      actual_label_url: b.labelUrl,
+      printed_by: b.printedBy || null,
+      printed_on: b.printedOn || null,
+      approved_by: resolveApprover(b) || null,
+      status: 'submitted' as EntryStatus,
+      warehouse: warehouse || null,
+      created_by: null,
+      created_at: new Date().toISOString(),
+    }))
+  }
+
+  /** Drop the copies and begin a fresh entry. */
+  function startBlank() {
+    // Deliberately not removeBlock(): these blocks point at photos that now
+    // belong to filed entries, and clearing them would take those with it.
+    setBlocks([newBlock(nextKey.current++)])
+    setFiledIds([])
+    setError('')
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
@@ -226,7 +320,21 @@ export default function LabelForm({ record }: LabelFormProps) {
       setSavingMode(null)
       return
     }
-    router.push(ids.length === 1 ? `/printing-label/${ids[0]}` : '/printing-label')
+
+    if (isEdit) {
+      router.push(ids.length === 1 ? `/printing-label/${ids[0]}` : '/printing-label')
+      return
+    }
+
+    // Creating: stay on the form. What was just filed reloads as fresh copies —
+    // same photo, same details, no id — so the next near-identical entry is one
+    // edit away instead of a full re-fill.
+    const filed = snapshotFiled(ids)
+    setFiledIds(ids)
+    setPartialSavedAt(null)
+    setBlocks(filed.map((r) => newBlock(nextKey.current++, r, true)))
+    setSavingMode(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const anyUploading = busyBlocks.size > 0
@@ -239,14 +347,55 @@ export default function LabelForm({ record }: LabelFormProps) {
    *  so it is obvious which one is being changed rather than added. */
   function headingFor(block: EntryBlock, index: number): string {
     if (isEdit && block.savedId === record?.id) return `Editing entry #${record?.id}`
+    if (block.copiedFrom) return `Entry ${index + 1} · copied from ${block.copiedFrom}`
     return `Entry ${index + 1}`
   }
 
+  /** How a block is referred to elsewhere — by row id once it exists in the
+   *  database, by position until then. */
+  function labelOfBlock(block: EntryBlock, index: number): string {
+    return block.savedId ? `#${block.savedId}` : `Entry ${index + 1}`
+  }
+
+  /** The sidebar's view of the form: one row per entry, live as it is typed. */
+  const recreateItems: RecreateItem[] = blocks.map((b, i) => {
+    const product = blockDetail(b, 'Product Name')
+    const customer = blockDetail(b, 'Customer Name')
+    const batch = blockDetail(b, 'Batch No')
+    return {
+      key: b.key,
+      label:
+        isEdit && b.savedId === record?.id ? `Editing #${b.savedId}` : `Entry ${i + 1}`,
+      title: product || customer || (b.savedId ? `Entry #${b.savedId}` : 'Not filled in yet'),
+      subtitle: [batch && `Batch ${batch}`, b.copiedFrom && `from ${b.copiedFrom}`]
+        .filter(Boolean)
+        .join(' · '),
+      imageUrl: b.labelUrl,
+    }
+  })
+
   return (
-    <form onSubmit={handleSubmit} className="max-w-4xl space-y-5">
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+      <form onSubmit={handleSubmit} className="min-w-0 flex-1 space-y-5 lg:max-w-4xl">
       {error && (
         <div className="rounded-xl border border-danger-200 bg-danger-50 p-3 text-sm font-medium text-danger-700">
           {error}
+        </div>
+      )}
+
+      {filedIds.length > 0 && (
+        <div className="rounded-xl border border-success-200 bg-success-50 p-3 text-sm font-medium text-success-800">
+          Filed{' '}
+          <span className="font-bold">{filedIds.map((id) => `#${id}`).join(', ')}</span>. The
+          entr{filedIds.length > 1 ? 'ies' : 'y'} below {filedIds.length > 1 ? 'are' : 'is'} a
+          fresh copy — change what differs and submit again to file another, or{' '}
+          <button type="button" onClick={startBlank} className="font-bold underline">
+            start blank
+          </button>
+          .{' '}
+          <Link href={`/printing-label/${filedIds[0]}`} className="font-bold underline">
+            View {filedIds.length > 1 ? 'the first' : 'it'}
+          </Link>
         </div>
       )}
 
@@ -299,6 +448,15 @@ export default function LabelForm({ record }: LabelFormProps) {
           // The record being edited cannot be removed here: this form edits it,
           // it does not delete it. Blocks added alongside can go.
           canRemove={blocks.length > 1 && block.savedId !== record?.id}
+          // Another block on this page points at the same photo — clearing or
+          // replacing it here must not delete the file out from under it.
+          labelShared={
+            Boolean(block.labelUrl) &&
+            blocks.some((b) => b.key !== block.key && b.labelUrl === block.labelUrl)
+          }
+          // Sign-off pick-lists differ per plant. An entry being edited keeps
+          // its own plant's list even if the header has since been switched.
+          warehouse={record?.warehouse || warehouse}
           onChange={(patch) => updateBlock(block.key, patch)}
           onRemove={() => removeBlock(block.key)}
           onBusyChange={(busy) => setBlockBusy(block.key, busy)}
@@ -360,10 +518,20 @@ export default function LabelForm({ record }: LabelFormProps) {
           href={isEdit && record ? `/printing-label/${record.id}` : '/printing-label'}
           className="btn-base btn-ghost"
         >
-          Cancel
+          {filedIds.length > 0 ? 'Done' : 'Cancel'}
         </Link>
       </div>
-    </form>
+      </form>
+
+      {/* Available on both pages. On the edit page a copy is appended beside the
+          opened entry and saved as a new row — the same thing "Add another
+          entry" already does there, just pre-filled. */}
+      <RecreateSidebar
+        items={recreateItems}
+        onRecreate={recreateBlock}
+        onJump={scrollToBlock}
+      />
+    </div>
   )
 }
 
@@ -376,6 +544,10 @@ interface EntryBlockFieldsProps {
   heading: string
   showHeading: boolean
   canRemove: boolean
+  /** A copy of this block on the same page shares its label photo. */
+  labelShared: boolean
+  /** Plant this entry belongs to — decides the sign-off pick-lists. */
+  warehouse: string
   onChange: (patch: Partial<EntryBlock>) => void
   onRemove: () => void
   onBusyChange: (busy: boolean) => void
@@ -386,6 +558,8 @@ function EntryBlockFields({
   heading,
   showHeading,
   canRemove,
+  labelShared,
+  warehouse,
   onChange,
   onRemove,
   onBusyChange,
@@ -404,6 +578,9 @@ function EntryBlockFields({
   const allChecked = checkedCount === parameters.length
   // Unique per block so several blocks on one page do not share input ids.
   const uid = `b${block.key}`
+
+  const approvers = approvedByOptions(warehouse)
+  const printers = printedByOptions(warehouse)
 
   function setDetail(i: number, details: string) {
     onChange({ parameters: parameters.map((r, n) => (n === i ? { ...r, details } : r)) })
@@ -438,11 +615,13 @@ function EntryBlockFields({
     setUploading(true)
     onBusyChange(true)
     const previous = labelUrl
+    const previousKept = block.labelBorrowed || labelShared
     try {
       const url = await uploadLabelImage(file)
-      onChange({ labelUrl: url })
-      // Replacing an image leaves the old object orphaned in S3 otherwise.
-      if (previous) deleteLabelImage(previous).catch(() => {})
+      onChange({ labelUrl: url, labelBorrowed: false })
+      // Replacing an image leaves the old object orphaned in S3 otherwise — but
+      // a borrowed or shared one belongs to another entry and is not ours.
+      if (previous && !previousKept) deleteLabelImage(previous).catch(() => {})
     } catch (err: any) {
       setUploadError(err.message || 'Failed to upload label sample')
     } finally {
@@ -453,15 +632,19 @@ function EntryBlockFields({
 
   function removeImage() {
     const url = labelUrl
-    onChange({ labelUrl: null })
+    const keep = block.labelBorrowed || labelShared
+    onChange({ labelUrl: null, labelBorrowed: false })
     // Best-effort: an orphaned object is less harmful than blocking the edit.
-    if (url) deleteLabelImage(url).catch(() => {})
+    // A borrowed or shared photo is left alone — the entry it was copied from,
+    // or the copy beside it, still needs the file.
+    if (url && !keep) deleteLabelImage(url).catch(() => {})
   }
 
   return (
     <div
+      id={`entry-block-${block.key}`}
       className={cn(
-        'space-y-5',
+        'scroll-mt-6 space-y-5',
         showHeading && 'rounded-2xl border border-cream-300 bg-cream-100/50 p-3 sm:p-4',
       )}
     >
@@ -492,6 +675,14 @@ function EntryBlockFields({
       {/* Actual label sample */}
       <div className="surface-card p-5">
         <p className="label-base">Actual Label Sample</p>
+
+        {labelUrl && block.labelBorrowed && (
+          <p className="mb-2 inline-flex items-center gap-1.5 rounded-lg bg-cream-100 px-2 py-1 text-[11px] font-semibold text-ink-400">
+            <CopyPlus className="h-3.5 w-3.5" />
+            Same photo as {block.copiedFrom ?? 'the entry this was copied from'} — retake it if
+            this label differs.
+          </p>
+        )}
 
         {labelUrl && (
           <div className="relative mb-3 inline-block">
@@ -626,14 +817,35 @@ function EntryBlockFields({
           <label htmlFor={`${uid}-printed_by`} className="label-base">
             Printed By
           </label>
-          <input
-            id={`${uid}-printed_by`}
-            type="text"
-            value={block.printedBy}
-            onChange={(e) => onChange({ printedBy: e.target.value })}
-            className="input-base"
-            placeholder="Name"
-          />
+          {printers.length > 0 ? (
+            <select
+              id={`${uid}-printed_by`}
+              value={block.printedBy}
+              onChange={(e) => onChange({ printedBy: e.target.value })}
+              className="input-base"
+            >
+              <option value="">Select name</option>
+              {printers.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+              {/* A name saved before this list existed stays selectable rather
+                  than silently blanking when the entry is reopened. */}
+              {block.printedBy && !printers.includes(block.printedBy) && (
+                <option value={block.printedBy}>{block.printedBy}</option>
+              )}
+            </select>
+          ) : (
+            <input
+              id={`${uid}-printed_by`}
+              type="text"
+              value={block.printedBy}
+              onChange={(e) => onChange({ printedBy: e.target.value })}
+              className="input-base"
+              placeholder="Name"
+            />
+          )}
         </div>
         <div>
           <label htmlFor={`${uid}-printed_on`} className="label-base">
@@ -658,11 +870,18 @@ function EntryBlockFields({
             className="input-base"
           >
             <option value="">Select approver</option>
-            {APPROVED_BY_OPTIONS.map((name) => (
+            {approvers.map((name) => (
               <option key={name} value={name}>
                 {name}
               </option>
             ))}
+            {/* An approver from the other plant's list (or an older entry) is
+                kept selectable so reopening never drops the recorded name. */}
+            {block.approvedBy &&
+              block.approvedBy !== APPROVED_BY_OTHER &&
+              !approvers.includes(block.approvedBy) && (
+                <option value={block.approvedBy}>{block.approvedBy}</option>
+              )}
             <option value={APPROVED_BY_OTHER}>{APPROVED_BY_OTHER}</option>
           </select>
           {block.approvedBy === APPROVED_BY_OTHER && (

@@ -45,6 +45,9 @@ export default function CreateFishbonePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const complaintIdParam = searchParams.get('complaintId')
+  // Numeric row id, passed by the complaints table so we can fetch the complaint
+  // straight away instead of searching the paginated list for its code.
+  const complaintRowIdParam = searchParams.get('id')
   const { currentCompany } = useCompany()
   
   const [formData, setFormData] = useState({
@@ -80,32 +83,39 @@ export default function CreateFishbonePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Function to fetch complaint details by complaint ID
-  const fetchComplaintDetails = async () => {
-    if (!formData.complaintId || !formData.complaintId.trim()) {
+  const fetchComplaintDetails = async (knownRowId?: string | number, code?: string) => {
+    const complaintCode = (code ?? formData.complaintId ?? '').trim()
+    if (!knownRowId && !complaintCode) {
       toast.error('Please enter a complaint ID')
       return
     }
 
     setIsFetchingComplaint(true)
     try {
-      // Step 1: Fetch complaints list and find the numeric ID
-      const response = await getComplaints({
-        company: currentCompany,
-        page: 1,
-        limit: 100
-      })
+      // Step 1: Resolve the numeric ID. Coming from the complaints table we
+      // already have it; typed-in codes still need the list lookup.
+      let rowId = knownRowId
+      if (!rowId) {
+        const response = await getComplaints({
+          company: currentCompany,
+          search: complaintCode,
+          page: 1,
+          limit: 100
+        })
 
-      const complaintListItem = response.data.find(
-        c => c.complaintId.toLowerCase() === formData.complaintId.toLowerCase()
-      )
+        const complaintListItem = response.data.find(
+          c => c.complaintId.toLowerCase() === complaintCode.toLowerCase()
+        )
 
-      if (!complaintListItem) {
-        toast.error(`Complaint ${formData.complaintId} not found`)
-        return
+        if (!complaintListItem) {
+          toast.error(`Complaint ${complaintCode} not found`)
+          return
+        }
+        rowId = complaintListItem.id
       }
 
       // Step 2: Fetch full complaint details using numeric ID
-      const complaint = await getComplaintById(complaintListItem.id, currentCompany)
+      const complaint = await getComplaintById(rowId, currentCompany)
 
       // Auto-fill form with complaint details
       setFormData(prev => ({
@@ -130,12 +140,15 @@ export default function CreateFishbonePage() {
 
   // Fetch complaint data and auto-fill form when complaintId is provided from URL
   useEffect(() => {
-    if (complaintIdParam) {
-      setFormData(prev => ({ ...prev, complaintId: complaintIdParam }))
-      // Auto-fetch if complaint ID is provided via URL
-      setTimeout(() => fetchComplaintDetails(), 100)
+    if (complaintIdParam || complaintRowIdParam) {
+      if (complaintIdParam) {
+        setFormData(prev => ({ ...prev, complaintId: complaintIdParam }))
+      }
+      // Auto-fetch when the complaint arrives via URL. The code/id are passed in
+      // explicitly so this doesn't race the setFormData above.
+      fetchComplaintDetails(complaintRowIdParam || undefined, complaintIdParam || undefined)
     }
-  }, [complaintIdParam])
+  }, [complaintIdParam, complaintRowIdParam])
 
   const handleFormChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -380,7 +393,7 @@ export default function CreateFishbonePage() {
                   />
                   <button
                     type="button"
-                    onClick={fetchComplaintDetails}
+                    onClick={() => fetchComplaintDetails()}
                     disabled={isFetchingComplaint}
                     className={cn(
                       "inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white",

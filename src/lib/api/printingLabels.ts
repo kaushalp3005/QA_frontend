@@ -96,6 +96,34 @@ export const APPROVED_BY_OPTIONS = [
   'Soham',
 ] as const
 
+/** A185 signs its own register — the list above is W202 staff. */
+export const APPROVED_BY_OPTIONS_A185 = [
+  'Sarvesh',
+  'Swapnil',
+  'Dhanashree',
+] as const
+
+/** Who may sign "Printed By" at A185. W202 has no agreed list, so the field
+ *  stays free text there. */
+export const PRINTED_BY_OPTIONS_A185 = [
+  'Suraj Bhillare',
+  'Raju Paikrao',
+  'Shubham Mhatre',
+  'Sachin Thorat',
+  'Varsha Desai',
+] as const
+
+/** Approver pick-list for a plant. Anything other than A185 — including an
+ *  entry saved before the column existed — gets the original list. */
+export function approvedByOptions(warehouse?: string | null): readonly string[] {
+  return warehouse === 'A185' ? APPROVED_BY_OPTIONS_A185 : APPROVED_BY_OPTIONS
+}
+
+/** Printer pick-list for a plant. Empty means "no list" — render free text. */
+export function printedByOptions(warehouse?: string | null): readonly string[] {
+  return warehouse === 'A185' ? PRINTED_BY_OPTIONS_A185 : []
+}
+
 /** Sentinel for the free-text choice; never stored, only a UI state. */
 export const APPROVED_BY_OTHER = 'Other'
 

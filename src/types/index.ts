@@ -116,7 +116,9 @@ export interface ComplaintFormData {
   // Complaint Details
   complaintType: 'physical_contamination' | 'microbial_contamination' | 'packaging_issue' | 'printing_issue' | 'physical_defects' | 'infestation' | 'ovality_issue';
   complaintReceiveDate: string;
-  measuresToResolve?: 'rtv' | 'rca_capa' | 'replacement' | 'refund';
+  // Must match the `measuresToResolve` select in ComplaintCreateForm — 'fishbone'
+  // and 'other' are selectable there and were missing here.
+  measuresToResolve?: 'rtv' | 'rca_capa' | 'fishbone' | 'replacement' | 'refund' | 'other';
   
   // Communication Method
   communicationMethod: 'email' | 'whatsapp' | 'phone' | 'other';

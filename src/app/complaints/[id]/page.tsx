@@ -24,6 +24,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { getComplaintById, getComplaintByComplaintId, type ComplaintResponse } from '@/lib/api/complaints'
 import { isAuthenticated } from '@/lib/api/auth'
 import { toast } from 'react-hot-toast'
+import { measureLabel } from '@/lib/constants/measures'
 
 export default function ComplaintViewPage() {
   const params = useParams()
@@ -258,7 +259,9 @@ export default function ComplaintViewPage() {
                   {complaint.measuresToResolve && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Measures to Resolve</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{complaint.measuresToResolve}</dd>
+                      {/* The stored value is a slug ('rca_capa'); show the label
+                          the complaint form offered, from the shared config. */}
+                      <dd className="mt-1 text-sm text-gray-900">{measureLabel(complaint.measuresToResolve)}</dd>
                     </div>
                   )}
                 </div>

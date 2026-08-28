@@ -28,14 +28,15 @@ import {
   type PrintingLabelRecord,
 } from '@/lib/api/printingLabels'
 
-const PER_PAGE = 25
+/** Date rows shown per page of the register. */
+const DATES_PER_PAGE = 50
 
 /** Entries recorded against one date — one page of the paper register. */
 interface DateGroup {
   /** entry_date as stored ('' when the entry has none). Also the group key. */
   date: string
   label: string
-  /** The group's entries as they appear on this page of the listing. */
+  /** The group's entries as the listing holds them. */
   onPage: PrintingLabelRecord[]
 }
 
@@ -53,16 +54,15 @@ function BatchCodingRegister() {
   const [records, setRecords] = useState<PrintingLabelRecord[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   // Bumped after a delete to re-run the fetch below without duplicating it.
   const [reloadKey, setReloadKey] = useState(0)
 
-  // One date open at a time, plus its full set of entries. The listing is
-  // paginated by record, so a date can straddle a page boundary — expanding
-  // therefore asks the by-date endpoint rather than trusting what is on screen.
+  // One date open at a time, plus its full set of entries. Expanding asks the
+  // by-date endpoint, which is authoritative: it returns every entry written on
+  // that date including drafts, whichever plant stamped them.
   const [openDate, setOpenDate] = useState<string | null>(null)
   const [entriesByDate, setEntriesByDate] = useState<Record<string, PrintingLabelRecord[]>>({})
   const [loadingDate, setLoadingDate] = useState<string | null>(null)
@@ -84,13 +84,15 @@ function BatchCodingRegister() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    // The table shows one row per date, so a server page of 25 entries would
+    // collapse into a handful of rows. Pull every entry and page the date rows
+    // below instead.
     printingLabelsApi
-      .list({ page, per_page: PER_PAGE })
-      .then((res) => {
+      .listAll()
+      .then((rows) => {
         if (cancelled) return
-        setRecords(res.records || [])
-        setTotal(res.total || 0)
-        setTotalPages(res.total_pages || 0)
+        setRecords(rows)
+        setTotal(rows.length)
         setError('')
       })
       .catch((err) => {
@@ -102,10 +104,10 @@ function BatchCodingRegister() {
     return () => {
       cancelled = true
     }
-  }, [page, reloadKey])
+  }, [reloadKey])
 
   // Collapse date groups in listing order (the API returns newest first).
-  const groups = useMemo<DateGroup[]>(() => {
+  const allGroups = useMemo<DateGroup[]>(() => {
     const byDate = new Map<string, PrintingLabelRecord[]>()
     for (const r of records) {
       const key = r.entry_date ?? ''
@@ -119,6 +121,11 @@ function BatchCodingRegister() {
       onPage,
     }))
   }, [records])
+
+  // Paginate the date rows themselves — DATES_PER_PAGE rows, then Next.
+  const totalPages = Math.max(1, Math.ceil(allGroups.length / DATES_PER_PAGE))
+  const safePage = Math.min(page, totalPages)
+  const groups = allGroups.slice((safePage - 1) * DATES_PER_PAGE, safePage * DATES_PER_PAGE)
 
   /** The entries to show for a group: the authoritative by-date set once
    *  fetched, otherwise what this page happens to hold. */
@@ -166,9 +173,7 @@ function BatchCodingRegister() {
         const { [record.entry_date ?? '']: _gone, ...rest } = m
         return rest
       })
-      // Step back a page when the last row on it just went.
-      if (records.length === 1 && page > 1) setPage((p) => p - 1)
-      else setReloadKey((k) => k + 1)
+      setReloadKey((k) => k + 1)
     } catch (err: any) {
       setError(err.message || 'Failed to delete entry')
     } finally {
@@ -268,19 +273,19 @@ function BatchCodingRegister() {
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between">
               <p className="text-xs font-medium text-ink-400">
-                Page {page} of {totalPages}
+                Page {safePage} of {totalPages}
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
+                  onClick={() => setPage(Math.max(1, safePage - 1))}
+                  disabled={safePage <= 1}
                   className="btn-base btn-outline"
                 >
                   Previous
                 </button>
                 <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
+                  onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                  disabled={safePage >= totalPages}
                   className="btn-base btn-outline"
                 >
                   Next

@@ -50,6 +50,25 @@ export const docsApi = {
     }>(`${API_BASE}/api/docs/${formType}${qs ? `?${qs}` : ''}`)
   },
 
+  // Every record for a form type, pulled in 500-row pages (the backend cap).
+  // Listings that collapse rows into groups (one row per date) have to hold the
+  // whole set before they can page the groups — a single server page of records
+  // is only a handful of groups.
+  listAll: async (formType: string, params: Record<string, any> = {}) => {
+    const CHUNK = 500
+    const records: Record<string, any>[] = []
+    let page = 1
+    // Cap at 20 chunks (10k rows) so a misbehaving response cannot spin here.
+    while (page <= 20) {
+      const res = await docsApi.list(formType, { ...params, page, per_page: CHUNK })
+      const batch = res.records ?? []
+      records.push(...batch)
+      if (batch.length < CHUNK) break
+      page++
+    }
+    return records
+  },
+
   get: (formType: string, id: number) =>
     request<{ success: boolean; data: Record<string, any> }>(
       `${API_BASE}/api/docs/${formType}/${id}`

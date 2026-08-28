@@ -227,6 +227,14 @@ export const printingLabelsApi = {
     return { ...res, records: (res.records ?? []) as unknown as PrintingLabelRecord[] }
   },
 
+  /** Every entry, pulled in 500-row pages. The register collapses entries into
+   *  one row per date, so the whole set has to be here before those rows can be
+   *  paged. Same `warehouse: null` reasoning as `list` above. */
+  listAll: async (params: Record<string, any> = {}) => {
+    const records = await docsApi.listAll(FORM_TYPE, { warehouse: null, ...params })
+    return records as unknown as PrintingLabelRecord[]
+  },
+
   get: async (id: number) => {
     const res = await docsApi.get(FORM_TYPE, id)
     return { ...res, data: res.data as unknown as PrintingLabelRecord }

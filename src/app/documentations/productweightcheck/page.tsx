@@ -10,14 +10,15 @@ import { DOC_FORMS } from '@/config/doc-forms'
 
 const config = DOC_FORMS['productweightcheck']
 
+/** Date rows shown per page of the listing. */
+const DATES_PER_PAGE = 50
+
 export default function ProductWeightCheckListPage() {
   const router = useRouter()
   const [records, setRecords] = useState<Record<string, any>[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(0)
-  const [total, setTotal] = useState(0)
   const [warehouse, setWarehouse] = useState<string>('')
   const [newLayout, setNewLayout] = useState(false)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -28,10 +29,11 @@ export default function ProductWeightCheckListPage() {
     try {
       const wh = getStoredWarehouse()
       setWarehouse(wh)
-      const res = await docsApi.list(config.formType, { page, per_page: 50 })
-      setRecords(res.records)
-      setTotalPages(res.total_pages)
-      setTotal(res.total)
+      // The table shows one row per check date, so paging on the server would
+      // hand back 50 entries that collapse into a handful of rows. Pull the
+      // whole set instead and page the date rows below, 50 to a page.
+      const all = await docsApi.listAll(config.formType)
+      setRecords(all)
     } catch (e) {
       console.error('Failed to load records:', e)
     } finally {
@@ -39,7 +41,11 @@ export default function ProductWeightCheckListPage() {
     }
   }
 
-  useEffect(() => { fetchRecords() }, [page])
+  useEffect(() => { fetchRecords() }, [])
+
+  // A narrower search leaves fewer date rows — go back to the first page rather
+  // than stranding the user on one that no longer exists.
+  useEffect(() => { setPage(1) }, [search])
 
   useEffect(() => {
     const handler = () => { setPage(1); fetchRecords() }
@@ -87,11 +93,17 @@ export default function ProductWeightCheckListPage() {
     if (!groupMap.has(key)) groupMap.set(key, [])
     groupMap.get(key)!.push(rec)
   }
-  const groups = Array.from(groupMap.entries()).map(([date, recs]) => ({
+  const allGroups = Array.from(groupMap.entries()).map(([date, recs]) => ({
     date,
     recs,
     ids: [...recs].sort((a, b) => (a.id ?? 0) - (b.id ?? 0)).map((r) => r.id), // oldest first
   }))
+
+  // Paginate the date rows themselves — DATES_PER_PAGE rows, then Next.
+  const total = records.length
+  const totalPages = Math.max(1, Math.ceil(allGroups.length / DATES_PER_PAGE))
+  const safePage = Math.min(page, totalPages)
+  const groups = allGroups.slice((safePage - 1) * DATES_PER_PAGE, safePage * DATES_PER_PAGE)
 
   return (
     <DashboardLayout>
@@ -335,13 +347,13 @@ export default function ProductWeightCheckListPage() {
 
         {totalPages > 1 && (
           <div className="mt-4 flex items-center justify-between gap-3">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn-outline">
+            <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage === 1} className="btn-outline">
               Previous
             </button>
             <span className="text-xs sm:text-sm text-ink-400 font-medium">
-              Page <span className="text-ink-600 font-bold">{page}</span> of {totalPages}
+              Page <span className="text-ink-600 font-bold">{safePage}</span> of {totalPages}
             </span>
-            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="btn-outline">
+            <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage === totalPages} className="btn-outline">
               Next
             </button>
           </div>

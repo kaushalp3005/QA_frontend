@@ -16,7 +16,12 @@ export default function Page() {
     if (!duplicateFrom) return;
     setLoading(true);
     docsApi.get("lux-monitoring", Number(duplicateFrom))
-      .then((res) => setInitialData(res.data))
+      // Strip `id` — the form treats a record id as "this is an existing row" and
+      // would UPDATE the source record instead of inserting a new one.
+      .then((res) => {
+        const { id, ...rest } = res.data || {};
+        setInitialData(rest);
+      })
       .catch((e) => console.error("Failed to load record to duplicate:", e))
       .finally(() => setLoading(false));
   }, [duplicateFrom]);

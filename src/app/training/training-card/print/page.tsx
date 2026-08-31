@@ -4,24 +4,42 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 /**
- * Printed CFPLA.C7.F.03k — "Training Card". Matches the controlled paper
- * format: header block, three ruled identity lines, the six-column training
- * log padded to 12 printed rows, then the HR / controlled-copy / FSTL footer.
+ * Printed "Training Card" — CFPLA.C7.F.03k at W202, CFPLB.C7.F.07 c at A185.
+ * Matches the controlled paper format: header block, three ruled identity
+ * lines, the six-column training log padded to 12 printed rows, then the
+ * HR / controlled-copy / FSTL footer.
  */
 
 const FORM_TYPE = "training-card";
 const MIN_ROWS = 12; // the paper format prints twelve training lines
 
-const DOC = {
-  no: "CFPLA.C7.F.03k",
-  title: "Training Card",
-  issueDate: "01/11/2017",
-  issueNo: "03",
-  revisionDate: "01/11/2025",
-  revisionNo: "02",
-};
+/**
+ * The controlled header is plant-specific: A185 files the card under its own
+ * CFPLB series, W202 keeps CFPLA.C7.F.03k. A185's sheet is still on its first
+ * issue, so it carries no revision date or number yet — those cells print blank
+ * exactly as on the paper format.
+ */
+const DOC_BY_WAREHOUSE = {
+  W202: {
+    no: "CFPLA.C7.F.03k",
+    title: "Training Card",
+    issueDate: "01/11/2017",
+    issueNo: "03",
+    revisionDate: "01/11/2025",
+    revisionNo: "02",
+  },
+  A185: {
+    no: "CFPLB.C7.F.07 c",
+    title: "Training Card",
+    issueDate: "02/02/2026",
+    issueNo: "01",
+    revisionDate: "",
+    revisionNo: "",
+  },
+} as const;
 
 function fmtDate(d?: any) {
   if (!d) return "";
@@ -86,6 +104,13 @@ export default function TrainingCardPrintPage() {
       </div>
     );
   }
+
+  // The record's own plant decides the header, not whichever one the selector
+  // happens to show — printing a W202 card from A185 must not restamp it with
+  // the CFPLB number. Cards saved before the warehouse column was filled have
+  // nothing to go on, so those fall back to the selected plant.
+  const warehouse = (record?.warehouse || getStoredWarehouse()) === "A185" ? "A185" : "W202";
+  const DOC = DOC_BY_WAREHOUSE[warehouse];
 
   // Rows seeded before the current form existed use different key names for
   // three fields — read both spellings so an old card doesn't print blank.

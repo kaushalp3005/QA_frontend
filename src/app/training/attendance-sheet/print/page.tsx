@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
+import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 /**
- * Printed CFPLA.C7.F.03 — "Training Attendence Sheet & Record for Evaluation /
- * Effectiveness of Training". Laid out to match the controlled paper format:
+ * Printed Training Attendence Sheet & Record for Evaluation / Effectiveness of
+ * Training — CFPLA.C7.F.03 at W202, CFPLB.C7.F.07 at A185. Laid out to match the
+ * controlled paper format:
  * header block, training-details grid, the 12-column attendee table (padded to
  * 10 printed lines), then the acknowledgement / criteria footer.
  */
@@ -19,13 +21,29 @@ const TRAINING_TYPES = ["Induction", "Refresher", "Food Safety", "Job Specific",
 const LANGUAGES = ["English", "Hindi", "Marathi"];
 const CORRECTIVE_ACTIONS = ["Refresher", "Re-training", "Closer Supervision"];
 
-const DOC = {
-  no: "CFPLA.C7.F.03",
-  issueDate: "01/11/2017",
-  issueNo: "03",
-  revisionDate: "27/09/2025",
-  revisionNo: "02",
-};
+/**
+ * The controlled header is plant-specific: A185 files this record under its own
+ * CFPLB series with its own issue/revision history, W202 keeps CFPLA.C7.F.03.
+ * Only these values differ — the header block itself is laid out the same way.
+ */
+const DOC_BY_WAREHOUSE = {
+  W202: {
+    no: "CFPLA.C7.F.03",
+    title: "TRAINING ATTENDENCE SHEET & RECORD FOR EVALUATION /EFFECTIVENESS OF TRAINING",
+    issueDate: "01/11/2017",
+    issueNo: "03",
+    revisionDate: "27/09/2025",
+    revisionNo: "02",
+  },
+  A185: {
+    no: "CFPLB.C7.F.07",
+    title: "FORMAT: TRAINING ATTENDENCE SHEET & RECORD FOR EVALUATION /EFFECTIVENESS OF TRAINING",
+    issueDate: "04/08/2021",
+    issueNo: "03",
+    revisionDate: "02/02/2026",
+    revisionNo: "02",
+  },
+} as const;
 
 function fmtDate(d?: any) {
   if (!d) return "";
@@ -92,6 +110,13 @@ export default function TrainingAttendanceSheetPrintPage() {
       </div>
     );
   }
+
+  // The record's own plant decides the header, not whichever one the selector
+  // happens to show — printing a W202 record from A185 must not restamp it with
+  // the CFPLB number. Rows saved before the warehouse column was filled have
+  // nothing to go on, so those fall back to the selected plant.
+  const warehouse = (record?.warehouse || getStoredWarehouse()) === "A185" ? "A185" : "W202";
+  const DOC = DOC_BY_WAREHOUSE[warehouse];
 
   const attendees: any[] = Array.isArray(record?.attendees) ? record!.attendees : [];
   const blankRows = Math.max(0, MIN_ROWS - attendees.length);
@@ -178,7 +203,7 @@ export default function TrainingAttendanceSheetPrintPage() {
               </tr>
               <tr>
                 <td colSpan={2} style={{ ...cell, textAlign: "center", fontWeight: "bold" }}>
-                  TRAINING ATTENDENCE SHEET &amp; RECORD FOR EVALUATION /EFFECTIVENESS OF TRAINING
+                  {DOC.title}
                 </td>
                 <td style={cell}>Revision Date:</td>
                 <td style={cell}>{DOC.revisionDate}</td>

@@ -26,6 +26,11 @@ export interface DocFormConfig {
    * (e.g. the training-* forms live under app/training/, not app/documentations/training/).
    */
   basePath?: string
+  /**
+   * Friendlier headers for `listColumns`, keyed by column name. Columns with no
+   * entry fall back to the column name with underscores turned into spaces.
+   */
+  columnLabels?: Record<string, string>
 }
 
 export const PRINTABLE_SLUGS = new Set<string>([
@@ -143,7 +148,12 @@ export const DOC_FORMS: Record<string, DocFormConfig> = {
   // different areas and header block (see config/dailyPestAreas.ts). docNo here
   // is only the list-page fallback; the printed sheet reads the per-plant one.
   "daily-pest-inspection":   { formType: "daily-pest-inspection",     routeSlug: "daily-pest-inspection",     label: "Daily Pest Inspection Report",     docNo: "CFPLA.C4.F.47",  dateField: "month",           listColumns: ["month", "checked_by", "verified_by", "warehouse"] },
-  "preventive-maintenance":  { formType: "preventive-maintenance",    routeSlug: "preventive-maintenance",    label: "Preventive Maintenance Checklist", docNo: "CFPLA.C4.F.50a", dateField: "month",           listColumns: ["month", "checked_by", "warehouse"] },
+  // No `month` column on doc_preventive_maintenance: it was dropped when dating
+  // moved onto each item in `rows` (maintenance migration
+  // 2026-08-17_pm_item_dates_drop_period_cols.sql), so listing it rendered an
+  // always-blank column. created_at is what the API sorts by now — see the
+  // matching "date_column": None in the backend's doc_registry.py.
+  "preventive-maintenance":  { formType: "preventive-maintenance",    routeSlug: "preventive-maintenance",    label: "Preventive Maintenance Checklist", docNo: "CFPLA.C4.F.50a", dateField: null,              listColumns: ["created_at", "checked_by", "warehouse"] },
   "new-equipment-clearance": { formType: "new-equipment-clearance",   routeSlug: "new-equipment-clearance",   label: "New Equipment Clearance",          docNo: "CFPLA.C4.F.51",  dateField: "commissioning_date", listColumns: ["commissioning_date", "equipment_name", "warehouse"] },
   "waste-disposal":          { formType: "waste-disposal",            routeSlug: "waste-disposal",            label: "Waste Disposal Record",            docNo: "CFPLA.C4.F.52",  dateField: "month",           listColumns: ["month", "area", "warehouse"] },
   "chemical-preparation":    { formType: "chemical-preparation",      routeSlug: "chemical-preparation",      label: "Chemical Preparation Record",      docNo: "CFPLA.C4.F.53",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
@@ -151,7 +161,7 @@ export const DOC_FORMS: Record<string, DocFormConfig> = {
   "non-conforming-product":  { formType: "non-conforming-product",    routeSlug: "non-conforming-product",    label: "Non Conforming Product Report",    docNo: "CFPLA.C5.F.57",  dateField: null,              listColumns: ["non_conformity_no", "supplier", "detected_by", "warehouse"] },
   "rework-recycling":        { formType: "rework-recycling",          routeSlug: "rework-recycling",          label: "Re-Work / Re-Cycling / Re-Packing",docNo: "CFPLA.C5.F.58", dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   // ── Training (5) ──
-  "training-attendance":     { formType: "training-attendance",       routeSlug: "attendance-sheet",  basePath: "/training", label: "Training Attendance Sheet",        docNo: "CFPLA.C7.F.03",  dateField: "training_date",   listColumns: ["training_date", "conducted_by", "department", "warehouse"] },
+  "training-attendance":     { formType: "training-attendance",       routeSlug: "attendance-sheet",  basePath: "/training", label: "Training Attendance Sheet",        docNo: "CFPLA.C7.F.03",  dateField: "training_date",   listColumns: ["training_date", "conducted_by", "department", "key_points_covered", "warehouse"], columnLabels: { key_points_covered: "Topic" } },
   "training-attendance-workers": { formType: "training-attendance-workers", routeSlug: "attendance-workers", basePath: "/training", label: "Training Attendance (Workers)", docNo: "CFPLA.C7.F.03", dateField: null,            listColumns: ["warehouse", "created_at", "created_by"] },
   "training-reference-sheet":{ formType: "training-reference-sheet",  routeSlug: "reference-sheet",  basePath: "/training", label: "Reference Material Sheet",         docNo: "CFPLA.C7.F.03i", dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   "training-feedback":       { formType: "training-feedback",         routeSlug: "feedback",         basePath: "/training", label: "Trainee & Trainer Feedback",       docNo: "CFPLA.C7.F.03j", dateField: "feedback_date",   listColumns: ["feedback_date", "participant_name", "training_program", "warehouse"] },

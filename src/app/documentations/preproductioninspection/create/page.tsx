@@ -26,7 +26,12 @@ export default function PreProductionInspectionCreatePage() {
     if (!duplicateFrom) return;
     setLoadingRecord(true);
     docsApi.get("preproductioninspection", Number(duplicateFrom))
-      .then((res) => setInitialData(res.data))
+      // Strip `id` — the form treats a record id as "this is an existing row" and
+      // would UPDATE the source record instead of inserting a new one.
+      .then((res) => {
+        const { id, ...rest } = res.data || {};
+        setInitialData(rest);
+      })
       .catch((e) => console.error("Failed to load record to duplicate:", e))
       .finally(() => setLoadingRecord(false));
   }, [duplicateFrom]);

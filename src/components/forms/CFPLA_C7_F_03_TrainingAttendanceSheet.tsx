@@ -255,6 +255,14 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
   const [effectivenessDays, setEffectivenessDays] = useState<"15" | "30" | "">(
     seed?.effectiveness_after_days != null ? (String(seed.effectiveness_after_days) as "15" | "30") : ""
   );
+  // The chip above only opens a window — the effectiveness check is dated by
+  // hand inside it. There is no column for this date on the parent table (it is
+  // written onto every attendee), so an existing record seeds it back off the
+  // first attendee carrying one.
+  const [effectivenessScoringDate, setEffectivenessScoringDate] = useState<string>(() => {
+    const attendees = Array.isArray(seed?.attendees) ? seed!.attendees : [];
+    return attendees.find((a: any) => a?.effectiveness_date)?.effectiveness_date || "";
+  });
   const [trainerSign, setTrainerSign] = useState(seed?.trainer_signature || "");
   const [fstlSign, setFstlSign] = useState(seed?.fstl_signature || "");
   const [effectivenessEvaluatedBy, setEffectivenessEvaluatedBy] = useState(seed?.effectiveness_evaluated_by || "");
@@ -322,11 +330,29 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
    * partial save, so a restored draft always reads back exactly as it was left.
    */
   // The two "Dated:" columns on the paper format are not typed per attendee:
-  // evaluation happens on the training day, and the effectiveness check falls
-  // 15 or 30 days later — whichever was ticked above.
-  const effectivenessScoringDate = addDays(trainingDate, effectivenessDays);
+  // evaluation happens on the training day, and the effectiveness check on the
+  // date picked below. That date used to be training day + 15/30 flat, which
+  // filed every check on the last day the window allowed even when it had
+  // really been done earlier; the chip now caps the window and the date is
+  // chosen inside it. yyyy-mm-dd sorts chronologically, so plain string
+  // comparison is enough to range-check it.
+  const effectivenessMinDate = trainingDate ? addDays(trainingDate, 1) : "";
+  const effectivenessMaxDate = addDays(trainingDate, effectivenessDays);
+  const effectivenessOutOfWindow = Boolean(
+    effectivenessScoringDate && effectivenessMinDate && effectivenessMaxDate &&
+    (effectivenessScoringDate < effectivenessMinDate || effectivenessScoringDate > effectivenessMaxDate)
+  );
+  const effectivenessDateError = effectivenessOutOfWindow
+    ? `Effectiveness date must fall between ${fmtDate(effectivenessMinDate)} and ${fmtDate(effectivenessMaxDate)} — within ${effectivenessDays} days of the training.`
+    : null;
 
-  const buildPayload = (): Record<string, any> => ({
+  /**
+   * `forDraft` keeps rows the submit payload drops. Filing a record ignores an
+   * attendee with no name, but a draft that did the same was blind to every
+   * other column in that row: the payload never changed as they were typed, so
+   * nothing autosaved and "Save draft" stayed dead until a name was entered.
+   */
+  const buildPayload = (forDraft = false): Record<string, any> => ({
     warehouse: getStoredWarehouse(),
     training_date: trainingDate,
     training_type: trainingTypes.map((t) =>
@@ -346,7 +372,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
     effectiveness_evaluated_by: effectivenessEvaluatedBy,
     dated: effectivenessDate,
     corrective_actions: correctiveActions,
-    attendees: rows.filter((r) => r.name).map((r) => ({
+    attendees: rows.filter((r) => forDraft || r.name).map((r) => ({
       name: r.name,
       designation: r.designation,
       signature: r.signature,
@@ -366,7 +392,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
   // Partial save: mirror the in-progress form to localStorage as it is typed.
   const draftState = useDraftAutosave(
     DRAFT_KEYS.attendance,
-    buildPayload(),
+    buildPayload(true),
     draftEnabled,
     draft?._savedAt ?? null
   );
@@ -386,6 +412,18 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
     }
     setRowErrors([]);
     setFormError(null);
+    // The effectiveness date is typed now, so it can be left blank or dragged
+    // outside the window after the fact (changing the training date moves the
+    // window under it). Both are caught here — the input's own min/max only
+    // guides the picker, it does not stop a keyed-in value.
+    if (effectivenessDays && !effectivenessScoringDate) {
+      setFormError(`Pick the effectiveness date — it must fall within ${effectivenessDays} days of the training.`);
+      return;
+    }
+    if (effectivenessDateError) {
+      setFormError(effectivenessDateError);
+      return;
+    }
     setSubmitting(true);
     setSuccess(false);
     const payload = buildPayload();
@@ -501,17 +539,43 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
                   type="radio"
                   label={`${d} days`}
                   checked={effectivenessDays === d}
-                  onToggle={() => setEffectivenessDays(d as "15" | "30")}
+                  onToggle={() => {
+                    const next = d as "15" | "30";
+                    setEffectivenessDays(next);
+                    // Narrowing 30 → 15 can strand an already-picked date past
+                    // the new cap. Drop it rather than carry a date the window
+                    // no longer allows.
+                    const cap = addDays(trainingDate, next);
+                    if (cap && effectivenessScoringDate > cap) setEffectivenessScoringDate("");
+                  }}
                 />
               ))}
             </div>
-            {/* Both "Dated:" columns are derived, so show what will be filed. */}
-            <p className="mt-2 text-[11px] text-ink-400">
-              {trainingDate
-                ? <>Evaluation dated <b>{fmtDate(trainingDate)}</b>{effectivenessScoringDate
-                    ? <>, effectiveness dated <b>{fmtDate(effectivenessScoringDate)}</b>.</>
-                    : <>. Pick 15 or 30 days to date the effectiveness scoring.</>}</>
-                : "Set the training date above — it dates the evaluation scoring for every attendee."}
+            {effectivenessDays && (
+              <div className="mt-3">
+                <label className="label-base">Effectiveness Date</label>
+                <input
+                  type="date"
+                  value={effectivenessScoringDate}
+                  onChange={(e) => setEffectivenessScoringDate(e.target.value)}
+                  min={effectivenessMinDate || undefined}
+                  max={effectivenessMaxDate || undefined}
+                  disabled={!trainingDate}
+                  className={`input-base ${effectivenessDateError ? "border-danger-300" : ""}`}
+                />
+              </div>
+            )}
+            {/* Both "Dated:" columns come from up here, so show what will be filed. */}
+            <p className={`mt-2 text-[11px] ${effectivenessDateError ? "font-semibold text-danger-700" : "text-ink-400"}`}>
+              {!trainingDate && "Set the training date above — it dates the evaluation scoring for every attendee."}
+              {trainingDate && !effectivenessDays && (
+                <>Evaluation dated <b>{fmtDate(trainingDate)}</b>. Pick 15 or 30 days to open the effectiveness window.</>
+              )}
+              {trainingDate && effectivenessDays && (effectivenessDateError
+                ? effectivenessDateError
+                : effectivenessScoringDate
+                  ? <>Evaluation dated <b>{fmtDate(trainingDate)}</b>, effectiveness dated <b>{fmtDate(effectivenessScoringDate)}</b>.</>
+                  : <>Evaluation dated <b>{fmtDate(trainingDate)}</b>. Pick the effectiveness date — anywhere from <b>{fmtDate(effectivenessMinDate)}</b> to <b>{fmtDate(effectivenessMaxDate)}</b>.</>)}
             </p>
           </div>
         </div>

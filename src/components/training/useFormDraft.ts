@@ -67,26 +67,41 @@ export function clearDraft(key: string): void {
   } catch {}
 }
 
+/** Either the timestamp stored, or why nothing was. */
+type WriteResult =
+  | { savedAt: number; error: null }
+  | { savedAt: null; error: string };
+
 /**
  * Store `json` (already serialised form data) under `key`.
  *
- * Returns the timestamp written, or null if storage refused — drafting is a
- * convenience, so a failure must never interrupt filling in the form, but the
- * caller needs to know so it doesn't claim a save that didn't happen.
+ * Drafting is a convenience, so a failure must never interrupt filling in the
+ * form — but it must not be silent either. Swallowing the exception here is
+ * what made a refused write look like a dead "Save draft" button: nothing was
+ * stored, and nothing said so. The reason comes back to the caller and the
+ * original error goes to the console.
  */
-function writeJson(key: string, json: string): number | null {
+function writeJson(key: string, json: string): WriteResult {
   const savedAt = Date.now();
   try {
     window.localStorage.setItem(key, JSON.stringify({ savedAt, data: JSON.parse(json) }));
-    return savedAt;
-  } catch {
-    return null;
+    return { savedAt, error: null };
+  } catch (e) {
+    const quota =
+      e instanceof Error && /quota|exceeded|full/i.test(`${e.name} ${e.message}`);
+    console.warn(`[draft] could not store "${key}" — the draft was NOT saved:`, e);
+    return {
+      savedAt: null,
+      error: quota
+        ? "Out of space for drafts on this device — clear some browser storage and try again."
+        : "This browser is blocking storage, so the draft can't be kept on this device.",
+    };
   }
 }
 
 /** Save `data` as the draft for `key` right now. */
 export function writeDraft(key: string, data: unknown): number | null {
-  return writeJson(key, JSON.stringify(data));
+  return writeJson(key, JSON.stringify(data)).savedAt;
 }
 
 /** What a form needs to show and drive its own partial save. */
@@ -95,6 +110,8 @@ export interface DraftState {
   savedAt: number | null;
   /** Whether the form holds anything worth saving. */
   dirty: boolean;
+  /** Why the last write failed, or null while drafts are storing fine. */
+  error: string | null;
   /** Write the draft immediately — the "Save draft" button. */
   saveNow: () => void;
   /** Drop the draft and report as unsaved — after the record is actually filed. */
@@ -127,6 +144,7 @@ export function useDraftAutosave(
 
   const [savedAt, setSavedAt] = useState<number | null>(restoredAt ?? null);
   const [dirty, setDirty] = useState<boolean>(Boolean(restoredAt));
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -135,22 +153,44 @@ export function useDraftAutosave(
       return;
     }
     if (json === baseline.current) {
+      // Back at the state this form started from. On a pristine form that means
+      // there is nothing worth keeping. But when the form was SEEDED from a
+      // draft, "back at baseline" means it now matches that draft exactly —
+      // deleting it there threw away the very work that had just been restored,
+      // and left the bar reading "Nothing saved yet" over a form full of typing.
+      if (restoredAt) {
+        setSavedAt(restoredAt);
+        setDirty(true);
+        setError(null);
+        return;
+      }
       clearDraft(key);
       setSavedAt(null);
       setDirty(false);
+      setError(null);
       return;
     }
     setDirty(true);
-    const at = writeJson(key, json);
-    if (at) setSavedAt(at);
-  }, [key, json, enabled]);
+    const res = writeJson(key, json);
+    // A failed write leaves the previous timestamp alone — that older draft is
+    // still on disk, it is just stale now. The error says so.
+    if (res.savedAt) {
+      setSavedAt(res.savedAt);
+      setError(null);
+    } else {
+      setError(res.error);
+    }
+  }, [key, json, enabled, restoredAt]);
 
   const saveNow = useCallback(() => {
     if (!enabled) return;
-    const at = writeJson(key, latest.current);
-    if (at) {
-      setSavedAt(at);
-      setDirty(true);
+    const res = writeJson(key, latest.current);
+    setDirty(true);
+    if (res.savedAt) {
+      setSavedAt(res.savedAt);
+      setError(null);
+    } else {
+      setError(res.error);
     }
   }, [key, enabled]);
 
@@ -158,12 +198,13 @@ export function useDraftAutosave(
     clearDraft(key);
     setSavedAt(null);
     setDirty(false);
+    setError(null);
     // The filed record is the new baseline: without this, the next keystroke
     // would compare against the pre-submit state and re-save what was just filed.
     baseline.current = latest.current;
   }, [key]);
 
-  return { savedAt, dirty, saveNow, forget };
+  return { savedAt, dirty, error, saveNow, forget };
 }
 
 /** "2:05 pm" — how a restored draft tells the user how old it is. */

@@ -116,10 +116,14 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
     }));
   };
 
-  /** The record as it stands — shared by submit and the partial save. */
-  const buildPayload = (): Record<string, any> => ({
+  /**
+   * The record as it stands — shared by submit and the partial save. `forDraft`
+   * keeps rows the submit payload drops, so typing in a row that has no name
+   * yet still registers as a change worth saving.
+   */
+  const buildPayload = (forDraft = false): Record<string, any> => ({
       warehouse: getStoredWarehouse(),
-      workers: rows.filter((r) => r.name).map((r) => ({
+      workers: rows.filter((r) => forDraft || r.name).map((r) => ({
         name: r.name,
         evaluation_method: r.evaluationMethod,
         evaluation_scoring: r.evaluationScoring ? Number(r.evaluationScoring) : null,
@@ -134,7 +138,7 @@ export function TrainingAttendanceWorkers({ initialData, onSubmit, isEdit }: Tra
 
   const draftState = useDraftAutosave(
     DRAFT_KEYS.workers,
-    buildPayload(),
+    buildPayload(true),
     draftEnabled,
     draft?._savedAt ?? null
   );
@@ -349,15 +353,16 @@ export function TrainingReferenceSheet({ initialData, onSubmit, isEdit }: Traini
   const removeRow = (id: number) => { if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id)); };
 
   /** The record as it stands — shared by submit and the partial save. */
-  const buildPayload = (): Record<string, any> => ({
+  // `forDraft` keeps rows the submit payload drops — see the attendance sheet.
+  const buildPayload = (forDraft = false): Record<string, any> => ({
     warehouse: getStoredWarehouse(),
     reference_material: referenceMaterial,
-    rows: rows.filter((r) => r.content).map((r) => ({ content: r.content })),
+    rows: rows.filter((r) => forDraft || r.content).map((r) => ({ content: r.content })),
   });
 
   const draftState = useDraftAutosave(
     DRAFT_KEYS.reference,
-    buildPayload(),
+    buildPayload(true),
     draftEnabled,
     draft?._savedAt ?? null
   );

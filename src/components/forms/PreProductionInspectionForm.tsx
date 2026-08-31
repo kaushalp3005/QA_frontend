@@ -287,7 +287,12 @@ export default function PreProductionInspectionForm({
   const [activeSection, setActiveSection] = useState(0);
   // Partial submit: the first save creates the record and keeps its id so more
   // sections can be filled and saved again before finalizing.
-  const [savedId, setSavedId] = useState<number | null>((initialData?.id as number | undefined) ?? null);
+  // Only a real edit adopts the record's id. In duplicate ("Recreate") mode the
+  // source record arrives as initialData too, and adopting its id would make the
+  // save overwrite the original instead of inserting a new row.
+  const [savedId, setSavedId] = useState<number | null>(
+    isEdit ? ((initialData?.id as number | undefined) ?? null) : null,
+  );
   const [saving, setSaving] = useState<false | "draft" | "final">(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);

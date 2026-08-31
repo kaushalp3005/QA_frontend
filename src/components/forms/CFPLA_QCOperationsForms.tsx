@@ -412,7 +412,8 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonito
   });
   // Created on the first save, then updated — so "Submit Partially" can be used
   // repeatedly without creating a new record each time.
-  const [recordId, setRecordId] = useState<number | null>(initialData?.id ?? null);
+  // Only a real edit adopts the record's id — see PreProductionInspectionForm.
+  const [recordId, setRecordId] = useState<number | null>(isEdit ? (initialData?.id ?? null) : null);
   const [saving, setSaving] = useState<false | "draft" | "final">(false);
   const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const add = () => setRows((p) => [...p, eLux(Math.max(0, ...p.map((r) => r.id)) + 1, "")]);

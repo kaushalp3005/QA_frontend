@@ -432,10 +432,12 @@ export function SubmitBar({
         <p className="text-[11px] text-ink-400">{note ?? "Prepared by: HR · Approved by: FSTL"}</p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           {draft && (
-            <span className="text-[11px] text-ink-400">
-              {draft.savedAt
-                ? `Draft saved on this device · ${draftTime(draft.savedAt)}`
-                : "Nothing saved yet"}
+            <span className={`text-[11px] ${draft.error ? "font-semibold text-danger-700" : "text-ink-400"}`}>
+              {draft.error
+                ? draft.error
+                : draft.savedAt
+                  ? `Draft saved on this device · ${draftTime(draft.savedAt)}`
+                  : "Nothing saved yet"}
             </span>
           )}
           {success && (
@@ -448,13 +450,13 @@ export function SubmitBar({
               <button
                 type="button"
                 onClick={draft.saveNow}
-                disabled={submitting || !draft.dirty}
+                // Only blocked mid-submit. Gating this on `dirty` meant that
+                // whenever autosave had not marked the form dirty the button sat
+                // there looking live but doing nothing on click — an explicit
+                // "Save draft" should always either save or say why it couldn't.
+                disabled={submitting}
                 className="btn-outline shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                title={
-                  draft.dirty
-                    ? "Keep what you have filled in so far on this device — it is not filed until you submit"
-                    : "Nothing filled in yet"
-                }
+                title="Keep what you have filled in so far on this device — it is not filed until you submit"
               >
                 <Save className="mr-1.5 h-4 w-4" />
                 Save draft

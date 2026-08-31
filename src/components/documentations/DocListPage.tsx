@@ -246,7 +246,7 @@ export default function DocListPage({ config, renderExpanded }: Props) {
                     <th className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">#</th>
                     {config.listColumns.map((col) => (
                       <th key={col} className="px-4 py-3 text-left font-semibold text-[11px] tracking-wider uppercase text-ink-400">
-                        {col.replace(/_/g, ' ')}
+                        {config.columnLabels?.[col] ?? col.replace(/_/g, ' ')}
                       </th>
                     ))}
                     <th className="px-4 py-3 text-right font-semibold text-[11px] tracking-wider uppercase text-ink-400">Actions</th>
@@ -280,9 +280,21 @@ export default function DocListPage({ config, renderExpanded }: Props) {
                         </td>
                       )}
                       <td className="px-4 py-3 text-ink-400 font-medium">{(page - 1) * 50 + i + 1}</td>
-                      {config.listColumns.map((col) => (
-                        <td key={col} className="px-4 py-3 text-ink-600">{formatValue(rec[col])}</td>
-                      ))}
+                      {config.listColumns.map((col) => {
+                        // Free-text columns (e.g. the training topic) can run long or
+                        // hold newlines — cap them to one line and put the full value
+                        // in the tooltip so the row height stays uniform.
+                        const text = formatValue(rec[col])
+                        return (
+                          <td
+                            key={col}
+                            className="px-4 py-3 text-ink-600 max-w-[280px] truncate"
+                            title={text === '—' ? undefined : text}
+                          >
+                            {text}
+                          </td>
+                        )
+                      })}
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button

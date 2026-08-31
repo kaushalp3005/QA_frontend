@@ -229,12 +229,13 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
   };
 
   /** The record as it stands — shared by submit and the partial save. */
-  const buildPayload = (): Record<string, any> => ({
+  // `forDraft` keeps rows the submit payload drops — see the attendance sheet.
+  const buildPayload = (forDraft = false): Record<string, any> => ({
     warehouse: getStoredWarehouse(),
     employee_name: employeeName,
     designation,
     training_needs_identified: trainingNeeds,
-    rows: rows.filter((r) => r.date || r.topicsCovered).map((r) => ({
+    rows: rows.filter((r) => forDraft || r.date || r.topicsCovered).map((r) => ({
       date: r.date,
       total_hours: r.totalHours ? Number(r.totalHours) : null,
       topics_covered: r.topicsCovered,
@@ -247,7 +248,7 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
 
   const draftState = useDraftAutosave(
     DRAFT_KEYS.card,
-    buildPayload(),
+    buildPayload(true),
     draftEnabled,
     draft?._savedAt ?? null
   );

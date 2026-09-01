@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import SignaturePicker from "@/components/ui/SignaturePicker";
+import Time12Picker from "@/components/Time12Picker";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 
 const CHEMICAL_PARAMS = [
@@ -136,6 +137,12 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
 
   const [checkDate, setCheckDate] = useState(
     initialData?.check_date || new Date().toISOString().slice(0, 10)
+  );
+  // Falls back to now, not to blank, when initialData predates the check_time
+  // column — the same default a brand-new record gets, and what the metal
+  // detector entry form uses for its own time.
+  const [checkTime, setCheckTime] = useState(
+    initialData?.check_time || new Date().toTimeString().slice(0, 5)
   );
   const [dropdowns, setDropdowns] = useState<DropdownData>({ factories: [] });
   const [articles, setArticles] = useState<ArticleForm[]>(
@@ -329,6 +336,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
     const recordVerifiedBy = articles[0]?.verified_by || "";
     onSubmit({
       check_date: checkDate,
+      check_time: checkTime,
       warehouse,
       floor: recordFloor,
       articles: payload,
@@ -406,7 +414,9 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
           <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />
           Record Details
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Three across only from lg — at sm a date, a time and a warehouse box
+            side by side are each too narrow to read. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className={labelCls}>Check Date</label>
             <input
@@ -414,6 +424,14 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
               value={checkDate}
               onChange={(e) => setCheckDate(e.target.value)}
               required
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Check Time</label>
+            <Time12Picker
+              value={checkTime}
+              onChange={setCheckTime}
               className={inputCls}
             />
           </div>

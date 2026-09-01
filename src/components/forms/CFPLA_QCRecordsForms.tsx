@@ -1,6 +1,7 @@
 "use client";
 import { Fragment, useState } from "react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import THFillButton from "@/components/documentations/RowFillButton";
 import {
   CHECKED_BY_OPTIONS,
   QC_VERIFIED_BY_OPTIONS,
@@ -475,19 +476,9 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
   );
 }
 
-/** Row-wise "copy the first value across every day" control. */
-function THFillButton({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={`Fill every day of "${label}" with its first value (click again to clear)`}
-      className="text-[9px] font-bold leading-none bg-success-50 text-success-700 px-1.5 py-0.5 rounded hover:bg-success-100 shrink-0"
-    >
-      Fill
-    </button>
-  );
-}
+// The row-wise "copy the first value across every day" control this form
+// introduced now lives in components/documentations/RowFillButton, shared with
+// the daily-cleaning and equipment-cleaning grids that gained the same button.
 
 // F.18 - In-process Quality Check
 interface QCRow { id: number; skuName: string; customer: string; batchNo: string; sensory: string; physical: string; labelCheck: string; sealCheck: string; decision: string; remarks: string; checkedBy: string; verifiedBy: string; }

@@ -7,6 +7,7 @@ import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
+import RowFillButton, { rowFillValue } from "@/components/documentations/RowFillButton";
 import {
   W202_EQUIPMENT_LIST, W202_FLOOR_EQUIPMENT,
   A185_FLOOR_EQUIPMENT, A185_OVERALL_EQUIPMENT, A185_OVERALL_KEY, MONTH_LABELS,
@@ -157,6 +158,21 @@ export default function EquipmentCleaningSanitationRecord() {
     });
   };
 
+  /** Spread the yearly grid's first filled signatory across all 12 months
+   *  (click again on an already-uniform row to clear it). */
+  const fillOverallSigRow = (field: keyof RowSig) => {
+    setOverallSigs((prev) => {
+      const months = MONTH_LABELS.map((_, mi) => mi + 1);
+      const value = rowFillValue(months.map((m) => prev[m]?.[field] || ""));
+      if (value === null) return prev;
+      const next: Record<number, RowSig> = { ...prev };
+      months.forEach((m) => {
+        next[m] = { ...(next[m] || { checkedBy: "", verifiedBy: "" }), [field]: value };
+      });
+      return next;
+    });
+  };
+
   const pushHistory = () => {
     const cur = gridByFloor[floor] || {};
     historyRef.current = [...historyRef.current.slice(-49), { floor, grid: JSON.parse(JSON.stringify(cur)) }];
@@ -205,6 +221,25 @@ export default function EquipmentCleaningSanitationRecord() {
       const cur = all[floor] || {};
       const existing: RowSig = cur[day] || { checkedBy: "", verifiedBy: "" };
       return { ...all, [floor]: { ...cur, [day]: { ...existing, [field]: value } } };
+    });
+  };
+
+  /**
+   * Horizontal "fill all" for a signatory row — the counterpart to the per-day
+   * ✓ button, which runs down a column. Spreads the row's first filled
+   * signatory across every date in the grid; clicking again on an
+   * already-uniform row clears it. Per-floor, like the grid itself.
+   */
+  const fillDaySigRow = (field: keyof RowSig) => {
+    setDaySigsByFloor((all) => {
+      const cur = all[floor] || {};
+      const value = rowFillValue(selectedDates.map((d) => cur[d]?.[field] || ""));
+      if (value === null) return all;
+      const next: Record<number, RowSig> = { ...cur };
+      selectedDates.forEach((d) => {
+        next[d] = { ...(next[d] || { checkedBy: "", verifiedBy: "" }), [field]: value };
+      });
+      return { ...all, [floor]: next };
     });
   };
 
@@ -379,7 +414,12 @@ export default function EquipmentCleaningSanitationRecord() {
               ))}
               <tr className="border-t-2 border-cream-300">
                 <td className="px-1 py-1 sticky left-0 bg-cream-100 z-10"></td>
-                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">Checked By</td>
+                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Checked By</span>
+                    <RowFillButton onClick={() => fillOverallSigRow("checkedBy")} label="Checked By" unit="month" />
+                  </div>
+                </td>
                 {MONTH_LABELS.map((_, mi) => (
                   <td key={`chk-${mi}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
                     <CompactSignSelect value={overallSigs[mi + 1]?.checkedBy || ""} onChange={(v) => updateOverallSig(mi + 1, "checkedBy", v)} options={CHECKED_BY_OPTIONS} />
@@ -388,7 +428,12 @@ export default function EquipmentCleaningSanitationRecord() {
               </tr>
               <tr>
                 <td className="px-1 py-1 sticky left-0 bg-cream-100 z-10"></td>
-                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">Verified By</td>
+                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Verified By</span>
+                    <RowFillButton onClick={() => fillOverallSigRow("verifiedBy")} label="Verified By" unit="month" />
+                  </div>
+                </td>
                 {MONTH_LABELS.map((_, mi) => (
                   <td key={`ver-${mi}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
                     <CompactSignSelect value={overallSigs[mi + 1]?.verifiedBy || ""} onChange={(v) => updateOverallSig(mi + 1, "verifiedBy", v)} options={QC_VERIFIED_BY_OPTIONS} />
@@ -475,7 +520,12 @@ export default function EquipmentCleaningSanitationRecord() {
               {/* Per-day signatories — one dropdown per date column */}
               <tr className="border-t-2 border-cream-300">
                 <td className="px-1 py-1 sticky left-0 bg-cream-100 z-10"></td>
-                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">Checked By</td>
+                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Checked By</span>
+                    <RowFillButton onClick={() => fillDaySigRow("checkedBy")} label="Checked By" />
+                  </div>
+                </td>
                 {selectedDates.map((d) => (
                   <td key={`chk-${d}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
                     <CompactSignSelect value={daySigs[d]?.checkedBy || ""} onChange={(v) => updateDaySig(d, "checkedBy", v)} options={CHECKED_BY_OPTIONS} />
@@ -484,7 +534,12 @@ export default function EquipmentCleaningSanitationRecord() {
               </tr>
               <tr>
                 <td className="px-1 py-1 sticky left-0 bg-cream-100 z-10"></td>
-                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">Verified By</td>
+                <td className="px-2 py-1 sticky left-8 bg-cream-100 z-10 text-right text-[10px] font-semibold uppercase text-ink-500 whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Verified By</span>
+                    <RowFillButton onClick={() => fillDaySigRow("verifiedBy")} label="Verified By" />
+                  </div>
+                </td>
                 {selectedDates.map((d) => (
                   <td key={`ver-${d}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
                     <CompactSignSelect value={daySigs[d]?.verifiedBy || ""} onChange={(v) => updateDaySig(d, "verifiedBy", v)} options={QC_VERIFIED_BY_OPTIONS} />

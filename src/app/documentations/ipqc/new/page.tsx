@@ -43,6 +43,10 @@ function NewIPQCContent() {
           verified_by: _verifiedBy,
           approved_at: _approvedAt,
           created_at: _createdAt,
+          // A re-check happens at a new time as well as a new date, so the
+          // source record's time must not carry over — IPQCForm then falls
+          // through to now, matching how check_date is reset below.
+          check_time: _checkTime,
           ...rest
         } = rec as any;
         setCloneData({

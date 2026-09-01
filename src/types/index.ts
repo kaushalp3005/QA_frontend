@@ -238,6 +238,7 @@ export interface SKUResult {
 export interface IPQCRecord {
   ipqc_no: string;
   check_date: string;
+  check_time?: string;
   factory_code: string;
   floor: string;
   checked_by?: string;

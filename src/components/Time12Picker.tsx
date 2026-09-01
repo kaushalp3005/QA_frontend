@@ -8,7 +8,10 @@ const to24Hour = (hour: number, minute: number, period: string): string => {
   return `${h.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 };
 
-const format12 = (time24: string): string => {
+/** "14:30" -> "02:30 PM". Exported so the IPQC records list renders stored
+ *  times the same way this picker displays them. Returns "" for empty or
+ *  malformed input. */
+export const format12 = (time24: string): string => {
   if (!time24 || !time24.includes(":")) return "";
   const [h, m] = time24.split(":").map(Number);
   if (isNaN(h) || isNaN(m)) return "";

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import DocSection from "@/components/documentations/DocSection";
+import RowFillButton, { rowFillValue } from "@/components/documentations/RowFillButton";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
@@ -140,6 +141,27 @@ export default function DailyCleaningTypeForm({
     updateFloor(activeFloor, (f) => ({ ...f, checkedByPerDay: { ...f.checkedByPerDay, [day]: v } }));
   const setVerifiedBy = (day: number, v: string) =>
     updateFloor(activeFloor, (f) => ({ ...f, verifiedByPerDay: { ...f.verifiedByPerDay, [day]: v } }));
+
+  /**
+   * Horizontal "fill all" for a signatory row — the counterpart to the per-day
+   * ✓ button above, which runs down a column.
+   *
+   * Spreads the row's first filled signatory across EVERY day of the month, not
+   * just the block the button was clicked in: the month is split into three
+   * stacked blocks purely so the grid stays readable, and one signatory
+   * normally covers the whole sheet. Clicking again on an already-uniform row
+   * clears it, matching the toggle on the column buttons.
+   *
+   * Per-floor, like every other control in this grid.
+   */
+  const fillSignRow = (which: "checkedByPerDay" | "verifiedByPerDay") =>
+    updateFloor(activeFloor, (f) => {
+      const value = rowFillValue(DAY_LIST.map((d) => f[which][d] || ""));
+      if (value === null) return f;
+      const next: Record<number, string> = {};
+      DAY_LIST.forEach((d) => (next[d] = value));
+      return { ...f, [which]: next };
+    });
   const setObservations = (v: string) => updateFloor(activeFloor, (f) => ({ ...f, observations: v }));
   const setCorrectiveAction = (v: string) => updateFloor(activeFloor, (f) => ({ ...f, correctiveAction: v }));
 
@@ -390,7 +412,12 @@ export default function DailyCleaningTypeForm({
                   ))}
                   {/* Per-day Checked By */}
                   <tr className="bg-brand-50/30">
-                    <td className="px-2 py-1 sticky left-0 bg-brand-50 z-10 font-bold whitespace-nowrap text-[11px] text-brand-700 uppercase tracking-wider">Checked By</td>
+                    <td className="px-2 py-1 sticky left-0 bg-brand-50 z-10 font-bold whitespace-nowrap text-[11px] text-brand-700 uppercase tracking-wider">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span>Checked By</span>
+                        <RowFillButton onClick={() => fillSignRow("checkedByPerDay")} label="Checked By" />
+                      </div>
+                    </td>
                     {days.map((day) => (
                       <td key={day} className="px-0.5 py-0.5 border-l border-cream-300 align-middle">
                         <CompactSignSelect value={floor.checkedByPerDay[day] || ""} onChange={(v) => setCheckedBy(day, v)} options={CHECKED_BY_OPTIONS} />
@@ -399,7 +426,12 @@ export default function DailyCleaningTypeForm({
                   </tr>
                   {/* Per-day Verified By */}
                   <tr className="bg-brand-50/30">
-                    <td className="px-2 py-1 sticky left-0 bg-brand-50 z-10 font-bold whitespace-nowrap text-[11px] text-brand-700 uppercase tracking-wider">Verified By</td>
+                    <td className="px-2 py-1 sticky left-0 bg-brand-50 z-10 font-bold whitespace-nowrap text-[11px] text-brand-700 uppercase tracking-wider">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span>Verified By</span>
+                        <RowFillButton onClick={() => fillSignRow("verifiedByPerDay")} label="Verified By" />
+                      </div>
+                    </td>
                     {days.map((day) => (
                       <td key={day} className="px-0.5 py-0.5 border-l border-cream-300 align-middle">
                         <CompactSignSelect value={floor.verifiedByPerDay[day] || ""} onChange={(v) => setVerifiedBy(day, v)} options={QC_VERIFIED_BY_OPTIONS} />
@@ -413,6 +445,7 @@ export default function DailyCleaningTypeForm({
         </div>
         <p className="text-[11px] text-ink-400 italic px-4 pt-3 pb-2">
           Each day records its own <strong>Checked By</strong> and <strong>Verified By</strong> signatory (resolves to a signature image on print).
+          Set the first day, then hit <strong>Fill</strong> on the row to copy it across the whole month — click it again to clear the row.
         </p>
 
         <div className="border-t border-cream-300 p-4 sm:p-5 bg-cream-100/30">

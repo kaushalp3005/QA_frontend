@@ -14,13 +14,15 @@ import {
 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Loader";
+import { format12 } from "@/components/Time12Picker";
 
 
 /**
  * Records are always ordered by the date on the record, newest first — not by
  * when the row happened to be created. Editing a record's date to today is
  * meant to move it to the top of the list, which ordering by created_at never
- * did. Ties inside one date fall back to id on the server.
+ * did. Inside one date the server falls back to check_time (nulls last, so
+ * records predating that column sit below the timed ones) and then to id.
  */
 const ORDER = { sort_by: "check_date", sort_order: "desc" } as const;
 
@@ -328,8 +330,13 @@ export default function IPQCListPage() {
                           </span>
                         )}
                       </div>
+                      {/* The time segment is dropped rather than dashed when a
+                          record predates check_time — this line is prose, and
+                          "2026-08-13 · — · W202" reads badly. The table cell
+                          keeps its dash, because a column has to line up. */}
                       <p className="text-[11px] text-ink-400 font-medium mb-2 tabular-nums">
-                        {record.check_date} · {warehouse}
+                        {record.check_date}
+                        {record.check_time ? ` · ${format12(record.check_time)}` : ""} · {warehouse}
                       </p>
                       <div className="space-y-1">
                         {articles.slice(0, 3).map((a: any, i: number) => (
@@ -382,6 +389,7 @@ export default function IPQCListPage() {
                     <tr>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">IPQC No.</th>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Date</th>
+                      <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Time</th>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider">Articles</th>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Warehouse</th>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Lab Report</th>
@@ -407,6 +415,9 @@ export default function IPQCListPage() {
                             </button>
                           </td>
                           <td className="px-3 2xl:px-5 py-2.5 text-sm text-ink-500 whitespace-nowrap tabular-nums">{record.check_date}</td>
+                          <td className="px-3 2xl:px-5 py-2.5 text-sm text-ink-500 whitespace-nowrap tabular-nums">
+                            {record.check_time ? format12(record.check_time) : "—"}
+                          </td>
                           <td className="px-3 2xl:px-5 py-2.5 min-w-[220px]">
                             <button
                               type="button"

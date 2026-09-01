@@ -34,6 +34,8 @@ const IPQC_HEADERS: Record<string, IPQCHeader> = {
 
 interface Article {
   floor?: string;
+  /** 24-hour "HH:MM". Orders the printed rows; not shown as a column. */
+  check_time?: string;
   item_description: string;
   customer: string;
   batch_number: string;
@@ -51,6 +53,7 @@ interface Article {
 interface PrintRecord {
   ipqc_no: string;
   check_date: string;
+  check_time?: string;
   factory_code: string;
   floor: string;
   articles?: Article[];
@@ -250,6 +253,7 @@ function buildHtml(record: PrintRecord): string {
     ? record.articles
     : [{
         floor: record.floor,
+        check_time: record.check_time,
         item_description: record.item_description,
         customer: record.customer,
         batch_number: record.batch_number,
@@ -262,9 +266,32 @@ function buildHtml(record: PrintRecord): string {
         overall_remark: record.overall_remark,
       }];
 
+  // The sheet reads in the order the checks actually happened, not the order
+  // the articles were typed into the form.
+  //
+  // Sorted BEFORE the floor grouping below, which does two things at once:
+  // within a floor the articles run in time order, and the floor pages
+  // themselves come out ordered by their earliest check, because the Map keeps
+  // insertion order.
+  //
+  // Copied first — record.articles is live React state and sorting in place
+  // would reorder the form under the user who pressed Print.
+  //
+  // Times are zero-padded "HH:MM", so a plain string compare is chronological.
+  // Articles with no time sink to the bottom rather than floating to the top:
+  // records filed before the field existed have none, and they belong after the
+  // checks whose time is actually known. Array#sort is stable, so equal times
+  // keep the order they were entered in.
+  const orderedArticles = [...allArticles].sort((a, b) => {
+    const ta = a.check_time?.trim() || "";
+    const tb = b.check_time?.trim() || "";
+    if (!ta || !tb) return ta ? -1 : tb ? 1 : 0;
+    return ta < tb ? -1 : ta > tb ? 1 : 0;
+  });
+
   // Group articles by floor, preserving insertion order
   const floorMap = new Map<string, Article[]>();
-  for (const a of allArticles) {
+  for (const a of orderedArticles) {
     const fl = a.floor || record.floor || "";
     if (!floorMap.has(fl)) floorMap.set(fl, []);
     floorMap.get(fl)!.push(a);

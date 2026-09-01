@@ -198,6 +198,49 @@ export function appendRow(rows: AttendeeRow[]): AttendeeRow[] {
 }
 
 /**
+ * The rows with their name/designation pairs dealt out to new positions.
+ *
+ * Recreating a sheet runs the same training with the same people again, and the
+ * new sheet should not read as a photocopy of the last one, so every attendee
+ * lands on a different Sr. No.
+ *
+ * Only the pair travels. Signature, methods, scores, results, average and
+ * status belong to the LINE, not to the person, and stay exactly where they
+ * are — moving a name must never drag someone else's marks along with it.
+ * Name and designation move together because they are what identify an
+ * attendee: the Employee Training Card resolves a person by both, so splitting
+ * them would point it at somebody who was never there.
+ *
+ * Rows with no name sit the shuffle out. They are the trailing blanks of a
+ * part-filled sheet, and dealing an empty pair into the middle would leave a
+ * hole in the numbering.
+ *
+ * Sattolo's algorithm, not a plain Fisher–Yates: drawing `j` STRICTLY below `i`
+ * yields a single cycle, so every pair is guaranteed to change position. A
+ * plain shuffle is free to leave someone exactly where they were — with two
+ * attendees it does so half the time, which is the one outcome this exists to
+ * avoid. Fewer than two named rows cannot move at all, so they come back
+ * untouched.
+ */
+export function shuffleAttendeePairs(rows: AttendeeRow[]): AttendeeRow[] {
+  const filled: number[] = [];
+  rows.forEach((r, i) => { if (r.name.trim()) filled.push(i); });
+  if (filled.length < 2) return rows;
+
+  const pairs = filled.map((i) => ({ name: rows[i].name, designation: rows[i].designation }));
+  for (let i = pairs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * i);
+    [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+  }
+
+  const next = [...rows];
+  filled.forEach((rowIdx, k) => {
+    next[rowIdx] = { ...next[rowIdx], name: pairs[k].name, designation: pairs[k].designation };
+  });
+  return next;
+}
+
+/**
  * Copies one shared column into every attendee. Sits under the column heading
  * on the desktop grid and beside the field label on each mobile card.
  */
@@ -227,6 +270,10 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
   // Partial save applies to a blank create form only — never shadow a record
   // being edited or duplicated with a stale draft of something else.
   const draftEnabled = !initialData && !isEdit;
+  // Duplicating, not editing: the create page hands a record in without isEdit.
+  // Only then are the attendees re-dealt — editing a filed record must show it
+  // exactly as it was filed.
+  const isDuplicate = Boolean(initialData) && !isEdit;
   const [draft] = useState(() => (draftEnabled ? readDraft(DRAFT_KEYS.attendance) : null));
   /** Where fields hydrate from: the real record if there is one, else the draft. */
   const seed = initialData ?? draft ?? undefined;
@@ -270,7 +317,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
   const [correctiveActions, setCorrectiveActions] = useState<string[]>(seed?.corrective_actions || []);
   const [rows, setRows] = useState<AttendeeRow[]>(() => {
     if (seed?.attendees && Array.isArray(seed.attendees)) {
-      return seed.attendees.map((r: any, i: number) => ({
+      const seeded = seed.attendees.map((r: any, i: number) => ({
         id: i + 1,
         name: r.name || "",
         designation: r.designation || "",
@@ -288,6 +335,7 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
           ?? (r.average_scoring?.toString() || ""),
         trainingStatus: r.training_status || "",
       }));
+      return isDuplicate ? shuffleAttendeePairs(seeded) : seeded;
     }
     return Array.from({ length: 10 }, (_, i) => emptyRow(i + 1));
   });

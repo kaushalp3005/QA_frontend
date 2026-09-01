@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import WarehouseSelector from "@/components/ui/WarehouseSelector";
 import PageHeader from "@/components/ui/PageHeader";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 // Card list + side-nav list share one source so they never drift apart.
 import { TRAINING_PAGES, toneClass } from "@/config/training-nav";
 
@@ -83,9 +84,10 @@ export default function TrainingIndexPage() {
     );
   }, [search]);
 
-  // Width, gutters and the side nav all come from app/training/layout.tsx
+  // Gutters and the module nav come from DashboardLayout, the same shell the
+  // rest of the section's pages render (DocListPage / DocViewPage / DocEditWrapper).
   return (
-    <div>
+    <DashboardLayout>
       <div>
         <button
           onClick={() => router.back()}
@@ -176,6 +178,6 @@ export default function TrainingIndexPage() {
           </div>
         </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

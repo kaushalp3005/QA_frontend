@@ -261,6 +261,7 @@ export interface IPQCRecord {
 }
 
 export interface IPQCArticle {
+  check_time?: string;
   item_description: string;
   customer: string;
   batch_number: string;

@@ -22,6 +22,7 @@ const CHEMICAL_PARAMS = [
 
 interface ArticleForm {
   floor: string;
+  check_time: string;
   item_description: string;
   customer: string;
   batch_number: string;
@@ -38,9 +39,15 @@ interface ArticleForm {
   verified_by: string;
 }
 
+/** "HH:MM" for right now — the default time a freshly added article gets. */
+function nowHHMM(): string {
+  return new Date().toTimeString().slice(0, 5);
+}
+
 function makeDefaultArticle(floor = ""): ArticleForm {
   return {
     floor,
+    check_time: nowHHMM(),
     item_description: "",
     customer: "",
     batch_number: "",
@@ -68,6 +75,9 @@ function articleFromRecord(record: IPQCRecord): ArticleForm[] {
   if (record.articles?.length) {
     return record.articles.map((a) => ({
       floor: (a as any).floor || record.floor || "",
+      // Falls back to the record's flat time (which mirrors article 1) and then
+      // to now, so records saved before per-article times still open sensibly.
+      check_time: (a as any).check_time || record.check_time || nowHHMM(),
       item_description: a.item_description || "",
       customer: a.customer || "",
       batch_number: a.batch_number || "",
@@ -98,6 +108,7 @@ function articleFromRecord(record: IPQCRecord): ArticleForm[] {
   const def = makeDefaultArticle(record.floor || "");
   return [{
     ...def,
+    check_time: record.check_time || def.check_time,
     item_description: record.item_description || "",
     customer: record.customer || "",
     batch_number: record.batch_number || "",
@@ -137,12 +148,6 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
 
   const [checkDate, setCheckDate] = useState(
     initialData?.check_date || new Date().toISOString().slice(0, 10)
-  );
-  // Falls back to now, not to blank, when initialData predates the check_time
-  // column — the same default a brand-new record gets, and what the metal
-  // detector entry form uses for its own time.
-  const [checkTime, setCheckTime] = useState(
-    initialData?.check_time || new Date().toTimeString().slice(0, 5)
   );
   const [dropdowns, setDropdowns] = useState<DropdownData>({ factories: [] });
   const [articles, setArticles] = useState<ArticleForm[]>(
@@ -307,6 +312,9 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
       if (!src) return prev;
       const clone: ArticleForm = {
         ...src,
+        // A re-check of the same product happens at a new time, so the copy
+        // starts from now rather than inheriting the original's hour.
+        check_time: nowHHMM(),
         sensory_evaluation: src.sensory_evaluation.map((i) => ({ ...i })),
         physical_parameters: src.physical_parameters.map((i) => ({ ...i })),
         label_check: src.label_check.map((i) => ({ ...i })),
@@ -332,11 +340,14 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
     // Use the first article's floor/signatories as the record-level values for
     // backward compatibility (flat columns + list/view headers).
     const recordFloor = articles[0]?.floor || "";
+    // Article 1's time doubles as the record-level one the list sorts by. The
+    // server derives the same value; sending it keeps older read paths happy.
+    const recordCheckTime = articles[0]?.check_time || "";
     const recordCheckedBy = articles[0]?.checked_by || "";
     const recordVerifiedBy = articles[0]?.verified_by || "";
     onSubmit({
       check_date: checkDate,
-      check_time: checkTime,
+      check_time: recordCheckTime,
       warehouse,
       floor: recordFloor,
       articles: payload,
@@ -414,9 +425,7 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
           <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />
           Record Details
         </h2>
-        {/* Three across only from lg — at sm a date, a time and a warehouse box
-            side by side are each too narrow to read. */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Check Date</label>
             <input
@@ -424,14 +433,6 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
               value={checkDate}
               onChange={(e) => setCheckDate(e.target.value)}
               required
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Check Time</label>
-            <Time12Picker
-              value={checkTime}
-              onChange={setCheckTime}
               className={inputCls}
             />
           </div>
@@ -661,6 +662,18 @@ export default function IPQCForm({ initialData, onSubmit, loading, isAdmin, useA
                       <option key={fl.id} value={fl.floor_name}>{fl.floor_name}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  {/* Per article, not per record: a sheet's articles are checked
+                      at different hours, the same way each metal detector entry
+                      carries its own time. Article 1's time is what the records
+                      list orders by. */}
+                  <label className={labelCls}>Check Time</label>
+                  <Time12Picker
+                    value={art.check_time}
+                    onChange={(v) => updateArticle(artIdx, { check_time: v })}
+                    className={inputCls}
+                  />
                 </div>
               </div>
 

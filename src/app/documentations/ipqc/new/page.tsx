@@ -52,6 +52,13 @@ function NewIPQCContent() {
         setCloneData({
           ...rest,
           check_date: new Date().toISOString().slice(0, 10),
+          // Each article carries its own time now, so stripping the record-level
+          // one is not enough — clear them per article too, or every copied
+          // article would claim it was checked at the original's hour.
+          articles: (rest.articles || []).map((a: any) => {
+            const { check_time: _articleTime, ...art } = a;
+            return art;
+          }),
         });
       })
       .catch(() => {

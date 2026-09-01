@@ -69,6 +69,7 @@ export default function IPQCListPage() {
     record.articles?.length
       ? record.articles
       : [{
+          check_time: record.check_time,
           item_description: record.item_description,
           customer: record.customer,
           batch_number: record.batch_number,
@@ -305,6 +306,7 @@ export default function IPQCListPage() {
             <div className="xl:hidden space-y-3">
               {records.map((record, idx) => {
                 const articles = record.articles?.length ? record.articles : [{
+                  check_time: record.check_time,
                   item_description: record.item_description,
                   customer: record.customer,
                   batch_number: record.batch_number,
@@ -330,17 +332,15 @@ export default function IPQCListPage() {
                           </span>
                         )}
                       </div>
-                      {/* The time segment is dropped rather than dashed when a
-                          record predates check_time — this line is prose, and
-                          "2026-08-13 · — · W202" reads badly. The table cell
-                          keeps its dash, because a column has to line up. */}
                       <p className="text-[11px] text-ink-400 font-medium mb-2 tabular-nums">
-                        {record.check_date}
-                        {record.check_time ? ` · ${format12(record.check_time)}` : ""} · {warehouse}
+                        {record.check_date} · {warehouse}
                       </p>
                       <div className="space-y-1">
                         {articles.slice(0, 3).map((a: any, i: number) => (
                           <div key={i} className="flex items-center gap-1.5 text-xs text-ink-500 flex-wrap">
+                            {a.check_time && (
+                              <span className="tabular-nums text-ink-400 font-medium">{format12(a.check_time)}</span>
+                            )}
                             <span className="font-semibold text-ink-600">{a.item_description || "—"}</span>
                             {a.customer && <><span className="text-ink-300">|</span><span>{a.customer}</span></>}
                             {a.batch_number && <><span className="text-ink-300">|</span><span className="font-mono">{a.batch_number}</span></>}
@@ -389,7 +389,6 @@ export default function IPQCListPage() {
                     <tr>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">IPQC No.</th>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Date</th>
-                      <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Time</th>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider">Articles</th>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Warehouse</th>
                       <th className="px-3 2xl:px-5 py-2.5 text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider whitespace-nowrap">Lab Report</th>
@@ -399,6 +398,7 @@ export default function IPQCListPage() {
                   <tbody className="divide-y divide-cream-300">
                     {records.map((record) => {
                       const articles = record.articles?.length ? record.articles : [{
+                        check_time: record.check_time,
                         item_description: record.item_description,
                         customer: record.customer,
                         batch_number: record.batch_number,
@@ -415,9 +415,6 @@ export default function IPQCListPage() {
                             </button>
                           </td>
                           <td className="px-3 2xl:px-5 py-2.5 text-sm text-ink-500 whitespace-nowrap tabular-nums">{record.check_date}</td>
-                          <td className="px-3 2xl:px-5 py-2.5 text-sm text-ink-500 whitespace-nowrap tabular-nums">
-                            {record.check_time ? format12(record.check_time) : "—"}
-                          </td>
                           <td className="px-3 2xl:px-5 py-2.5 min-w-[220px]">
                             <button
                               type="button"
@@ -553,6 +550,9 @@ export default function IPQCListPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap leading-snug">
+                    {a.check_time && (
+                      <span className="text-[11px] tabular-nums text-ink-400 font-medium">{format12(a.check_time)}</span>
+                    )}
                     <span className="text-[13px] font-semibold text-ink-600">{a.item_description || "—"}</span>
                     {a.verdict && (
                       <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${a.verdict === "accept" ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700"}`}>

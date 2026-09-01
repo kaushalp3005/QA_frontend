@@ -4,11 +4,11 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Settings, X } from 'lucide-react'
+import { ChevronDown, Settings, X } from 'lucide-react'
 import { cn } from '@/lib/styles'
 import { getStoredUser, getAuthToken } from '@/lib/api/auth'
 import { isSuperAdmin as checkIsSuperAdmin } from '@/lib/constants/modules'
-import { NAVIGATION } from '@/lib/constants/navigation'
+import { NAVIGATION, type NavItem } from '@/lib/constants/navigation'
 import { landingPathFromStorage } from '@/lib/landing'
 import { getMyPermissions } from '@/lib/api/settings'
 
@@ -17,7 +17,8 @@ interface SidebarProps {
   onClose: () => void
 }
 
-const settingsNavItem = { name: 'Settings', href: '/settings', icon: Settings }
+// Appended after the permission filter, so its moduleCode is never consulted.
+const settingsNavItem: NavItem = { name: 'Settings', href: '/settings', icon: Settings, moduleCode: 'settings' }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
@@ -68,6 +69,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   })
 
   const navItems = isSuperAdmin ? [...visibleNav, settingsNavItem] : visibleNav
+
+  /** True when `href` is the current page or an ancestor of it. */
+  const isInSection = (href: string) =>
+    pathname === href || (href !== '/dashboard' && !!pathname?.startsWith(`${href}/`))
+
+  // A group follows the route by default — land anywhere under /training and it
+  // is open. The chevron overrides that for the current page only; navigating
+  // clears the override so the sidebar always reopens around where you are.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  useEffect(() => { setCollapsedGroups({}) }, [pathname])
+
+  const isGroupOpen = (item: NavItem) =>
+    collapsedGroups[item.name] ?? isInSection(item.href)
+
+  const toggleGroup = (name: string, open: boolean) =>
+    setCollapsedGroups((prev) => ({ ...prev, [name]: !open }))
 
   return (
     <>
@@ -124,41 +141,102 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Navigation */}
           <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
             {navItems.map((item, idx) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname?.startsWith(item.href))
+              const children = item.children
+              // A parent with children highlights on its own landing page only —
+              // otherwise it and the open sub-item would both light up.
+              const isActive = children ? pathname === item.href : isInSection(item.href)
+              const open = children ? isGroupOpen(item) : false
 
               return (
-                <Link
+                <div
                   key={item.name}
-                  href={item.href}
-                  onClick={onClose}
                   style={{ animationDelay: `${idx * 30}ms` }}
-                  className={cn(
-                    'group relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium',
-                    'animate-fade-in-up',
-                    'transition-all duration-200 ease-out',
-                    isActive
-                      ? 'bg-brand-500 text-white shadow-brand'
-                      : 'text-ink-500 hover:text-ink-600 hover:bg-cream-200/80'
-                  )}
+                  className="animate-fade-in-up"
                 >
-                  {/* Subtle red accent on hover (non-active) */}
-                  {!isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 bg-brand-500 rounded-r group-hover:h-6 transition-all duration-200" />
-                  )}
-                  <item.icon
-                    className={cn(
-                      'h-[18px] w-[18px] shrink-0 transition-transform duration-200',
-                      isActive ? 'text-white' : 'text-ink-400 group-hover:text-brand-500',
-                      'group-hover:scale-110'
+                  <div className="relative">
+                    <Link
+                      href={item.href}
+                      onClick={onClose}
+                      className={cn(
+                        'group relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium',
+                        'transition-all duration-200 ease-out',
+                        // Room for the chevron, which overlays the row's right end.
+                        children && 'pr-11',
+                        isActive
+                          ? 'bg-brand-500 text-white shadow-brand'
+                          : 'text-ink-500 hover:text-ink-600 hover:bg-cream-200/80'
+                      )}
+                    >
+                      {/* Subtle red accent on hover (non-active) */}
+                      {!isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 bg-brand-500 rounded-r group-hover:h-6 transition-all duration-200" />
+                      )}
+                      <item.icon
+                        className={cn(
+                          'h-[18px] w-[18px] shrink-0 transition-transform duration-200',
+                          isActive ? 'text-white' : 'text-ink-400 group-hover:text-brand-500',
+                          'group-hover:scale-110'
+                        )}
+                      />
+                      <span className="truncate">{item.name}</span>
+                      {isActive && !children && (
+                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/90 shadow" />
+                      )}
+                    </Link>
+
+                    {/* Sits above the link so the row can be followed or folded
+                        independently — a <button> cannot be nested in an <a>. */}
+                    {children && (
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(item.name, open)}
+                        aria-expanded={open}
+                        aria-label={`${open ? 'Collapse' : 'Expand'} ${item.name}`}
+                        className={cn(
+                          'absolute right-1.5 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-lg transition-colors',
+                          isActive
+                            ? 'text-white/85 hover:bg-white/20'
+                            : 'text-ink-300 hover:text-brand-500 hover:bg-cream-300/70'
+                        )}
+                      >
+                        <ChevronDown
+                          className={cn('h-4 w-4 transition-transform duration-200', open && 'rotate-180')}
+                        />
+                      </button>
                     )}
-                  />
-                  <span className="truncate">{item.name}</span>
-                  {isActive && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/90 shadow" />
+                  </div>
+
+                  {children && open && (
+                    <div className="mt-1 mb-1 ml-6 pl-3 border-l border-cream-300 space-y-0.5">
+                      {children.map((child) => {
+                        const childActive = isInSection(child.href)
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            onClick={onClose}
+                            title={child.name}
+                            className={cn(
+                              'group flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium',
+                              'transition-colors duration-200',
+                              childActive
+                                ? 'bg-brand-50 text-brand-600 font-semibold'
+                                : 'text-ink-500 hover:text-ink-600 hover:bg-cream-200/80'
+                            )}
+                          >
+                            <child.icon
+                              className={cn(
+                                'h-4 w-4 shrink-0',
+                                childActive ? 'text-brand-500' : 'text-ink-400 group-hover:text-brand-500'
+                              )}
+                            />
+                            <span className="truncate">{child.name}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
                   )}
-                </Link>
+                </div>
               )
             })}
           </nav>

@@ -24,6 +24,7 @@ import {
   detailOf,
   DOC_META,
   isDraft,
+  labelUrls,
   printingLabelsApi,
   type PrintingLabelRecord,
 } from '@/lib/api/printingLabels'
@@ -415,13 +416,22 @@ function DateRows({
                           {detailOf(r, 'Batch No') || '—'}
                         </td>
                         <td className="px-3 py-2">
-                          {r.actual_label_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={r.actual_label_url}
-                              alt="Label sample"
-                              className="h-9 w-16 rounded border border-cream-300 object-cover"
-                            />
+                          {labelUrls(r.actual_label_url).length > 0 ? (
+                            // One thumbnail stands in for the set; the count
+                            // badge says how many the entry actually holds.
+                            <span className="relative inline-block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={labelUrls(r.actual_label_url)[0]}
+                                alt="Label sample"
+                                className="h-9 w-16 rounded border border-cream-300 object-cover"
+                              />
+                              {labelUrls(r.actual_label_url).length > 1 && (
+                                <span className="absolute -right-1.5 -top-1.5 rounded-full bg-ink-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white">
+                                  {labelUrls(r.actual_label_url).length}
+                                </span>
+                              )}
+                            </span>
                           ) : (
                             <ImageOff
                               className="h-4 w-4 text-ink-300"

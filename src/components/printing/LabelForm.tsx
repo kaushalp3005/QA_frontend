@@ -15,6 +15,8 @@ import {
   approvedByOptions,
   printedByOptions,
   emptyParameters,
+  labelUrls,
+  MAX_LABEL_PHOTOS,
   normalizeParameters,
   printingLabelsApi,
   uploadLabelImage,
@@ -40,10 +42,12 @@ interface EntryBlock {
    *  same entry twice. */
   savedId: number | null
   parameters: ParameterRow[]
-  labelUrl: string | null
-  /** The photo belongs to another entry — this block was recreated from it and
-   *  points at the same S3 object. Dropping or replacing the image here must
-   *  therefore leave the file alone, or the entry it came from goes blank. */
+  /** Label-sample photos, in the order they were added (max MAX_LABEL_PHOTOS). */
+  labelUrls: string[]
+  /** The photos belong to another entry — this block was recreated from it and
+   *  points at the same S3 objects. Dropping one here must therefore leave the
+   *  file alone, or the entry it came from goes blank. Cleared as soon as this
+   *  block uploads a photo of its own. */
   labelBorrowed: boolean
   /** Where this block was copied from, ready to display — `#128` for a filed
    *  entry, `Entry 2` for another block on this page. Null when it is original. */
@@ -69,8 +73,8 @@ function newBlock(key: number, record?: PrintingLabelRecord, clone = false): Ent
     key,
     savedId: clone ? null : record?.id ?? null,
     parameters: record ? normalizeParameters(record.parameters) : emptyParameters(),
-    labelUrl: record?.actual_label_url ?? null,
-    labelBorrowed: clone && Boolean(record?.actual_label_url),
+    labelUrls: labelUrls(record?.actual_label_url),
+    labelBorrowed: clone && labelUrls(record?.actual_label_url).length > 0,
     copiedFrom: clone && record ? `#${record.id}` : null,
     printedBy: record?.printed_by ?? '',
     printedOn: record?.printed_on ?? '',
@@ -83,16 +87,17 @@ function resolveApprover(b: EntryBlock): string {
   return b.approvedBy === APPROVED_BY_OTHER ? b.approvedByOther.trim() : b.approvedBy.trim()
 }
 
-/** Copy a block into a new, unsaved one. The label photo is not re-uploaded —
- *  both blocks point at the same object, which is why the copy is marked
- *  borrowed and every delete path checks before removing the file. */
+/** Copy a block into a new, unsaved one. The label photos are not re-uploaded —
+ *  both blocks point at the same objects, which is why the copy is marked
+ *  borrowed and every delete path checks before removing a file. */
 function cloneBlock(key: number, source: EntryBlock, from: string): EntryBlock {
   return {
     ...source,
     key,
     savedId: null,
     parameters: source.parameters.map((r) => ({ ...r })),
-    labelBorrowed: Boolean(source.labelUrl),
+    labelUrls: [...source.labelUrls],
+    labelBorrowed: source.labelUrls.length > 0,
     copiedFrom: from,
   }
 }
@@ -170,12 +175,15 @@ export default function LabelForm({ record }: LabelFormProps) {
     setBlocks((bs) => {
       const gone = bs.find((b) => b.key === key)
       const rest = bs.filter((b) => b.key !== key)
-      // Drop the block's uploaded image too, or it is orphaned in S3 forever.
-      // Not when it is borrowed (a filed entry owns it) and not while a copy
-      // still points at the same object.
-      const shared = Boolean(gone?.labelUrl) && rest.some((b) => b.labelUrl === gone!.labelUrl)
-      if (gone?.labelUrl && !gone.labelBorrowed && !shared) {
-        deleteLabelImage(gone.labelUrl).catch(() => {})
+      // Drop the block's uploaded images too, or they are orphaned in S3
+      // forever. Not when they are borrowed (a filed entry owns them) and not
+      // while a copy still points at the same object — checked per photo, since
+      // a block can hold several and only some may be shared.
+      if (gone && !gone.labelBorrowed) {
+        for (const url of gone.labelUrls) {
+          if (rest.some((b) => b.labelUrls.includes(url))) continue
+          deleteLabelImage(url).catch(() => {})
+        }
       }
       return rest
     })
@@ -206,7 +214,7 @@ export default function LabelForm({ record }: LabelFormProps) {
     return {
       entry_date: entryDate,
       parameters: b.parameters,
-      actual_label_url: b.labelUrl,
+      actual_label_url: b.labelUrls,
       printed_by: b.printedBy || null,
       printed_on: b.printedOn || null,
       approved_by: resolveApprover(b) || null,
@@ -289,7 +297,7 @@ export default function LabelForm({ record }: LabelFormProps) {
       id: ids[i],
       entry_date: entryDate,
       parameters: b.parameters,
-      actual_label_url: b.labelUrl,
+      actual_label_url: b.labelUrls,
       printed_by: b.printedBy || null,
       printed_on: b.printedOn || null,
       approved_by: resolveApprover(b) || null,
@@ -370,7 +378,9 @@ export default function LabelForm({ record }: LabelFormProps) {
       subtitle: [batch && `Batch ${batch}`, b.copiedFrom && `from ${b.copiedFrom}`]
         .filter(Boolean)
         .join(' · '),
-      imageUrl: b.labelUrl,
+      // The sidebar shows one thumbnail per entry — the first photo stands in
+      // for the set, the same way the register list does.
+      imageUrl: b.labelUrls[0] ?? null,
     }
   })
 
@@ -448,11 +458,11 @@ export default function LabelForm({ record }: LabelFormProps) {
           // The record being edited cannot be removed here: this form edits it,
           // it does not delete it. Blocks added alongside can go.
           canRemove={blocks.length > 1 && block.savedId !== record?.id}
-          // Another block on this page points at the same photo — clearing or
-          // replacing it here must not delete the file out from under it.
-          labelShared={
-            Boolean(block.labelUrl) &&
-            blocks.some((b) => b.key !== block.key && b.labelUrl === block.labelUrl)
+          // Another block on this page points at the same photo — removing it
+          // here must not delete the file out from under it. Asked per photo,
+          // because a block holds several and they can be shared individually.
+          isLabelShared={(url) =>
+            blocks.some((b) => b.key !== block.key && b.labelUrls.includes(url))
           }
           // Sign-off pick-lists differ per plant. An entry being edited keeps
           // its own plant's list even if the header has since been switched.
@@ -544,8 +554,9 @@ interface EntryBlockFieldsProps {
   heading: string
   showHeading: boolean
   canRemove: boolean
-  /** A copy of this block on the same page shares its label photo. */
-  labelShared: boolean
+  /** True when another block on the same page also points at this photo, so
+   *  removing it here must leave the S3 object alone. */
+  isLabelShared: (url: string) => boolean
   /** Plant this entry belongs to — decides the sign-off pick-lists. */
   warehouse: string
   onChange: (patch: Partial<EntryBlock>) => void
@@ -558,7 +569,7 @@ function EntryBlockFields({
   heading,
   showHeading,
   canRemove,
-  labelShared,
+  isLabelShared,
   warehouse,
   onChange,
   onRemove,
@@ -573,7 +584,8 @@ function EntryBlockFields({
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
 
-  const { parameters, labelUrl } = block
+  const { parameters, labelUrls: photos } = block
+  const atPhotoLimit = photos.length >= MAX_LABEL_PHOTOS
   const checkedCount = parameters.filter((r) => r.checked).length
   const allChecked = checkedCount === parameters.length
   // Unique per block so several blocks on one page do not share input ids.
@@ -598,14 +610,28 @@ function EntryBlockFields({
     onChange({ parameters: parameters.map((r) => ({ ...r, checked: next })) })
   }
 
+  /**
+   * Add photos to the entry. Multi-select is allowed, so several files can
+   * arrive at once; they upload in order and are appended, never replacing what
+   * is already there — removing a photo is now its own explicit action.
+   */
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    const picked = Array.from(e.target.files ?? [])
     // Reset the input that fired, so re-picking the same file still triggers
     // onChange (and so a camera retake of the same shot is not swallowed).
     e.target.value = ''
-    if (!file) return
+    if (!picked.length) return
 
-    const invalid = validateLabelImage(file)
+    const room = MAX_LABEL_PHOTOS - photos.length
+    if (room <= 0) {
+      setUploadError(`Up to ${MAX_LABEL_PHOTOS} photos per entry — remove one to add another`)
+      return
+    }
+    // Take what fits and say so, rather than silently dropping the rest.
+    const files = picked.slice(0, room)
+    const overflow = picked.length - files.length
+
+    const invalid = files.map(validateLabelImage).find(Boolean)
     if (invalid) {
       setUploadError(invalid)
       return
@@ -614,14 +640,19 @@ function EntryBlockFields({
     setUploadError('')
     setUploading(true)
     onBusyChange(true)
-    const previous = labelUrl
-    const previousKept = block.labelBorrowed || labelShared
     try {
-      const url = await uploadLabelImage(file)
-      onChange({ labelUrl: url, labelBorrowed: false })
-      // Replacing an image leaves the old object orphaned in S3 otherwise — but
-      // a borrowed or shared one belongs to another entry and is not ours.
-      if (previous && !previousKept) deleteLabelImage(previous).catch(() => {})
+      const uploaded: string[] = []
+      for (const file of files) {
+        uploaded.push(await uploadLabelImage(file))
+      }
+      // `photos` is this render's copy — safe here because uploads are awaited
+      // while the block is marked busy, which blocks a second concurrent add.
+      onChange({ labelUrls: [...photos, ...uploaded], labelBorrowed: false })
+      if (overflow) {
+        setUploadError(
+          `Added ${files.length} — ${overflow} skipped, an entry holds at most ${MAX_LABEL_PHOTOS} photos`,
+        )
+      }
     } catch (err: any) {
       setUploadError(err.message || 'Failed to upload label sample')
     } finally {
@@ -630,14 +661,21 @@ function EntryBlockFields({
     }
   }
 
-  function removeImage() {
-    const url = labelUrl
-    const keep = block.labelBorrowed || labelShared
-    onChange({ labelUrl: null, labelBorrowed: false })
+  function removeImage(url: string) {
+    const remaining = photos.filter((u) => u !== url)
+    // Borrowed applies to the whole copied set, so it only lifts once the last
+    // borrowed photo is gone — otherwise the survivors would look like ours and
+    // a later delete would take them from the entry they came from.
+    onChange({
+      labelUrls: remaining,
+      labelBorrowed: block.labelBorrowed && remaining.length > 0,
+    })
     // Best-effort: an orphaned object is less harmful than blocking the edit.
     // A borrowed or shared photo is left alone — the entry it was copied from,
     // or the copy beside it, still needs the file.
-    if (url && !keep) deleteLabelImage(url).catch(() => {})
+    if (!block.labelBorrowed && !isLabelShared(url)) {
+      deleteLabelImage(url).catch(() => {})
+    }
   }
 
   return (
@@ -674,33 +712,47 @@ function EntryBlockFields({
 
       {/* Actual label sample */}
       <div className="surface-card p-5">
-        <p className="label-base">Actual Label Sample</p>
+        <div className="mb-1 flex items-baseline justify-between gap-3">
+          <p className="label-base mb-0">Actual Label Sample</p>
+          {photos.length > 0 && (
+            <span className="text-[11px] font-semibold text-ink-400">
+              {photos.length} of {MAX_LABEL_PHOTOS} photos
+            </span>
+          )}
+        </div>
 
-        {labelUrl && block.labelBorrowed && (
+        {photos.length > 0 && block.labelBorrowed && (
           <p className="mb-2 inline-flex items-center gap-1.5 rounded-lg bg-cream-100 px-2 py-1 text-[11px] font-semibold text-ink-400">
             <CopyPlus className="h-3.5 w-3.5" />
-            Same photo as {block.copiedFrom ?? 'the entry this was copied from'} — retake it if
-            this label differs.
+            Same photos as {block.copiedFrom ?? 'the entry this was copied from'} — retake them
+            if this label differs.
           </p>
         )}
 
-        {labelUrl && (
-          <div className="relative mb-3 inline-block">
-            {/* Plain <img>: the S3 host is not in next.config images.domains. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={labelUrl}
-              alt="Label sample"
-              className="max-h-72 rounded-xl border border-cream-300 shadow-soft"
-            />
-            <button
-              type="button"
-              onClick={removeImage}
-              className="absolute -right-2 -top-2 rounded-full bg-white p-1.5 text-danger-600 shadow-card ring-1 ring-cream-300 hover:bg-danger-50"
-              aria-label="Remove label sample"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        {photos.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-3">
+            {photos.map((url, i) => (
+              <div key={url} className="relative">
+                {/* Plain <img>: the S3 host is not in next.config images.domains. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Label sample ${i + 1}`}
+                  className="max-h-56 rounded-xl border border-cream-300 shadow-soft"
+                />
+                <span className="absolute bottom-1.5 left-1.5 rounded-md bg-ink-600/75 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {i + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeImage(url)}
+                  className="absolute -right-2 -top-2 rounded-full bg-white p-1.5 text-danger-600 shadow-card ring-1 ring-cream-300 hover:bg-danger-50"
+                  aria-label={`Remove label sample ${i + 1}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
@@ -708,6 +760,10 @@ function EntryBlockFields({
           <p className="inline-flex items-center gap-2 text-sm font-semibold text-ink-500">
             <Loader2 className="h-4 w-4 animate-spin" />
             Uploading…
+          </p>
+        ) : atPhotoLimit ? (
+          <p className="text-xs font-semibold text-ink-400">
+            {MAX_LABEL_PHOTOS} photos added — remove one to add another.
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -717,7 +773,7 @@ function EntryBlockFields({
               className="btn-base btn-outline"
             >
               <Camera className="h-4 w-4" />
-              {labelUrl ? 'Retake photo' : 'Take photo'}
+              {photos.length ? 'Take another' : 'Take photo'}
             </button>
             <button
               type="button"
@@ -725,16 +781,19 @@ function EntryBlockFields({
               className="btn-base btn-outline"
             >
               <ImagePlus className="h-4 w-4" />
-              {labelUrl ? 'Choose another' : 'Choose from gallery'}
+              {photos.length ? 'Add from gallery' : 'Choose from gallery'}
             </button>
           </div>
         )}
 
-        {/* Gallery picker. */}
+        {/* Gallery picker. `multiple` so a set of label shots can be attached in
+            one go; anything beyond the remaining room is reported, not dropped
+            silently. The camera input stays single — a capture is one shot. */}
         <input
           ref={galleryInput}
           type="file"
           accept="image/jpeg,image/png,image/webp"
+          multiple
           onChange={handleFile}
           className="hidden"
         />
@@ -750,7 +809,9 @@ function EntryBlockFields({
           onChange={handleFile}
           className="hidden"
         />
-        <p className="mt-2 text-[11px] font-medium text-ink-300">JPG, PNG or WebP · max 10MB</p>
+        <p className="mt-2 text-[11px] font-medium text-ink-300">
+          JPG, PNG or WebP · max 10MB each · up to {MAX_LABEL_PHOTOS} photos
+        </p>
       </div>
 
       {/* Parameter / Details block */}

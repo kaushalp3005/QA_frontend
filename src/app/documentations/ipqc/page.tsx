@@ -76,6 +76,42 @@ export default function IPQCListPage() {
           verdict: record.verdict,
         }];
 
+  /**
+   * The record's articles that the active search matched, each paired with its
+   * ORIGINAL position — the position is what addresses the article when a COA
+   * is created from it, so it must survive the filtering.
+   *
+   * The predicate mirrors the server's (batch_number / item_description /
+   * customer, case-insensitive substring — see list_ipqc in ipqc_service.py).
+   * Filtering on batch alone would blank the panel for a customer or product
+   * search, which is a search the server happily answers.
+   *
+   * A record can also match on its ipqc_no, where no article matches at all.
+   * Showing nothing there would read as "this entry is empty", so the whole
+   * list comes back instead.
+   */
+  const matchedArticles = (
+    record: IPQCRecord,
+  ): { article: any; index: number }[] => {
+    const all = articlesOf(record).map((article, index) => ({ article, index }));
+    const q = search.trim().toLowerCase();
+    if (!q) return all;
+    const hit = all.filter(({ article: a }) =>
+      [a.batch_number, a.item_description, a.customer].some((v) =>
+        String(v ?? "").toLowerCase().includes(q)
+      )
+    );
+    return hit.length ? hit : all;
+  };
+
+  /** COA link for a record, narrowed to `indexes` when the search picked out a
+   *  subset. No `articles` param means "every article", the original behaviour. */
+  const coaHref = (record: IPQCRecord, indexes?: number[]) => {
+    const base = `/lab-reports/create?ipqc=${encodeURIComponent(record.ipqc_no)}`;
+    if (!indexes || indexes.length === articlesOf(record).length) return base;
+    return `${base}&articles=${indexes.join(",")}`;
+  };
+
   function openArtPopup(e: ReactMouseEvent, record: IPQCRecord, pin: boolean) {
     if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -245,7 +281,7 @@ export default function IPQCListPage() {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-300 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search records..."
+                placeholder="Search IPQC no, product, customer or batch..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="input-base pl-10"
@@ -305,13 +341,12 @@ export default function IPQCListPage() {
             {/* Mobile + tablet + small desktop: card list */}
             <div className="xl:hidden space-y-3">
               {records.map((record, idx) => {
-                const articles = record.articles?.length ? record.articles : [{
-                  check_time: record.check_time,
-                  item_description: record.item_description,
-                  customer: record.customer,
-                  batch_number: record.batch_number,
-                  verdict: record.verdict,
-                }];
+                // Second copy of articlesOf(), now routed through the shared
+                // filter. There is no popover at this breakpoint, so the matched
+                // articles are shown inline and each one links to its own COA.
+                const matched = matchedArticles(record);
+                const articles = matched.map((m) => m.article);
+                const total = articlesOf(record).length;
                 return (
                   <div
                     key={record.ipqc_no}
@@ -336,8 +371,18 @@ export default function IPQCListPage() {
                         {record.check_date} · {warehouse}
                       </p>
                       <div className="space-y-1">
-                        {articles.slice(0, 3).map((a: any, i: number) => (
-                          <div key={i} className="flex items-center gap-1.5 text-xs text-ink-500 flex-wrap">
+                        {matched.slice(0, 3).map(({ article: a, index: i }) => (
+                          // Each line files a COA for that article alone. The
+                          // card itself opens the record, so this stops the
+                          // click bubbling up to that.
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); router.push(coaHref(record, [i])); }}
+                            title={`Create a COA from article ${i + 1}`}
+                            className="w-full text-left flex items-center gap-1.5 text-xs text-ink-500 flex-wrap rounded px-1 -mx-1 py-0.5 hover:bg-brand-50 transition-colors"
+                          >
+                            <span className="tabular-nums text-ink-300 font-bold">{i + 1}</span>
                             {a.check_time && (
                               <span className="tabular-nums text-ink-400 font-medium">{format12(a.check_time)}</span>
                             )}
@@ -349,9 +394,16 @@ export default function IPQCListPage() {
                                 {a.verdict}
                               </span>
                             )}
-                          </div>
+                          </button>
                         ))}
+                        {/* Counted off the FILTERED list — the old tail promised
+                            rows that filtering had already removed. */}
                         {articles.length > 3 && <p className="text-xs text-ink-300 font-medium">+{articles.length - 3} more</p>}
+                        {articles.length < total && (
+                          <p className="text-[11px] text-brand-600 font-semibold">
+                            {articles.length} of {total} match &ldquo;{search.trim()}&rdquo;
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex border-t border-cream-300 divide-x divide-cream-300" onClick={(e) => e.stopPropagation()}>
@@ -364,8 +416,8 @@ export default function IPQCListPage() {
                       <button onClick={() => router.push(`/documentations/ipqc/new?from=${record.ipqc_no}`)} title="Re-check this product (creates a new pre-filled entry)" className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-ink-500 hover:bg-cream-100 hover:text-brand-500 transition-colors">
                         <Copy className="w-3.5 h-3.5" /> Copy
                       </button>
-                      <button onClick={() => router.push(`/lab-reports/create?ipqc=${record.ipqc_no}`)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-brand-600 hover:bg-brand-50 transition-colors">
-                        COA
+                      <button onClick={() => router.push(coaHref(record, matched.map((m) => m.index)))} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-brand-600 hover:bg-brand-50 transition-colors">
+                        COA{articles.length < total && <span className="tabular-nums opacity-70">· {articles.length}</span>}
                       </button>
                       {isAdmin && (
                         <button onClick={() => router.push(`/documentations/ipqc/view?id=${record.ipqc_no}`)} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-ink-500 hover:bg-cream-100 hover:text-brand-500 transition-colors">
@@ -397,13 +449,13 @@ export default function IPQCListPage() {
                   </thead>
                   <tbody className="divide-y divide-cream-300">
                     {records.map((record) => {
-                      const articles = record.articles?.length ? record.articles : [{
-                        check_time: record.check_time,
-                        item_description: record.item_description,
-                        customer: record.customer,
-                        batch_number: record.batch_number,
-                        verdict: record.verdict,
-                      }];
+                      // Was a third byte-identical copy of articlesOf(). It fed
+                      // the chip that OPENS the popover, so leaving it unfiltered
+                      // put "16 articles" on the trigger and "2 of 16" in the
+                      // panel it opens — the same row contradicting itself.
+                      const matched = matchedArticles(record);
+                      const articles = matched.map((m) => m.article);
+                      const total = articlesOf(record).length;
                       return (
                         <tr key={record.ipqc_no} className="hover:bg-cream-100/50 transition-colors">
                           <td className="px-3 2xl:px-5 py-2.5 whitespace-nowrap">
@@ -429,17 +481,27 @@ export default function IPQCListPage() {
                               </span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 text-[11px] font-semibold border border-brand-100 whitespace-nowrap group-hover/art:bg-brand-100 transition-colors">
                                 <Layers className="w-3 h-3" />
-                                {articles.length} {articles.length === 1 ? "article" : "articles"}
+                                {articles.length < total
+                                  ? `${articles.length} of ${total}`
+                                  : `${articles.length} ${articles.length === 1 ? "article" : "articles"}`}
                               </span>
                             </button>
                           </td>
                           <td className="px-3 2xl:px-5 py-2.5 text-sm text-ink-500 whitespace-nowrap font-medium">{warehouse}</td>
                           <td className="px-3 2xl:px-5 py-2.5 whitespace-nowrap">
                             <button
-                              onClick={() => router.push(`/lab-reports/create?ipqc=${record.ipqc_no}`)}
+                              onClick={() => router.push(coaHref(record, matched.map((m) => m.index)))}
+                              title={
+                                articles.length < total
+                                  ? `Create ${articles.length} COA${articles.length === 1 ? "" : "s"} — only the articles matching "${search.trim()}"`
+                                  : `Create a COA for each of the ${total} article${total === 1 ? "" : "s"}`
+                              }
                               className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-brand-50 text-brand-600 hover:bg-brand-100 hover:text-brand-700 text-xs font-semibold transition-colors border border-brand-200"
                             >
                               COA
+                              {articles.length < total && (
+                                <span className="tabular-nums opacity-70">· {articles.length}</span>
+                              )}
                             </button>
                           </td>
                           <td className="px-3 2xl:px-5 py-2.5 whitespace-nowrap">
@@ -531,7 +593,10 @@ export default function IPQCListPage() {
         >
           <div className="flex items-center justify-between px-1.5 pb-2 mb-1 border-b border-cream-300">
             <span className="text-[11px] font-bold text-ink-500 tabular-nums">
-              {artPopup.record.ipqc_no} · {articlesOf(artPopup.record).length} {articlesOf(artPopup.record).length === 1 ? "article" : "articles"}
+              {artPopup.record.ipqc_no} ·{" "}
+              {matchedArticles(artPopup.record).length < articlesOf(artPopup.record).length
+                ? `${matchedArticles(artPopup.record).length} of ${articlesOf(artPopup.record).length} match "${search.trim()}"`
+                : `${articlesOf(artPopup.record).length} ${articlesOf(artPopup.record).length === 1 ? "article" : "articles"}`}
             </span>
             <button
               type="button"
@@ -543,9 +608,18 @@ export default function IPQCListPage() {
             </button>
           </div>
           <div className="space-y-0.5">
-            {articlesOf(artPopup.record).map((a: any, i: number) => (
-              <div key={i} className="flex items-start gap-2 px-1.5 py-1.5 rounded-lg hover:bg-cream-100 transition-colors">
-                <span className="w-4 h-4 mt-0.5 rounded bg-brand-50 text-brand-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+            {matchedArticles(artPopup.record).map(({ article: a, index: i }) => (
+              // Clicking one article files a COA for that article alone. The
+              // number shown is its position in the ENTRY, not in this filtered
+              // list, so a narrowed panel still maps onto the printed record.
+              <button
+                key={i}
+                type="button"
+                onClick={() => router.push(coaHref(artPopup.record, [i]))}
+                title={`Create a COA from article ${i + 1}`}
+                className="w-full text-left flex items-start gap-2 px-1.5 py-1.5 rounded-lg hover:bg-brand-50 transition-colors group/row"
+              >
+                <span className="w-4 h-4 mt-0.5 rounded bg-brand-50 text-brand-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0 group-hover/row:bg-brand-500 group-hover/row:text-white transition-colors">
                   {i + 1}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -568,9 +642,12 @@ export default function IPQCListPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
+          <p className="px-1.5 pt-2 mt-1 border-t border-cream-300 text-[10px] text-ink-300 font-medium">
+            Click an article to start a COA for it.
+          </p>
         </div>
       )}
 

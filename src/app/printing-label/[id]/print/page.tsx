@@ -7,6 +7,7 @@ import {
   checkedParameters,
   DOC_META,
   isDraft,
+  labelUrls,
   printingLabelsApi,
   type ParameterRow,
   type PrintingLabelRecord,
@@ -146,6 +147,16 @@ export default function PrintEntryPage() {
         .entry td.sample { text-align: center; padding: 4px; }
         .entry td.sample img { max-width: 100%; max-height: 85mm; object-fit: contain; display: block; margin: 0 auto; }
         .entry td.sample .none { color: #666; font-style: italic; }
+        /* Several photos share the one cell. The height cap is the constraint
+           that matters — two entry blocks still have to clear an A4 sheet — so
+           each photo's share shrinks as the count grows rather than the cell
+           growing. One photo keeps exactly the single-image layout above. */
+        .entry td.sample .samples { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; align-items: center; }
+        .entry td.sample .samples img { margin: 0; }
+        .entry td.sample .samples.n2 img,
+        .entry td.sample .samples.n3 img,
+        .entry td.sample .samples.n4 img { max-width: calc(50% - 2px); max-height: 42mm; }
+        .entry td.sample .samples.n5 img { max-width: calc(33.333% - 2px); max-height: 28mm; }
         .entry td.sign { text-align: center; vertical-align: top; padding-top: 6px; }
         .entry td.sign .name { font-weight: 600; }
         .entry td.sign .on { font-size: 9px; color: #333; margin-top: 2px; }
@@ -164,6 +175,10 @@ export default function PrintEntryPage() {
         @media screen and (max-width: 230mm) {
           .page { width: 100%; min-height: auto; margin: 12px 0; padding: 5mm 4mm; }
           .entry td.sample img { max-height: 45mm; }
+          .entry td.sample .samples.n2 img,
+          .entry td.sample .samples.n3 img,
+          .entry td.sample .samples.n4 img { max-height: 24mm; }
+          .entry td.sample .samples.n5 img { max-height: 16mm; }
         }
 
         @media print {
@@ -318,9 +333,16 @@ function EntryTable({ entry }: { entry: PrintingLabelRecord }) {
             </td>
             {i === 0 && (
               <td className="sample" rowSpan={span}>
-                {entry.actual_label_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entry.actual_label_url} alt="Actual label sample" />
+                {/* Every photo the entry holds prints inside the one cell — the
+                    signed record has to show what was actually filed, not just
+                    the first shot. They tile and scale down as the count grows. */}
+                {labelUrls(entry.actual_label_url).length > 0 ? (
+                  <div className={`samples n${Math.min(labelUrls(entry.actual_label_url).length, 5)}`}>
+                    {labelUrls(entry.actual_label_url).map((url, n) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={url} src={url} alt={`Actual label sample ${n + 1}`} />
+                    ))}
+                  </div>
                 ) : (
                   <span className="none">No label sample</span>
                 )}

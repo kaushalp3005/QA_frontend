@@ -148,7 +148,11 @@ export interface PrintingLabelRecord {
   id: number
   entry_date: string | null
   parameters: ParameterRow[]
-  actual_label_url: string | null
+  /** Ordered label-sample URLs — the column is jsonb holding an array (see
+   *  qc/migrations/printing_labels_actual_label_url_to_jsonb.sql). ALWAYS read
+   *  it through labelUrls(): entries written before the conversion still come
+   *  back as a bare string. */
+  actual_label_url: string[] | string | null
   printed_by: string | null
   printed_on: string | null
   approved_by: string | null
@@ -295,6 +299,25 @@ export const printingLabelsApi = {
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_BYTES = 10 * 1024 * 1024
+
+/** Photos allowed on one register entry. Mirrored by MAX_LABEL_PHOTOS in
+ *  qc/routers/printing_labels.py. */
+export const MAX_LABEL_PHOTOS = 5
+
+/**
+ * A record's label-sample URLs as a plain array.
+ *
+ * The column holds a jsonb array, but entries filed before that conversion are
+ * still a bare string, and an empty cell can be null or []. Every reader goes
+ * through here so none of them has to know that.
+ */
+export function labelUrls(stored: string[] | string | null | undefined): string[] {
+  if (Array.isArray(stored)) {
+    return stored.filter((u): u is string => typeof u === 'string' && u.trim() !== '')
+  }
+  if (typeof stored === 'string' && stored.trim() !== '') return [stored]
+  return []
+}
 
 /** Client-side check so an oversized or wrong-typed file never leaves the
  *  browser. The backend enforces the same rules independently. */

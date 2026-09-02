@@ -43,6 +43,7 @@ import {
   ChevronsUpDown,
   X,
 } from 'lucide-react'
+import { methodFor } from '@/lib/parameterMethods'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -151,7 +152,7 @@ function makeSensoryRows(): ParamRow[] {
     label: p.label,
     result: '',
     tolerance: 'As Per Characteristic',
-    method: 'Visual & Sensory Basis',
+    method: methodFor(p.label),
     included: true,
   }))
 }
@@ -160,13 +161,13 @@ function makePhysicalRows(_category?: string): ParamRow[] {
   // Comprehensive default list — all unchecked so user picks what applies.
   // Replaced entirely when a customer_tolerance record is selected.
   return DEFAULT_PHYSICAL_PARAMS.map(label => ({
-    key: label, label, result: '', tolerance: '', method: '', included: false,
+    key: label, label, result: '', tolerance: '', method: methodFor(label), included: false,
   }))
 }
 
 function makeChemicalRows(): ParamRow[] {
   return DEFAULT_CHEMICAL_PARAMS.map(label => ({
-    key: label, label, result: '', tolerance: '', method: '', included: false,
+    key: label, label, result: '', tolerance: '', method: methodFor(label), included: false,
   }))
 }
 
@@ -194,7 +195,12 @@ function buildRowsFromTolerance(
       label: key,    // the JSONB key IS the human-readable label in this schema
       result: '',
       tolerance: extracted.tolerance,
-      method: extracted.method,
+      // customer_tolerance stores every value as a bare tolerance string, so
+      // `extracted.method` is empty in practice and the Method column printed
+      // blank. Fall back to the method for this parameter — but a method
+      // actually stored on the record still wins, so a one-off override on a
+      // single customer is never overwritten by the general rule.
+      method: extracted.method || methodFor(key),
       included: true,
     }
   })
@@ -620,17 +626,48 @@ function makeInitialForm(today: string): COAFormData {
   }
 }
 
-/** Build one COA draft per article in an IPQC record. Always returns ≥ 1 draft. */
-function buildDraftsFromIpqc(record: IPQCRecord, base: COAFormData, ipqcNo: string): COAFormData[] {
+/**
+ * Build one COA draft per article in an IPQC record. Always returns ≥ 1 draft.
+ *
+ * `onlyIndexes` narrows that to specific articles — the IPQC records list sends
+ * it as `?articles=1,6` when a search has picked out a subset of a multi-article
+ * entry, so searching a batch and hitting COA no longer opens a draft for all
+ * sixteen items. Out-of-range or unparseable indexes are dropped, and if that
+ * leaves nothing the full set is built: a bad URL should not silently produce
+ * zero drafts.
+ */
+function buildDraftsFromIpqc(
+  record: IPQCRecord,
+  base: COAFormData,
+  ipqcNo: string,
+  onlyIndexes?: number[],
+): COAFormData[] {
   const articleCount = Math.max(record.articles?.length ?? 0, 1)
-  return Array.from({ length: articleCount }, (_, idx) => {
+  const all = Array.from({ length: articleCount }, (_, idx) => idx)
+  const wanted = onlyIndexes?.filter((i) => Number.isInteger(i) && i >= 0 && i < articleCount)
+  const indexes = wanted?.length ? wanted : all
+
+  return indexes.map((idx) => {
     const patch = mapIPQCToCOA(record, base, idx)
-    // Append a suffix to the COA No. so multi-article drafts don't collide on save.
+    // Suffix is the article's position in the RECORD, not in this draft list.
+    // Numbering a narrowed import 1..n would give article 7 the suffix "-1" and
+    // collide with the "-1" a later full import of the same record produces —
+    // and coa_no is UNIQUE, so that collision fails at save time.
     const coaNo = articleCount > 1 && patch.coaNo
       ? `${patch.coaNo}-${idx + 1}`
       : (patch.coaNo ?? base.coaNo)
     return { ...base, ...patch, ipqcNo, coaNo }
   })
+}
+
+/** `?articles=1,6` → [1, 6]. Null/blank/garbage → undefined, meaning "all". */
+function parseArticleIndexes(raw: string | null): number[] | undefined {
+  if (!raw) return undefined
+  const nums = raw
+    .split(',')
+    .map((part) => Number.parseInt(part.trim(), 10))
+    .filter((n) => Number.isInteger(n) && n >= 0)
+  return nums.length ? nums : undefined
 }
 
 export default function COACreatePage() {
@@ -702,13 +739,15 @@ export default function COACreatePage() {
   useEffect(() => {
     const ipqcNo = searchParams.get('ipqc')
     if (!ipqcNo) return
+    // Optional narrowing from the IPQC list — the articles a batch search matched.
+    const onlyIndexes = parseArticleIndexes(searchParams.get('articles'))
     setIpqcSearch(ipqcNo)
     setIpqcLoading(true)
     ipqcApi.get(ipqcNo, getStoredWarehouse())
       .then(record => {
         // eslint-disable-next-line no-console
         console.log('[coa-ipqc-auto-import] RAW IPQC record received (from ?ipqc=… query):', record)
-        const drafts = buildDraftsFromIpqc(record, makeInitialForm(today), ipqcNo)
+        const drafts = buildDraftsFromIpqc(record, makeInitialForm(today), ipqcNo, onlyIndexes)
         // eslint-disable-next-line no-console
         console.log(`[coa-ipqc-auto-import] built ${drafts.length} draft(s)`)
         setCoaDrafts(drafts)
@@ -779,7 +818,12 @@ export default function COACreatePage() {
           // Apply fetched tolerances into all three param sections — but preserve
           // any results already filled in (typically from a linked IPQC).
           setForm(f => {
-            const newSensory  = preserveResultsFromPrev(makeSensoryRows(),                                                                  f.sensory)
+            // organoleptic_sensory was fetched and then dropped here — the
+            // section fell back to the hardcoded "As Per Characteristic" rows
+            // while physical and chemical came from the record, so a customer's
+            // own sensory spec never reached the COA. Built from the record now,
+            // exactly like the other two.
+            const newSensory  = preserveResultsFromPrev(buildRowsFromTolerance(makeSensoryRows(),          res.data!.organoleptic_sensory), f.sensory)
             const newPhysical = preserveResultsFromPrev(buildRowsFromTolerance(makePhysicalRows(f.physicalCategory), res.data!.physical),  f.physical)
             const newChemical = preserveResultsFromPrev(buildRowsFromTolerance(makeChemicalRows(),                   res.data!.chemical),  f.chemical)
             console.log('[customer-tolerance] sensory rows after build (results preserved):', newSensory)

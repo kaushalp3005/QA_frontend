@@ -14,6 +14,7 @@ import {
   checkedParameters,
   DOC_META,
   isDraft,
+  labelUrls,
   normalizeParameters,
   printingLabelsApi,
   type PrintingLabelRecord,
@@ -88,6 +89,7 @@ function EntryDetail() {
   const totalParameters = normalizeParameters(record.parameters).length
   // Delete is admin-only server-side; hide the control when it would 403.
   const canDelete = canDeleteEntries(record.warehouse)
+  const photos = labelUrls(record.actual_label_url)
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -167,16 +169,25 @@ function EntryDetail() {
 
         {/* Label sample */}
         <div className="surface-card p-5">
-          <p className="label-base">Actual Label Sample</p>
-          {record.actual_label_url ? (
-            <a href={record.actual_label_url} target="_blank" rel="noopener noreferrer">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={record.actual_label_url}
-                alt="Label sample"
-                className="max-h-96 rounded-xl border border-cream-300 shadow-soft"
-              />
-            </a>
+          <div className="mb-1 flex items-baseline justify-between gap-3">
+            <p className="label-base mb-0">Actual Label Sample</p>
+            {photos.length > 1 && (
+              <span className="text-[11px] font-semibold text-ink-400">{photos.length} photos</span>
+            )}
+          </div>
+          {photos.length > 0 ? (
+            <div className="flex flex-wrap gap-3">
+              {photos.map((url, i) => (
+                <a key={url} href={url} target="_blank" rel="noopener noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`Label sample ${i + 1}`}
+                    className="max-h-96 rounded-xl border border-cream-300 shadow-soft"
+                  />
+                </a>
+              ))}
+            </div>
           ) : (
             <p className="text-sm font-medium text-ink-300">No label sample attached.</p>
           )}

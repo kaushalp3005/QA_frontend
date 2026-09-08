@@ -49,6 +49,7 @@ export const PRINTABLE_SLUGS = new Set<string>([
   "ccp-puffer",
   "daily-pest-inspection",
   "mock-recall",
+  "temperature-humidity",
   // Training forms (basePath /training — these are routeSlugs, not formTypes).
   "attendance-sheet",
   "training-card",

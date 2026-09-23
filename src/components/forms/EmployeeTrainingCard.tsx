@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { trainingApi, type AttendanceLookupResult } from "@/lib/api/training";
+import { trainingDocFor, trainingDocMeta, useWarehouse } from "@/lib/trainingDocs";
 import {
   DRAFT_KEYS,
   clearDraft,
@@ -42,6 +43,8 @@ interface TrainingCardRow {
 const emptyCardRow = (id: number): TrainingCardRow => ({ id, date: "", totalHours: "", topicsCovered: "", trainer: "", acknowledgement: "", sourceAttendanceId: null });
 
 export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: TrainingFormProps = {}) {
+  // Tracks the header selector so the document number follows the active plant.
+  const doc = trainingDocFor("trainingCard", useWarehouse());
   // Partial save applies to a blank create form only.
   const draftEnabled = !initialData && !isEdit;
   const [draft] = useState(() => (draftEnabled ? readDraft(DRAFT_KEYS.card) : null));
@@ -292,10 +295,13 @@ export function EmployeeTrainingCard({ initialData, onSubmit, isEdit }: Training
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 sm:space-y-5 pb-2">
+      {/* A185 files the card as CFPLB.C7.F.07 c, still on its first issue —
+          trainingDocMeta drops the Rev segment there rather than printing it
+          blank. Same table the card's print page reads. */}
       <DocHeader
         title="Employee Training Card"
-        docNo="CFPLA.C7.F.03k"
-        meta="Issue 03 · Rev 02 · 01/11/2025"
+        docNo={doc.no}
+        meta={trainingDocMeta(doc)}
       />
 
       {draft && (

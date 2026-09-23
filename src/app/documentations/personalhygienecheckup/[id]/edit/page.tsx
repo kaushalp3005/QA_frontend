@@ -255,9 +255,10 @@ export default function PersonalHygieneEditPage() {
                     </td>
                     <td className="px-2 py-1 text-center text-ink-400 font-medium">{idx + 1}</td>
                     <td className="px-2 py-1 text-xs font-medium text-ink-600">
-                      {row.name || (
-                        <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} placeholder="Employee name" className="input-base !py-1 !px-2 text-xs" />
-                      )}
+                      {/* Always an input — `{row.name || <input/>}` replaced the
+                          field with plain text as soon as a character was typed,
+                          so only the first letter could ever be entered. */}
+                      <input type="text" value={row.name} onChange={(e) => updateRow(row.id, "name", e.target.value)} placeholder="Employee name" className="input-base !py-1 !px-2 text-xs" />
                     </td>
                     {CHECK_FIELDS.map(({ field, tone }) => (
                       <td key={field} className="px-0.5 py-0.5">

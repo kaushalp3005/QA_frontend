@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDownToLine } from "lucide-react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import { trainingDocFor, trainingDocMeta, useWarehouse } from "@/lib/trainingDocs";
 import {
   DRAFT_KEYS,
   clearDraft,
@@ -269,6 +270,9 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
   const router = useRouter();
   // Partial save applies to a blank create form only — never shadow a record
   // being edited or duplicated with a stale draft of something else.
+  // Tracks the header selector, so switching plant updates the document number
+  // without a reload — reading it once is how the header went stale.
+  const doc = trainingDocFor("attendanceSheet", useWarehouse());
   const draftEnabled = !initialData && !isEdit;
   // Duplicating, not editing: the create page hands a record in without isEdit.
   // Only then are the attendees re-dealt — editing a filed record must show it
@@ -498,10 +502,14 @@ export default function TrainingAttendanceSheet({ initialData, onSubmit, isEdit 
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-2">
+      {/* Plant-specific: A185 files this under CFPLB.C7.F.07 with its own
+          issue/revision history. Hardcoding the CFPLA values here meant an
+          A185 user saw W202's document number while their own print page
+          rendered the right one. Both now read the same table. */}
       <DocHeader
         title="Training Attendance Sheet & Record for Evaluation / Effectiveness of Training"
-        docNo="CFPLA.C7.F.03"
-        meta="Issue 03 · Rev 02 · 27/09/2025"
+        docNo={doc.no}
+        meta={trainingDocMeta(doc)}
       />
 
       {draft && (

@@ -387,15 +387,19 @@ export default function PersonalHygieneHealthCheckup() {
                     </td>
                     <td className="px-2 py-1 text-center text-ink-400 font-medium">{idx + 1}</td>
                     <td className="px-2 py-1 text-xs font-medium text-ink-600">
-                      {row.name || (
-                        <input
-                          type="text"
-                          value={row.name}
-                          onChange={(e) => updateRow(row.id, "name", e.target.value)}
-                          placeholder="Employee name"
-                          className="input-base !py-1 !px-2 text-xs"
-                        />
-                      )}
+                      {/* Always an input. This was `{row.name || <input/>}`, which
+                          swapped the field for plain text the moment the name
+                          became non-empty — so typing one character removed the
+                          box you were typing into and a second character could
+                          never be entered. It also left an auto-filled roster
+                          name impossible to correct. */}
+                      <input
+                        type="text"
+                        value={row.name}
+                        onChange={(e) => updateRow(row.id, "name", e.target.value)}
+                        placeholder="Employee name"
+                        className="input-base !py-1 !px-2 text-xs"
+                      />
                     </td>
                     {CHECK_FIELDS.map(({ field, tone }) => (
                       <td key={field} className="px-0.5 py-0.5">

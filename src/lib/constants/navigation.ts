@@ -11,6 +11,7 @@ import {
   Beaker,
   Wrench,
   Printer,
+  PhoneCall,
   type LucideIcon,
 } from 'lucide-react'
 import { TRAINING_PAGES } from '@/config/training-nav'
@@ -64,4 +65,9 @@ export const NAVIGATION: NavItem[] = [
   { name: 'NI Report',       href: '/ni-report',       icon: ClipboardList,   moduleCode: 'ni_report' },
   { name: 'PM Inspection',   href: '/pm-inspection',   icon: Wrench,          moduleCode: 'pm_inspection' },
   { name: 'Printing Label',  href: '/printing-label',  icon: Printer,         moduleCode: 'section_1' },
+  // AI voice-agent call log (quality calls + every safety issue). Its module
+  // code is deliberately absent from QC_MODULES: the backend allows QC
+  // super-admins only, so no one else can be granted it and the sidebar
+  // filter below hides it for everybody except super admins.
+  { name: 'Complaint Calls', href: '/complaint-calls', icon: PhoneCall,       moduleCode: 'complaint_calls' },
 ]

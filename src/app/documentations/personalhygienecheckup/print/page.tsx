@@ -143,7 +143,7 @@ export default function PersonalHygienePrintPage() {
           </button>
           <span className="text-sm text-gray-500">
             {record
-              ? `${fmtDate(record.check_date) || "—"} · ${record.area || "—"} · ${rows.length} employee${rows.length !== 1 ? "s" : ""}`
+              ? [fmtDate(record.check_date) || "—", ...(warehouse === "A185" ? [] : [record.area || "—"]), `${rows.length} employee${rows.length !== 1 ? "s" : ""}`].join(" · ")
               : "No record"}
           </span>
         </div>
@@ -204,7 +204,7 @@ export default function PersonalHygienePrintPage() {
             </tbody>
           </table>
 
-          {/* ── DATE / Area strip ── */}
+          {/* ── DATE / Area strip. A185's format has no Area — see the create page. ── */}
           <div
             style={{
               margin: "10px 0 8px",
@@ -216,7 +216,9 @@ export default function PersonalHygienePrintPage() {
             }}
           >
             <span>DATE:&nbsp;<span style={{ fontWeight: "normal" }}>{fmtDate(record.check_date)}</span></span>
-            <span>Area:&nbsp;<span style={{ fontWeight: "normal" }}>{show(record.area)}</span></span>
+            {warehouse !== "A185" && (
+              <span>Area:&nbsp;<span style={{ fontWeight: "normal" }}>{show(record.area)}</span></span>
+            )}
           </div>
 
           {/* ── Roster grid ── */}

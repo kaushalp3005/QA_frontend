@@ -145,6 +145,10 @@ export default function PersonalHygieneHealthCheckup() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const duplicateFrom = searchParams.get("duplicateFrom");
+  // A185 does not divide this checkup by floor — its format carries no Area at
+  // all, and FLOOR_OPTIONS / FLOOR_WORKERS below are W202's floor plan. So the
+  // field is offered, stored and printed for W202 only.
+  const isA185 = getStoredWarehouse() === "A185";
   const [date, setDate] = useState("");
   const [area, setArea] = useState("");
   const [checkedBy, setCheckedBy] = useState("");
@@ -212,7 +216,7 @@ export default function PersonalHygieneHealthCheckup() {
     }
     const payload = {
       check_date: date,
-      area,
+      area: isA185 ? "" : area,
       warehouse: getStoredWarehouse() || null,
       observation,
       checked_by: checkedBy || undefined,
@@ -298,25 +302,27 @@ export default function PersonalHygieneHealthCheckup() {
       width="full"
       note={duplicateFrom ? "Adjust the fields as needed, then Submit to save as a new record." : undefined}
     >
-      <DocSection title="Period & Area">
+      <DocSection title={isA185 ? "Period" : "Period & Area"}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="label-base">Date</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-base" />
           </div>
-          <div>
-            <label className="label-base">Area</label>
-            <select
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              className="input-base"
-            >
-              <option value="">Select floor…</option>
-              {FLOOR_OPTIONS.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
-          </div>
+          {!isA185 && (
+            <div>
+              <label className="label-base">Area</label>
+              <select
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                className="input-base"
+              >
+                <option value="">Select floor…</option>
+                {FLOOR_OPTIONS.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </DocSection>
 

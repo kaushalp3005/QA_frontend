@@ -32,6 +32,10 @@ import { isSuperAdmin } from '@/lib/constants/modules'
 export default function ComplaintCallDetailPage() {
   const router = useRouter()
   const params = useParams()
+  // Interaction ids contain '/' and ':' (e.g. "20260924/2154dd35-11:56:41-…"),
+  // so the route segment is percent-encoded. Decoding here is correct whether
+  // or not useParams() already did it: a decoded id has no '%' left, making
+  // this a no-op, and an encoded one is restored.
   const interactionId = decodeURIComponent(String(params?.id || ''))
 
   const [allowed, setAllowed] = useState<boolean | null>(null)

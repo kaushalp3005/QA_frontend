@@ -88,6 +88,22 @@ function fmtDate(d?: string) {
 
 const show = (v: any) => (v === null || v === undefined ? "" : String(v));
 
+/**
+ * A roster check column that carries no value prints as a cross.
+ *
+ * The form's check cells are plain checkboxes: one that was ticked and then
+ * cleared stores "✕", but one that was never touched at all stores "" — and on
+ * screen the two are the same empty box. Printing the blank as a cross makes the
+ * filed sheet say what the person filling it in saw, instead of leaving a column
+ * that reads as "nothing to report". Same mark as a recorded fail, so the two
+ * are indistinguishable in the printed column.
+ *
+ * Only real entries go through this — the blank filler rows padded on below have
+ * no employee against them and stay empty.
+ */
+const FAIL_MARK = "✕";
+const checkMark = (v: any) => show(v) || FAIL_MARK;
+
 export default function PersonalHygienePrintPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -255,7 +271,7 @@ export default function PersonalHygienePrintPage() {
                   <td style={td}>{i + 1}</td>
                   <td style={{ ...td, textAlign: "left", paddingLeft: "4px" }}>{show(r.name)}</td>
                   {CHECK_COLS.map((c) => (
-                    <td key={c.key} style={td}>{show(r[c.key])}</td>
+                    <td key={c.key} style={td}>{checkMark(r[c.key])}</td>
                   ))}
                   <td style={td}>
                     <SignatureCell name={r.employee_sign} warehouse={warehouse} maxHeight={18} maxWidth={70} showName={false} />

@@ -34,6 +34,8 @@ export interface DocFormConfig {
 }
 
 export const PRINTABLE_SLUGS = new Set<string>([
+  "deep-cleaning",
+  "waste-disposal",
   "productweightcheck",
   "productiontoolissuance",
   "dailycleaningchecklist",

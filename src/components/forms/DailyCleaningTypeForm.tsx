@@ -5,7 +5,7 @@ import DocSection from "@/components/documentations/DocSection";
 import RowFillButton, { rowFillValue } from "@/components/documentations/RowFillButton";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
-import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
+import { HYGIENE_CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
 import {
   DCC_DAYS,
   buildDCCPayload,
@@ -420,7 +420,7 @@ export default function DailyCleaningTypeForm({
                     </td>
                     {days.map((day) => (
                       <td key={day} className="px-0.5 py-0.5 border-l border-cream-300 align-middle">
-                        <CompactSignSelect value={floor.checkedByPerDay[day] || ""} onChange={(v) => setCheckedBy(day, v)} options={CHECKED_BY_OPTIONS} />
+                        <CompactSignSelect value={floor.checkedByPerDay[day] || ""} onChange={(v) => setCheckedBy(day, v)} options={HYGIENE_CHECKED_BY_OPTIONS} />
                       </td>
                     ))}
                   </tr>

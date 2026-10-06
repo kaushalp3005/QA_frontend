@@ -8,7 +8,7 @@ Save the following images into this folder with these **exact filenames**:
 | `shraddha-jadhav.png` | Shraddha Jadhav's signature | Analysed-by signature |
 | `pooja-parkar.png` | Pooja Parkar's signature | Verified-by signature (Quality Manager) |
 | `pooja-mhalim.png` | Pooja Mhalim's signature | Analysed-by signature |
-| `tejashri-jadhav.png` | Tejashri Jadhav's signature | Checked By / Verified By signature (QC documentation forms) |
+| `tejashri-jadhav.png` | Tejashri Jadhav's signature | Checked By / Verified By signature (W202 QC documentation forms) |
 | `sarvesh-davande.png` | Sarvesh Davande's signature | Checked By / Verified By signature (A185 QC documentation forms) |
 | `swapnil-mahajan.png` | Swapnil Mahajan's signature | Checked By / Verified By signature (A185 QC documentation forms) |
 | `prajakta.png` | Prajakta's signature | Checked By / Verified By signature (A185 QC documentation forms) |

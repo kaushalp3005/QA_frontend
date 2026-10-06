@@ -5,7 +5,7 @@ import { HeartPulse, Plus, X, Loader2 } from "lucide-react";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 import SignaturePicker from "@/components/ui/SignaturePicker";
-import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
+import { HYGIENE_CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
@@ -416,7 +416,7 @@ export default function PersonalHygieneHealthCheckup() {
                       <CompactSignSelect
                         value={row.employeeSign}
                         onChange={(v) => updateRow(row.id, "employeeSign", v)}
-                        options={CHECKED_BY_OPTIONS}
+                        options={HYGIENE_CHECKED_BY_OPTIONS}
                       />
                     </td>
                     <td className="px-1 py-1">
@@ -474,7 +474,7 @@ export default function PersonalHygieneHealthCheckup() {
             label="Checked By"
             value={checkedBy}
             onChange={setCheckedBy}
-            options={CHECKED_BY_OPTIONS}
+            options={HYGIENE_CHECKED_BY_OPTIONS}
             roleHint="Quality Control Executive"
             inputCls="input-base"
             labelCls="label-base"

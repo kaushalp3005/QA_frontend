@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Brush, Undo2, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
-import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
+import { HYGIENE_CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS, filterSignaturesByWarehouse, type SignatureOption } from "@/lib/signatures";
 import DocFormShell from "@/components/documentations/DocFormShell";
 import DocSection from "@/components/documentations/DocSection";
 import RowFillButton, { rowFillValue } from "@/components/documentations/RowFillButton";
@@ -422,7 +422,7 @@ export default function EquipmentCleaningSanitationRecord() {
                 </td>
                 {MONTH_LABELS.map((_, mi) => (
                   <td key={`chk-${mi}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
-                    <CompactSignSelect value={overallSigs[mi + 1]?.checkedBy || ""} onChange={(v) => updateOverallSig(mi + 1, "checkedBy", v)} options={CHECKED_BY_OPTIONS} />
+                    <CompactSignSelect value={overallSigs[mi + 1]?.checkedBy || ""} onChange={(v) => updateOverallSig(mi + 1, "checkedBy", v)} options={HYGIENE_CHECKED_BY_OPTIONS} />
                   </td>
                 ))}
               </tr>
@@ -528,7 +528,7 @@ export default function EquipmentCleaningSanitationRecord() {
                 </td>
                 {selectedDates.map((d) => (
                   <td key={`chk-${d}`} className="p-0.5 border-l border-cream-300 align-middle bg-cream-100/50">
-                    <CompactSignSelect value={daySigs[d]?.checkedBy || ""} onChange={(v) => updateDaySig(d, "checkedBy", v)} options={CHECKED_BY_OPTIONS} />
+                    <CompactSignSelect value={daySigs[d]?.checkedBy || ""} onChange={(v) => updateDaySig(d, "checkedBy", v)} options={HYGIENE_CHECKED_BY_OPTIONS} />
                   </td>
                 ))}
               </tr>

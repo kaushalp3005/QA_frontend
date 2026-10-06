@@ -2,6 +2,23 @@
 import { Fragment, useMemo, useState } from "react";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { A185_GLASS_AREAS, GLASS_ITEM_TYPES } from "@/config/glassBrittleAreas";
+import { useRouter } from "next/navigation";
+import SignaturePicker from "@/components/ui/SignaturePicker";
+import { HYGIENE_CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
+import {
+  deepCleanItemsFor,
+  deepCleanDocNo,
+  hasAreaField,
+  DEEP_CLEAN_FREQ_LEGEND,
+  DEEP_CLEAN_FREQ_LABELS,
+} from "@/config/deepCleaningAreas";
+import {
+  WASTE_TYPES,
+  WASTE_DAYS,
+  daysInMonth,
+  readWasteRow,
+  wasteDisposalDocMeta,
+} from "@/config/wasteDisposalTypes";
 
 // ===================== Shared Props Interface =====================
 interface DocFormProps {
@@ -636,70 +653,361 @@ export function NewEquipmentClearance({ initialData, onSubmit, isEdit }: DocForm
   );
 }
 
-// ===================== F.52 — Waste Disposal Record =====================
+// ===================== F.52 / F.58 — Waste Disposal Record =====================
+// A daily tick sheet: two waste streams down the side, one column per day of the
+// month, and Checked By / Verified By signed per day. Document header differs by
+// plant (A185 -> CFPLB.C4..F.58, W202 -> CFPLA.C4.F.52); see
+// @/config/wasteDisposalTypes, which the print page reads too.
+
+/** Click cycle for a day cell: blank -> disposed -> not disposed -> blank. */
+const WASTE_MARKS = ["", "✓", "✕"] as const;
+const nextMark = (cur: string) => WASTE_MARKS[(WASTE_MARKS.indexOf(cur as any) + 1) % WASTE_MARKS.length];
+
+type WasteGrid = Record<string, Record<number, string>>;
+type DaySignoff = Record<number, string>;
+
+/** Read the saved per-day sign-off, tolerating string or number keys from JSONB. */
+function readDaySignoff(saved: any, fallbackName?: string): DaySignoff {
+  const out: DaySignoff = {};
+  WASTE_DAYS.forEach((d) => {
+    out[d] = saved?.[d] ?? saved?.[String(d)] ?? "";
+  });
+  // Records filed before the per-day columns existed carry one name for the month.
+  if (fallbackName && !Object.values(out).some(Boolean)) out[1] = fallbackName;
+  return out;
+}
+
 export function WasteDisposalRecord({ initialData, onSubmit, isEdit }: DocFormProps = {}) {
-  const WASTE_TYPES = ["Biodegradable waste", "Miscellaneous waste (including plastic waste)"];
+  const router = useRouter();
+  // The record's own plant wins over the selector, so an A185 sheet opened from
+  // a W202 session still shows the format it was filed under.
+  const warehouse = initialData?.warehouse || getStoredWarehouse();
+  const meta = wasteDisposalDocMeta(warehouse);
+
   const [month, setMonth] = useState(() => initialData?.month || "");
   const [area, setArea] = useState(() => initialData?.area || "");
-  const [grid, setGrid] = useState<Record<string, Record<number, string>>>(() => {
-    if (initialData?.grid && typeof initialData.grid === "object") {
-      const init: Record<string, Record<number, string>> = {};
-      WASTE_TYPES.forEach((w) => {
-        init[w] = {};
-        for (let d = 1; d <= 31; d++) init[w][d] = initialData.grid[w]?.[d] || initialData.grid[w]?.[String(d)] || "";
-      });
-      return init;
-    }
-    const init: Record<string, Record<number, string>> = {};
-    WASTE_TYPES.forEach((w) => { init[w] = {}; for (let d = 1; d <= 31; d++) init[w][d] = ""; });
+  const [grid, setGrid] = useState<WasteGrid>(() => {
+    const init: WasteGrid = {};
+    WASTE_TYPES.forEach((t) => { init[t.key] = readWasteRow(initialData?.grid, t); });
     return init;
   });
-  const [checkedBy, setCheckedBy] = useState(() => initialData?.checked_by || "");
-  const [verifiedBy, setVerifiedBy] = useState(() => initialData?.verified_by || "");
+  const [checkedDays, setCheckedDays] = useState<DaySignoff>(() =>
+    readDaySignoff(initialData?.checked_by_days, initialData?.checked_by));
+  const [verifiedDays, setVerifiedDays] = useState<DaySignoff>(() =>
+    readDaySignoff(initialData?.verified_by_days, initialData?.verified_by));
   const [remarks, setRemarks] = useState(() => initialData?.remarks || "");
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const toggle = (w: string, d: number) => setGrid((p) => ({ ...p, [w]: { ...p[w], [d]: p[w][d] === "" ? "✓" : p[w][d] === "✓" ? "✕" : "" } }));
+  const [error, setError] = useState("");
+
+  // Days past the month's length stay on screen (the paper always shows 31) but
+  // are locked, so February can't quietly collect a 30th.
+  const lastDay = daysInMonth(month);
+
+  const cycle = (typeKey: string, day: number) =>
+    setGrid((p) => ({ ...p, [typeKey]: { ...p[typeKey], [day]: nextMark(p[typeKey]?.[day] || "") } }));
+
+  /** Tick every in-month day of one waste row — the common "disposed daily" case. */
+  const fillRow = (typeKey: string, mark: string) =>
+    setGrid((p) => {
+      const row = { ...p[typeKey] };
+      WASTE_DAYS.forEach((d) => { if (d <= lastDay) row[d] = mark; });
+      return { ...p, [typeKey]: row };
+    });
+
+  /** Stamp one signatory across every in-month day. */
+  const fillSignoff = (setter: (f: (p: DaySignoff) => DaySignoff) => void, name: string) =>
+    setter((p) => {
+      const next = { ...p };
+      WASTE_DAYS.forEach((d) => { if (d <= lastDay) next[d] = name; });
+      return next;
+    });
+
+  const markedCount = WASTE_TYPES.reduce(
+    (n, t) => n + WASTE_DAYS.filter((d) => d <= lastDay && grid[t.key]?.[d]).length, 0);
+  const totalCells = WASTE_TYPES.length * lastDay;
 
   const handleSubmit = async () => {
+    if (!month) { setError("Month is required."); return; }
     setSubmitting(true);
-    setSuccess(false);
+    setError("");
     const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse() || null,
-      month, area, grid, checked_by: checkedBy, verified_by: verifiedBy, remarks,
+      warehouse,
+      month,
+      // `area` is the "location:" field on the printed format.
+      area,
+      // Array of { waste_type, day1..day31 } — the shape the column was designed
+      // for. The old object-keyed-by-label shape still loads (see readWasteRow).
+      grid: WASTE_TYPES.map((t) => {
+        const row: Record<string, any> = { waste_type: t.label, key: t.key };
+        WASTE_DAYS.forEach((d) => { row[`day${d}`] = grid[t.key]?.[d] || ""; });
+        return row;
+      }),
+      checked_by_days: checkedDays,
+      verified_by_days: verifiedDays,
+      // Scalar columns keep the list page and generic record view working.
+      checked_by: WASTE_DAYS.map((d) => checkedDays[d]).find(Boolean) || "",
+      verified_by: WASTE_DAYS.map((d) => verifiedDays[d]).find(Boolean) || "",
+      remarks,
     };
     try {
-      if (onSubmit) { await onSubmit(payload); }
-      else { const { docsApi } = await import("@/lib/api/documentations"); await docsApi.create("waste-disposal", payload); setSuccess(true); }
-    } catch (e: any) { alert(e.message || "Submit failed"); }
-    finally { setSubmitting(false); }
+      if (onSubmit) {
+        await onSubmit(payload);
+      } else {
+        const { docsApi } = await import("@/lib/api/documentations");
+        await docsApi.create("waste-disposal", payload);
+        router.push("/documentations/waste-disposal");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Submit failed. Nothing was saved — check the fields and try again.");
+      setSubmitting(false);
+    }
   };
 
+  const dayCellTone = (v: string) =>
+    v === "✓" ? "bg-emerald-100 text-emerald-700"
+    : v === "✕" ? "bg-red-100 text-red-700"
+    : "text-ink-300";
+
   return (
-    <div className="p-4 max-w-full mx-auto">
-      <div className="border border-gray-300 mb-4 rounded"><div className="bg-gray-50 p-3"><h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1><p className="text-sm font-semibold">Waste Disposal Record</p><p className="text-xs text-gray-600">Doc No: CFPLA.C4.F.52</p></div></div>
-      <div className="grid grid-cols-2 gap-3 mb-4"><div><label className="text-sm font-medium">Month</label><input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border rounded px-3 py-2 w-full" /></div><div><label className="text-sm font-medium">Area</label><input type="text" value={area} onChange={(e) => setArea(e.target.value)} className="border rounded px-3 py-2 w-full" /></div></div>
-      <div className="overflow-x-auto border border-gray-300 rounded">
-        <table className="text-[10px]">
-          <thead className="bg-gray-100"><tr><th className="border border-gray-300 px-1 py-1 sticky left-0 bg-gray-100 z-10 min-w-[200px]">Type of Waste</th>{Array.from({ length: 31 }, (_, i) => <th key={i + 1} className="border border-gray-300 px-1 py-1 text-center min-w-[24px]">{i + 1}</th>)}</tr></thead>
-          <tbody>
-            {WASTE_TYPES.map((w) => (
-              <tr key={w} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-1 py-0.5 sticky left-0 bg-white z-10 font-medium">{w}</td>
-                {Array.from({ length: 31 }, (_, i) => {
-                  const d = i + 1;
-                  return <td key={d} className={`border border-gray-300 px-0.5 py-0.5 text-center cursor-pointer select-none font-bold ${grid[w]?.[d] === "✓" ? "bg-green-100 text-green-700" : grid[w]?.[d] === "✕" ? "bg-red-100 text-red-700" : ""}`} onClick={() => toggle(w, d)}>{grid[w]?.[d]}</td>;
-                })}
+    <div className="max-w-full mx-auto space-y-4">
+      {/* Document identity */}
+      <section className="surface-card overflow-hidden">
+        <div className="px-4 sm:px-6 py-4 flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-500">
+              Candor Foods Private Limited
+            </p>
+            <h1 className="text-lg sm:text-xl font-bold text-ink-600 tracking-tight mt-1">
+              Waste Disposal Record
+            </h1>
+            <p className="text-xs text-ink-400 font-medium mt-1">
+              Document No: <span className="font-mono text-ink-500">{meta.docNo}</span>
+              {meta.issueNo && (
+                <span className="text-ink-300"> · Issue {meta.issueNo} · Rev {meta.revisionNo}</span>
+              )}
+            </p>
+          </div>
+          <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-cream-200 border border-cream-300 px-3 py-1.5 text-xs font-bold text-ink-600">
+            <span className={`w-2 h-2 rounded-full ${warehouse === "A185" ? "bg-blue-500" : "bg-emerald-500"}`} />
+            {warehouse}
+          </span>
+        </div>
+      </section>
+
+      {/* Month and location */}
+      <section className="surface-card px-4 sm:px-6 py-5">
+        <div className="grid gap-4 sm:grid-cols-2 max-w-2xl">
+          <div>
+            <label className="label-base" htmlFor="wd-month">
+              Month <span className="text-brand-500">*</span>
+            </label>
+            <input
+              id="wd-month"
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="input-base"
+            />
+          </div>
+          <div>
+            <label className="label-base" htmlFor="wd-area">Location</label>
+            <input
+              id="wd-area"
+              type="text"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              placeholder="e.g. Production Floor"
+              className="input-base"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Day grid */}
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-6 py-3.5 border-b border-cream-300 bg-cream-100/60 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-sm font-bold text-ink-600">Daily Disposal</h2>
+            <p className="text-[11px] text-ink-400 font-medium mt-0.5">
+              Click a day to cycle it: blank → ✓ disposed → ✕ not disposed.
+              {month && <> Showing {lastDay} days.</>}
+            </p>
+          </div>
+          <span className="text-[11px] font-semibold text-ink-400 tabular-nums">
+            {markedCount} / {totalCells} days marked
+          </span>
+        </header>
+
+        {/* Row fill shortcuts */}
+        <div className="px-4 sm:px-6 py-3 border-b border-cream-300 flex flex-wrap items-center gap-x-5 gap-y-2">
+          {WASTE_TYPES.map((t) => (
+            <div key={t.key} className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-ink-500">{t.label}</span>
+              <button
+                type="button"
+                onClick={() => fillRow(t.key, "✓")}
+                className="rounded-md border border-cream-300 bg-cream-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:border-emerald-400"
+                title={`Mark every day of the month disposed`}
+              >
+                Tick all
+              </button>
+              <button
+                type="button"
+                onClick={() => fillRow(t.key, "")}
+                className="rounded-md border border-cream-300 bg-cream-50 px-2 py-1 text-[11px] font-semibold text-ink-400 hover:border-brand-500"
+                title="Clear this row"
+              >
+                Clear
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="text-[11px] border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-cream-200/70 text-ink-500">
+                <th className="sticky left-0 z-10 bg-cream-200 px-3 py-2 text-left font-bold text-[11px] uppercase tracking-wide min-w-[210px] border-r border-cream-300">
+                  Type of Waste
+                </th>
+                {WASTE_DAYS.map((d) => (
+                  <th
+                    key={d}
+                    className={`px-0 py-2 text-center font-bold w-[26px] min-w-[26px] tabular-nums ${d > lastDay ? "text-ink-300/60" : ""}`}
+                  >
+                    {d}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {/* Location band, as printed */}
+              <tr>
+                <td
+                  colSpan={WASTE_DAYS.length + 1}
+                  className="sticky left-0 bg-cream-200/60 px-3 py-1.5 text-[11px] font-bold text-ink-500 border-y border-cream-300"
+                >
+                  location: <span className="font-normal text-ink-400">{area || "—"}</span>
+                </td>
+              </tr>
+
+              {WASTE_TYPES.map((t) => (
+                <tr key={t.key} className="border-t border-cream-300">
+                  <td className="sticky left-0 z-10 bg-cream-50 px-3 py-2 font-semibold text-ink-600 border-r border-cream-300 align-middle">
+                    {t.label}
+                  </td>
+                  {WASTE_DAYS.map((d) => {
+                    const locked = d > lastDay;
+                    const val = grid[t.key]?.[d] || "";
+                    return (
+                      <td key={d} className="p-0 border-l border-cream-300/70">
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => cycle(t.key, d)}
+                          aria-label={`${t.label} — day ${d}`}
+                          className={`w-full h-9 text-center font-bold select-none transition-colors
+                            ${locked ? "bg-cream-200/40 cursor-not-allowed" : `hover:bg-brand-50 ${dayCellTone(val)}`}`}
+                        >
+                          {locked ? "" : val}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+
+              {/* Per-day sign-off, as printed */}
+              {([
+                { label: "Checked By", days: checkedDays, set: setCheckedDays },
+                { label: "Verified By", days: verifiedDays, set: setVerifiedDays },
+              ] as const).map((band) => (
+                <tr key={band.label} className="border-t border-cream-300">
+                  <td className="sticky left-0 z-10 bg-cream-50 px-3 py-2 font-semibold text-ink-600 border-r border-cream-300">
+                    {band.label}
+                  </td>
+                  {WASTE_DAYS.map((d) => {
+                    const locked = d > lastDay;
+                    return (
+                      <td key={d} className="p-0 border-l border-cream-300/70">
+                        <input
+                          type="text"
+                          disabled={locked}
+                          value={locked ? "" : band.days[d] || ""}
+                          onChange={(e) => band.set((p) => ({ ...p, [d]: e.target.value }))}
+                          aria-label={`${band.label} — day ${d}`}
+                          title={band.days[d] || ""}
+                          className={`w-full h-9 px-0.5 text-center text-[10px] text-ink-600 bg-transparent border-0
+                            focus:outline-none focus:bg-brand-50 focus:ring-1 focus:ring-inset focus:ring-brand-500/40
+                            ${locked ? "bg-cream-200/40 cursor-not-allowed" : ""}`}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Apply a signatory across the month */}
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-6 py-3.5 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Sign-off</h2>
+          <p className="text-[11px] text-ink-400 font-medium mt-0.5">
+            Pick a name to stamp it across every day above, then edit individual days in the grid where someone else signed.
+          </p>
+        </header>
+        <div className="px-4 sm:px-6 py-5 grid gap-4 sm:grid-cols-2 max-w-2xl">
+          <SignaturePicker
+            label="Checked By — all days"
+            value=""
+            onChange={(v) => v && fillSignoff(setCheckedDays, v)}
+            options={HYGIENE_CHECKED_BY_OPTIONS}
+            inputCls="input-base"
+          />
+          <SignaturePicker
+            label="Verified By — all days"
+            value=""
+            onChange={(v) => v && fillSignoff(setVerifiedDays, v)}
+            options={QC_VERIFIED_BY_OPTIONS}
+            inputCls="input-base"
+          />
+        </div>
+      </section>
+
+      {/* Remarks */}
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-6 py-3.5 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Remarks (if any)</h2>
+        </header>
+        <div className="px-4 sm:px-6 py-5">
+          <textarea
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            rows={3}
+            placeholder="Anything worth noting about this month's disposal…"
+            className="input-base resize-y"
+            aria-label="Remarks"
+          />
+        </div>
+      </section>
+
+      {/* Submit */}
+      {error && (
+        <div role="alert" className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
+          {error}
+        </div>
+      )}
+      <div className="flex items-center justify-end gap-3 pb-2">
+        <span className="text-xs text-ink-400 font-medium">
+          Prepared By: FST &nbsp;·&nbsp; Approved By: FSTL
+        </span>
+        <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+          {submitting ? "Saving…" : isEdit ? "Update Record" : "Submit Record"}
+        </button>
       </div>
-      <div className="grid grid-cols-3 gap-3 mt-4"><div><label className="text-sm font-medium">Checked By</label><input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div><div><label className="text-sm font-medium">Verified By</label><input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div><div><label className="text-sm font-medium">Remarks</label><textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={2} className="border rounded px-3 py-2 w-full" /></div></div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }
@@ -769,70 +1077,334 @@ export function ChemicalPreparationRecord({ initialData, onSubmit, isEdit }: Doc
   );
 }
 
-// ===================== F.55 — Deep Cleaning Record =====================
-const DEEP_CLEAN_ITEMS = [{ area: "Window", method: "Dry cleaning", freq: "FD" }, { area: "Side walls", method: "Dry cleaning", freq: "W" }, { area: "Lockers", method: "Dry cleaning", freq: "M" }, { area: "Plant Overhead", method: "Dry Cleaning", freq: "M" }, { area: "Ceiling", method: "Dry Cleaning", freq: "M" }, { area: "Pallets", method: "Dry cleaning/Wash", freq: "W" }, { area: "Under machines", method: "Dry cleaning/Vacuum", freq: "W" }, { area: "Cooling area", method: "Dry/Wet cleaning", freq: "W" }, { area: "Dock area", method: "Dry cleaning", freq: "W" }, { area: "Drains", method: "Wet cleaning", freq: "W" }, { area: "Trolleys", method: "Dry/Wet cleaning", freq: "W" }, { area: "Racks", method: "Dry cleaning", freq: "W" }, { area: "Weighing area", method: "Dry cleaning", freq: "D" }, { area: "Light Fixtures", method: "Dry/Vacuum cleaning", freq: "W" }];
+// ===================== F.55 / F.57 — Housekeeping Deep Cleaning Record =====================
+// Two controlled formats behind one screen:
+//   A185 -> CFPLB.C4.F.57 — 11 scheduled areas, carries an "Area:" header field
+//   W202 -> CFPLA.C4.F.55 — 14 scheduled areas, no Area field
+// Row seeds live in @/config/deepCleaningAreas so the print page reads the same list.
+
+const DC_WEEKS = ["w1", "w2", "w3", "w4"] as const;
+type DcWeek = (typeof DC_WEEKS)[number];
+const DC_WEEK_LABELS: Record<DcWeek, string> = { w1: "Week 1", w2: "Week 2", w3: "Week 3", w4: "Week 4" };
+
+interface DcRow { sr: number; area: string; method: string; freq: string; w1: string; w2: string; w3: string; w4: string; }
+
+const emptyWeeks = (): Record<DcWeek, string> => ({ w1: "", w2: "", w3: "", w4: "" });
+
+/** Colour the frequency pill so the cadence reads at a glance down the column. */
+const freqTone = (freq: string) =>
+  freq === "M" ? "bg-blue-100 text-blue-700"
+  : freq === "FD" ? "bg-purple-100 text-purple-700"
+  : freq === "D" ? "bg-amber-100 text-amber-700"
+  : "bg-emerald-100 text-emerald-700";
+
+/**
+ * Build the editable grid for `warehouse`, merging anything already saved.
+ * Saved rows are matched by area name, so a record keeps its dates even if the
+ * seed list is later reordered. Legacy records that stored a `weeks` object
+ * keyed by area (never persisted — the column is `rows` — but tolerated here)
+ * are read too.
+ */
+function seedDeepCleanRows(warehouse: string, initialData?: Record<string, any>): DcRow[] {
+  const saved: Record<string, any> = {};
+  if (Array.isArray(initialData?.rows)) {
+    initialData!.rows.forEach((r: any) => {
+      if (r?.area) saved[String(r.area).trim().toLowerCase()] = r;
+    });
+  } else if (initialData?.weeks && typeof initialData.weeks === "object") {
+    Object.entries(initialData.weeks).forEach(([a, w]: [string, any]) => {
+      saved[a.trim().toLowerCase()] = { week1: w?.w1, week2: w?.w2, week3: w?.w3, week4: w?.w4 };
+    });
+  }
+  return deepCleanItemsFor(warehouse).map((item) => {
+    const prev = saved[item.area.trim().toLowerCase()] || {};
+    return {
+      sr: item.sr,
+      area: item.area,
+      method: item.method,
+      freq: item.freq,
+      w1: prev.week1 ?? prev.w1 ?? "",
+      w2: prev.week2 ?? prev.w2 ?? "",
+      w3: prev.week3 ?? prev.w3 ?? "",
+      w4: prev.week4 ?? prev.w4 ?? "",
+    };
+  });
+}
 
 export function DeepCleaningRecord({ initialData, onSubmit, isEdit }: DocFormProps = {}) {
+  const router = useRouter();
+  // The record's own plant wins over the selector, so opening an A185 sheet from
+  // a W202 session still edits it against the format it was filed under.
+  const warehouse = initialData?.warehouse || getStoredWarehouse();
+  const showArea = hasAreaField(warehouse);
+  const docNo = deepCleanDocNo(warehouse);
+
   const [month, setMonth] = useState(() => initialData?.month || "");
-  const [checkedBy, setCheckedBy] = useState(() => initialData?.checked_by || "");
-  const [verifiedBy, setVerifiedBy] = useState(() => initialData?.verified_by || "");
+  const [area, setArea] = useState(() => initialData?.area || "");
+  const [rows, setRows] = useState<DcRow[]>(() => seedDeepCleanRows(warehouse, initialData));
+  const [checkedByWeeks, setCheckedByWeeks] = useState<Record<DcWeek, string>>(() => ({
+    ...emptyWeeks(),
+    ...(initialData?.checked_by_weeks || {}),
+    ...(initialData?.checked_by && !initialData?.checked_by_weeks ? { w1: initialData.checked_by } : {}),
+  }));
+  const [verifiedByWeeks, setVerifiedByWeeks] = useState<Record<DcWeek, string>>(() => ({
+    ...emptyWeeks(),
+    ...(initialData?.verified_by_weeks || {}),
+    ...(initialData?.verified_by && !initialData?.verified_by_weeks ? { w1: initialData.verified_by } : {}),
+  }));
   const [observations, setObservations] = useState(() => initialData?.observations || "");
   const [correctiveActions, setCorrectiveActions] = useState(() => initialData?.corrective_actions || "");
-  const [weeks, setWeeks] = useState<Record<string, Record<string, string>>>(() => {
-    if (initialData?.weeks && typeof initialData.weeks === "object") {
-      const init: Record<string, Record<string, string>> = {};
-      DEEP_CLEAN_ITEMS.forEach((i) => {
-        init[i.area] = { w1: initialData.weeks[i.area]?.w1 || "", w2: initialData.weeks[i.area]?.w2 || "", w3: initialData.weeks[i.area]?.w3 || "", w4: initialData.weeks[i.area]?.w4 || "" };
-      });
-      return init;
-    }
-    const init: Record<string, Record<string, string>> = {};
-    DEEP_CLEAN_ITEMS.forEach((i) => { init[i.area] = { w1: "", w2: "", w3: "", w4: "" }; });
-    return init;
-  });
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const upW = (area: string, week: string, value: string) => setWeeks((p) => ({ ...p, [area]: { ...p[area], [week]: value } }));
+  const [error, setError] = useState("");
+
+  const setWeek = (idx: number, week: DcWeek, value: string) =>
+    setRows((p) => p.map((r, i) => (i === idx ? { ...r, [week]: value } : r)));
+
+  /** Stamp one date down a whole week column — the common case when a sweep happens in one go. */
+  const fillColumn = (week: DcWeek, value: string) =>
+    setRows((p) => p.map((r) => ({ ...r, [week]: value })));
+
+  const filledCount = rows.reduce((n, r) => n + DC_WEEKS.filter((w) => r[w]).length, 0);
+  const totalCells = rows.length * 4;
 
   const handleSubmit = async () => {
+    if (!month) { setError("Month is required."); return; }
     setSubmitting(true);
-    setSuccess(false);
+    setError("");
     const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse(),
-      month, checked_by: checkedBy, verified_by: verifiedBy, observations, corrective_actions: correctiveActions, weeks,
+      warehouse,
+      month,
+      // `area` only exists on the A185 format; sending "" for W202 is harmless.
+      area: showArea ? area : "",
+      // Column is `rows` (JSONB), not `weeks` — a payload keyed `weeks` is
+      // dropped by the backend column filter and the whole grid is lost.
+      rows: rows.map((r) => ({
+        sr: r.sr, area: r.area, method: r.method, freq: r.freq,
+        week1: r.w1, week2: r.w2, week3: r.w3, week4: r.w4,
+      })),
+      checked_by_weeks: checkedByWeeks,
+      verified_by_weeks: verifiedByWeeks,
+      // Scalar columns keep the list page and the generic record view working;
+      // the paper signs per week, so take the first week actually signed.
+      checked_by: DC_WEEKS.map((w) => checkedByWeeks[w]).find(Boolean) || "",
+      verified_by: DC_WEEKS.map((w) => verifiedByWeeks[w]).find(Boolean) || "",
+      observations,
+      corrective_actions: correctiveActions,
     };
     try {
-      if (onSubmit) { await onSubmit(payload); }
-      else { const { docsApi } = await import("@/lib/api/documentations"); await docsApi.create("deep-cleaning", payload); setSuccess(true); }
-    } catch (e: any) { alert(e.message || "Submit failed"); }
-    finally { setSubmitting(false); }
+      if (onSubmit) {
+        await onSubmit(payload);
+      } else {
+        const { docsApi } = await import("@/lib/api/documentations");
+        await docsApi.create("deep-cleaning", payload);
+        router.push("/documentations/deep-cleaning");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Submit failed. Nothing was saved — check the fields and try again.");
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <div className="border border-gray-300 mb-4 rounded"><div className="bg-gray-50 p-3"><h1 className="font-bold text-lg">CANDOR FOODS PRIVATE LIMITED</h1><p className="text-sm font-semibold">Housekeeping Record - Deep Cleaning</p><p className="text-xs text-gray-600">Doc No: CFPLA.C4.F.55</p></div></div>
-      <div className="mb-4"><label className="text-sm font-medium">Month</label><input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border rounded px-3 py-2 w-64 ml-2" /></div>
-      <div className="border border-gray-300 rounded overflow-hidden mb-4">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100"><tr><th className="border border-gray-300 px-2 py-2">Sr.</th><th className="border border-gray-300 px-2 py-2">Area</th><th className="border border-gray-300 px-2 py-2">Method</th><th className="border border-gray-300 px-2 py-2">Freq</th><th className="border border-gray-300 px-2 py-2">Week 1</th><th className="border border-gray-300 px-2 py-2">Week 2</th><th className="border border-gray-300 px-2 py-2">Week 3</th><th className="border border-gray-300 px-2 py-2">Week 4</th></tr></thead>
-          <tbody>
-            {DEEP_CLEAN_ITEMS.map((item, idx) => (
-              <tr key={item.area} className="hover:bg-blue-50">
-                <td className="border border-gray-300 px-2 py-1 text-center">{idx + 1}</td>
-                <td className="border border-gray-300 px-2 py-1 font-medium">{item.area}</td>
-                <td className="border border-gray-300 px-2 py-1 text-xs text-gray-600">{item.method}</td>
-                <td className="border border-gray-300 px-2 py-1 text-center text-xs">{item.freq}</td>
-                {["w1", "w2", "w3", "w4"].map((w) => <td key={w} className="border border-gray-300 px-1 py-1"><input type="date" value={weeks[item.area]?.[w] || ""} onChange={(e) => upW(item.area, w, e.target.value)} className="w-full border rounded px-1 py-0.5 text-xs" /></td>)}
+    <div className="max-w-6xl mx-auto space-y-4">
+      {/* Document identity */}
+      <section className="surface-card overflow-hidden">
+        <div className="px-4 sm:px-6 py-4 flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-500">
+              Candor Foods Private Limited
+            </p>
+            <h1 className="text-lg sm:text-xl font-bold text-ink-600 tracking-tight mt-1">
+              Housekeeping Deep Cleaning Record
+            </h1>
+            <p className="text-xs text-ink-400 font-medium mt-1">
+              Document No: <span className="font-mono text-ink-500">{docNo}</span>
+            </p>
+          </div>
+          <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-cream-200 border border-cream-300 px-3 py-1.5 text-xs font-bold text-ink-600">
+            <span className={`w-2 h-2 rounded-full ${warehouse === "A185" ? "bg-blue-500" : "bg-emerald-500"}`} />
+            {warehouse}
+          </span>
+        </div>
+      </section>
+
+      {/* Period and area */}
+      <section className="surface-card px-4 sm:px-6 py-5">
+        <div className={`grid gap-4 ${showArea ? "sm:grid-cols-2" : "sm:grid-cols-1 max-w-xs"}`}>
+          <div>
+            <label className="label-base" htmlFor="dc-month">
+              Month <span className="text-brand-500">*</span>
+            </label>
+            <input
+              id="dc-month"
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="input-base"
+            />
+          </div>
+          {showArea && (
+            <div>
+              <label className="label-base" htmlFor="dc-area">Area</label>
+              <input
+                id="dc-area"
+                type="text"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                placeholder="e.g. Production Floor"
+                className="input-base"
+              />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Cleaning schedule */}
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-6 py-3.5 border-b border-cream-300 bg-cream-100/60 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-sm font-bold text-ink-600">Cleaning Schedule</h2>
+            <p className="text-[11px] text-ink-400 font-medium mt-0.5">{DEEP_CLEAN_FREQ_LEGEND}</p>
+          </div>
+          <span className="text-[11px] font-semibold text-ink-400 tabular-nums">
+            {filledCount} / {totalCells} dates filled
+          </span>
+        </header>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[860px]">
+            <thead>
+              <tr className="bg-cream-200/70 text-ink-500">
+                <th className="px-2 py-2.5 text-center font-bold text-[11px] uppercase tracking-wide w-14">Sr.</th>
+                <th className="px-3 py-2.5 text-left font-bold text-[11px] uppercase tracking-wide">Area</th>
+                <th className="px-3 py-2.5 text-left font-bold text-[11px] uppercase tracking-wide">Method</th>
+                <th className="px-2 py-2.5 text-center font-bold text-[11px] uppercase tracking-wide w-20">Freq</th>
+                {DC_WEEKS.map((w) => (
+                  <th key={w} className="px-2 py-2 text-center font-bold text-[11px] uppercase tracking-wide w-[136px]">
+                    <div>{DC_WEEK_LABELS[w]}</div>
+                    <input
+                      type="date"
+                      aria-label={`Fill every row with one date for ${DC_WEEK_LABELS[w]}`}
+                      title="Fill this date down the whole column"
+                      onChange={(e) => fillColumn(w, e.target.value)}
+                      className="mt-1 w-full rounded-md border border-cream-300 bg-cream-50 px-1.5 py-1 text-[11px] font-normal text-ink-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25"
+                    />
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={row.area} className="border-t border-cream-300 even:bg-cream-100/40 hover:bg-brand-50/40 transition-colors">
+                  <td className="px-2 py-2 text-center text-ink-400 font-semibold tabular-nums">{row.sr}</td>
+                  <td className="px-3 py-2 font-semibold text-ink-600">{row.area}</td>
+                  <td className="px-3 py-2 text-ink-400 text-xs">{row.method}</td>
+                  <td className="px-2 py-2 text-center">
+                    <span
+                      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${freqTone(row.freq)}`}
+                      title={DEEP_CLEAN_FREQ_LABELS[row.freq] || row.freq}
+                    >
+                      {row.freq}
+                    </span>
+                  </td>
+                  {DC_WEEKS.map((w) => (
+                    <td key={w} className="px-1.5 py-1.5">
+                      <input
+                        type="date"
+                        aria-label={`${row.area} — ${DC_WEEK_LABELS[w]}`}
+                        value={row[w]}
+                        onChange={(e) => setWeek(idx, w, e.target.value)}
+                        className="w-full rounded-md border border-cream-300 bg-cream-50 px-1.5 py-1.5 text-xs text-ink-600 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition"
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Weekly sign-off */}
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-6 py-3.5 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Weekly Sign-off</h2>
+          <p className="text-[11px] text-ink-400 font-medium mt-0.5">
+            The format is signed once per week column — leave a week blank if it was not worked.
+          </p>
+        </header>
+        <div className="px-4 sm:px-6 py-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {DC_WEEKS.map((w) => (
+            <div key={w} className="space-y-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-500 pb-1.5 border-b border-cream-300">
+                {DC_WEEK_LABELS[w]}
+              </p>
+              <SignaturePicker
+                label="Checked By"
+                value={checkedByWeeks[w]}
+                onChange={(v) => setCheckedByWeeks((p) => ({ ...p, [w]: v }))}
+                options={HYGIENE_CHECKED_BY_OPTIONS}
+                inputCls="input-base"
+                labelCls="block text-[11px] font-semibold text-ink-400 mb-1 uppercase tracking-wide"
+              />
+              <SignaturePicker
+                label="Verified By"
+                value={verifiedByWeeks[w]}
+                onChange={(v) => setVerifiedByWeeks((p) => ({ ...p, [w]: v }))}
+                options={QC_VERIFIED_BY_OPTIONS}
+                inputCls="input-base"
+                labelCls="block text-[11px] font-semibold text-ink-400 mb-1 uppercase tracking-wide"
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Observations and corrective actions */}
+      <section className="surface-card overflow-hidden">
+        <header className="px-4 sm:px-6 py-3.5 border-b border-cream-300 bg-cream-100/60">
+          <h2 className="text-sm font-bold text-ink-600">Observations &amp; Corrective Actions</h2>
+        </header>
+        <div className="px-4 sm:px-6 py-5 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label-base" htmlFor="dc-obs">Observations</label>
+            <textarea
+              id="dc-obs"
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
+              rows={4}
+              placeholder="Anything noted during the month's deep cleaning…"
+              className="input-base resize-y"
+            />
+          </div>
+          <div>
+            <label className="label-base" htmlFor="dc-ca">Corrective Actions</label>
+            <textarea
+              id="dc-ca"
+              value={correctiveActions}
+              onChange={(e) => setCorrectiveActions(e.target.value)}
+              rows={4}
+              placeholder="What was done about the observations above…"
+              className="input-base resize-y"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Submit */}
+      {error && (
+        <div role="alert" className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
+          {error}
+        </div>
+      )}
+      <div className="flex items-center justify-end gap-3 pb-2">
+        <span className="text-xs text-ink-400 font-medium">
+          Prepared By: FST &nbsp;·&nbsp; Approved By: FSTL
+        </span>
+        <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+          {submitting ? "Saving…" : isEdit ? "Update Record" : "Submit Record"}
+        </button>
       </div>
-      <div className="grid grid-cols-2 gap-3"><div><label className="text-sm font-medium">Checked By</label><input type="text" value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div><div><label className="text-sm font-medium">Verified By</label><input type="text" value={verifiedBy} onChange={(e) => setVerifiedBy(e.target.value)} className="border rounded px-3 py-2 w-full" /></div><div><label className="text-sm font-medium">Observations</label><textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={2} className="border rounded px-3 py-2 w-full" /></div><div><label className="text-sm font-medium">Corrective Actions</label><textarea value={correctiveActions} onChange={(e) => setCorrectiveActions(e.target.value)} rows={2} className="border rounded px-3 py-2 w-full" /></div></div>
-      <button onClick={handleSubmit} disabled={submitting} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-        {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
-      </button>
-      {success && <p className="text-green-600 text-sm mt-2">Record saved successfully!</p>}
     </div>
   );
 }

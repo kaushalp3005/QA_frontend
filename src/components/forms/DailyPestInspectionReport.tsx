@@ -5,7 +5,7 @@ import { ArrowDownToLine, ArrowRightToLine, Bug, CopyCheck } from "lucide-react"
 import DocSection from "@/components/documentations/DocSection";
 import SignaturePicker from "@/components/ui/SignaturePicker";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
-import { CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
+import { HYGIENE_CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 import {
   PEST_NOTE_ROWS,
   PEST_SECTION_TITLE,
@@ -242,7 +242,7 @@ export default function DailyPestInspectionReport({ initialData, onSubmit, isEdi
             label="Checked By"
             value={checkedBy}
             onChange={setCheckedBy}
-            options={CHECKED_BY_OPTIONS}
+            options={HYGIENE_CHECKED_BY_OPTIONS}
             inputCls="input-base"
             labelCls="label-base"
           />

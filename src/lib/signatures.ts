@@ -55,7 +55,7 @@ export const PRODUCTION_INCHARGE_OPTIONS: SignatureOption[] = [
 
 /**
  * QC documentation forms — "Checked By" preset list (operators / QC executives).
- * Pooja Mhalim / Shraddha Jadhav are W202 staff; Pankaj Gosavi / Sarvesh Davande /
+ * Pooja Mhalim / Shraddha Jadhav / Tejashri Jadhav are W202 staff; Pankaj Gosavi / Sarvesh Davande /
  * Swapnil Mahajan / Prajakta / Dhanashree are A185 staff. Each appears only in its own plant.
  */
 export const CHECKED_BY_OPTIONS: SignatureOption[] = [
@@ -67,7 +67,19 @@ export const CHECKED_BY_OPTIONS: SignatureOption[] = [
   { name: 'Swapnil Mahajan',  signature: '/signatures/swapnil-mahajan.png', role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Prajakta',         signature: '/signatures/prajakta.png',        role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Dhanashree',       signature: '/signatures/dhanashree.png',      role: 'Quality Control Executive', warehouses: ['A185'] },
-  { name: 'Tejashri Jadhav',  signature: '/signatures/tejashri-jadhav.png', role: 'Quality Control Executive' },
+  { name: 'Tejashri Jadhav',  signature: '/signatures/tejashri-jadhav.png', role: 'Quality Control Executive', warehouses: ['W202'] },
+  { name: 'Other',            signature: null },
+]
+
+/**
+ * "Checked By" list for the Hygiene-category documentation forms (cleaning,
+ * personal hygiene, pest / fly catcher, waste disposal) — the QC list above plus
+ * Murad Khan, who signs hygiene records only. No signature image yet, so his
+ * name prints as plain text. "Other" stays last.
+ */
+export const HYGIENE_CHECKED_BY_OPTIONS: SignatureOption[] = [
+  ...CHECKED_BY_OPTIONS.filter(o => o.name !== 'Other'),
+  { name: 'Murad Khan',       signature: null },
   { name: 'Other',            signature: null },
 ]
 
@@ -84,7 +96,7 @@ export const QC_VERIFIED_BY_OPTIONS: SignatureOption[] = [
   { name: 'Swapnil Mahajan',  signature: '/signatures/swapnil-mahajan.png', role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Prajakta',         signature: '/signatures/prajakta.png',        role: 'Quality Control Executive', warehouses: ['A185'] },
   { name: 'Dhanashree',       signature: '/signatures/dhanashree.png',      role: 'Quality Control Executive', warehouses: ['A185'] },
-  { name: 'Tejashri Jadhav',  signature: '/signatures/tejashri-jadhav.png', role: 'Quality Control Executive' },
+  { name: 'Tejashri Jadhav',  signature: '/signatures/tejashri-jadhav.png', role: 'Quality Control Executive', warehouses: ['W202'] },
   { name: 'Other',            signature: null },
 ]
 
@@ -140,6 +152,7 @@ const ALL_SIGNATORIES = [
   ...ANALYSED_BY_OPTIONS,
   ...VERIFIED_BY_OPTIONS,
   ...CHECKED_BY_OPTIONS,
+  ...HYGIENE_CHECKED_BY_OPTIONS,
   ...QC_VERIFIED_BY_OPTIONS,
 ]
 

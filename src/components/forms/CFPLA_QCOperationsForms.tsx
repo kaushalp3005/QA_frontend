@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import SignaturePicker from "@/components/ui/SignaturePicker";
 import {
   CHECKED_BY_OPTIONS,
+  HYGIENE_CHECKED_BY_OPTIONS,
   QC_VERIFIED_BY_OPTIONS,
   filterSignaturesByWarehouse,
   type SignatureOption,
@@ -839,7 +840,7 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
                   </td>
                   <td className="px-1 py-1"><input type="number" value={r.fliesWeight} onChange={(e) => up(r.id, "fliesWeight", e.target.value)} className="input-base !py-1 !px-2 text-xs w-16" step="0.1" /></td>
                   <td className="px-1 py-1"><input type="text" value={r.integrityTubelights} onChange={(e) => up(r.id, "integrityTubelights", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
-                  <td className="px-1 py-1"><FlyRowSignSelect value={r.doneBy} onChange={(v) => up(r.id, "doneBy", v)} options={CHECKED_BY_OPTIONS} /></td>
+                  <td className="px-1 py-1"><FlyRowSignSelect value={r.doneBy} onChange={(v) => up(r.id, "doneBy", v)} options={HYGIENE_CHECKED_BY_OPTIONS} /></td>
                   <td className="px-1 py-1"><input type="text" value={r.observation} onChange={(e) => up(r.id, "observation", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
                   <td className="px-1 py-1"><input type="text" value={r.correctiveAction} onChange={(e) => up(r.id, "correctiveAction", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
                   <td className="px-1 py-1"><FlyRowSignSelect value={r.verifiedBy} onChange={(v) => up(r.id, "verifiedBy", v)} options={QC_VERIFIED_BY_OPTIONS} /></td>

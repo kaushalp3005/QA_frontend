@@ -30,7 +30,7 @@ interface IngredientRow {
   protein?: string; fiber?: string; sugar?: string; energy?: string;
 }
 interface SensoryRow {
-  panel_name?: string; taste?: string; odor?: string; appearance?: string; mouthfeel?: string; decision?: string; signature?: string;
+  panel_name?: string; taste?: string; odor?: string; appearance?: string; mouthfeel?: string;
 }
 
 const TRIAL_FIELDS: { key: string; label: string; date?: boolean }[] = [
@@ -39,7 +39,6 @@ const TRIAL_FIELDS: { key: string; label: string; date?: boolean }[] = [
   { key: "customer_name", label: "Customer Name" },
   { key: "trial_no", label: "Trial No" },
   { key: "persons_present", label: "Persons Present for Trial" },
-  { key: "preroasting_temp", label: "Time & Temp for Preroasting (if applicable)" },
   { key: "batch_number", label: "Batch Number" },
   { key: "baking_temp", label: "Time & Temp for Baking/Roasting (if applicable)" },
   { key: "ingredient_changes", label: "Ingredients Changed/Replaced (if any)" },
@@ -140,7 +139,7 @@ function TrialBlock({ trial, index, multi }: { trial: any; index: number; multi:
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
             <thead>
               <tr>
-                {["Panel", "Taste", "Odor", "Appearance", "Mouthfeel", "Decision", "Signature"].map((h) => (
+                {["Panel", "Taste (0–5)", "Odor (0–5)", "Appearance (0–5)", "Mouthfeel (0–5)"].map((h) => (
                   <th key={h} style={th}>{h}</th>
                 ))}
               </tr>
@@ -153,10 +152,6 @@ function TrialBlock({ trial, index, multi }: { trial: any; index: number; multi:
                   <td style={td}>{val(r.odor)}</td>
                   <td style={td}>{val(r.appearance)}</td>
                   <td style={td}>{val(r.mouthfeel)}</td>
-                  <td style={td}>{val(r.decision)}</td>
-                  <td style={{ ...td, padding: "1px 2px" }}>
-                    <SignatureCell name={val(r.signature)} maxHeight={22} maxWidth={70} showName={false} />
-                  </td>
                 </tr>
               ))}
             </tbody>

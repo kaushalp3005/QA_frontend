@@ -35,6 +35,16 @@ export const PLANT_PINNED_EMAILS: Record<string, WarehouseCode> = {
   'printinga185@candorfoods.in': 'A185',
 }
 
+/**
+ * Accounts allowed to DELETE records of particular forms (by formType) — and
+ * nothing more: no other admin right, no other form, no plant confinement.
+ *
+ * Mirrors FORM_DELETE_GRANTS in backend qc/config/doc_registry.py.
+ */
+export const FORM_DELETE_GRANTS: Record<string, readonly string[]> = {
+  'npd1@candorfoods.in': ['new-product-verification'],
+}
+
 /** Reads the signed-in email from any of the shapes login has stored it under. */
 export function getUserEmail(): string | null {
   if (typeof window === 'undefined') return null
@@ -50,6 +60,13 @@ export function getUserEmail(): string | null {
 export function isFullAdmin(): boolean {
   const email = getUserEmail()
   return !!email && email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase()
+}
+
+/** True when the signed-in account has a delete grant on this form. */
+export function canDeleteForm(formType: string): boolean {
+  const email = getUserEmail()
+  if (!email) return false
+  return FORM_DELETE_GRANTS[email.trim().toLowerCase()]?.includes(formType) ?? false
 }
 
 /**

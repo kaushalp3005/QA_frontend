@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, Copy, Search, X, ChevronRight, Loader2 } from 'lucide-react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
-import { docsApi, isDocAdminFor } from '@/lib/api/documentations'
+import { docsApi, canDeleteDoc } from '@/lib/api/documentations'
 import { PRINTABLE_SLUGS, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 
 interface Props {
@@ -31,8 +31,8 @@ export default function DocListPage({ config, renderExpanded }: Props) {
   const [warehouse, setWarehouse] = useState<string>('')
   const hasWarehouseCol = config.listColumns.includes('warehouse')
   // Every row on screen belongs to the currently selected warehouse (the list
-  // is server-filtered to it below), so one admin check covers the whole page.
-  const admin = isDocAdminFor(hasWarehouseCol ? warehouse : undefined)
+  // is server-filtered to it below), so one delete check covers the whole page.
+  const canDelete = canDeleteDoc(config.formType, hasWarehouseCol ? warehouse : undefined)
   const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
   const showDuplicate = DUPLICATABLE_SLUGS.has(config.routeSlug)
 
@@ -333,7 +333,7 @@ export default function DocListPage({ config, renderExpanded }: Props) {
                               <Copy className="w-4 h-4" />
                             </button>
                           )}
-                          {admin && (
+                          {canDelete && (
                             <button
                               onClick={() => handleDelete(rec.id)}
                               className="action-btn-3d action-btn-red"

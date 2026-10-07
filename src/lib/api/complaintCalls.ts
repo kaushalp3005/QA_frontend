@@ -267,14 +267,17 @@ export function istDaysAgo(days: number): string {
 export const DISPOSITIONS = [
   { value: '', label: 'All outcomes' },
   { value: 'transferred', label: 'Transferred' },
+  { value: 'transfer_failed', label: 'Transfer failed' },
   { value: 'callback_requested', label: 'Callback requested' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'abandoned', label: 'Abandoned' },
 ]
 
-/** Callback requests are the ones a human still has to act on. */
+/** Callback requests and failed transfers are the ones a human still has to act on.
+ *  transfer_failed = the agent ran call_transfer with no number, so the caller was dropped. */
 export const DISPOSITION_STYLES: Record<string, string> = {
   transferred: 'bg-success-50 text-success-700',
+  transfer_failed: 'bg-danger-50 text-danger-700',
   callback_requested: 'bg-warning-50 text-warning-700',
   resolved: 'bg-cream-200 text-ink-500',
   abandoned: 'bg-danger-50 text-danger-700',

@@ -4,8 +4,77 @@ import { useRouter } from "next/navigation";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 
 // ===================== F.13 — New Product Verification =====================
-interface SensoryRow { id: number; panelName: string; taste: "Ok" | "Not ok" | ""; odor: "Ok" | "Not ok" | ""; appearance: "Ok" | "Not ok" | ""; mouthfeel: "Ok" | "Not ok" | ""; decision: "Accept" | "Reject" | ""; signature: string; }
-const emptySensoryRow = (id: number): SensoryRow => ({ id, panelName: "", taste: "", odor: "", appearance: "", mouthfeel: "", decision: "", signature: "" });
+/**
+ * Panel attributes are scored 0–5, every cell carrying a score — there is no
+ * blank option. They used to be "Ok" / "Not ok", and records
+ * filed before the change still hold those words — so the fields stay plain
+ * strings and the select offers a stored legacy value back as its own option
+ * rather than showing "—" and quietly blanking it on the next save.
+ */
+const SENSORY_SCORES = ["0", "1", "2", "3", "4", "5"] as const;
+const DEFAULT_SCORE = "0";
+
+/**
+ * A comma-separated list edited as chips — type a name, press Enter.
+ *
+ * The value stays one string rather than an array: `customer_name` is a plain
+ * text column that the listing, the printout and search all read straight, so
+ * splitting it would mean a schema change for no gain. Comma is the separator,
+ * so typing one commits the chip too — otherwise a name with a comma in it
+ * would silently split on the next read.
+ */
+function ChipInput({ value, onChange, placeholder, addLabel }: { value: string; onChange: (v: string) => void; placeholder?: string; addLabel: string }) {
+  const [draft, setDraft] = useState("");
+  const chips = value.split(",").map((c) => c.trim()).filter(Boolean);
+  const write = (next: string[]) => onChange(next.join(", "));
+
+  const commit = () => {
+    const name = draft.trim();
+    setDraft("");
+    if (!name) return;
+    if (chips.some((c) => c.toLowerCase() === name.toLowerCase())) return; // already listed
+    write([...chips, name]);
+  };
+
+  return (
+    <div className="input-base !py-1.5 !px-2 flex flex-wrap items-center gap-1.5 min-h-[38px]">
+      {chips.map((c, i) => (
+        <span key={`${c}-${i}`} className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-600">
+          {c}
+          <button
+            type="button"
+            onClick={() => write(chips.filter((_, j) => j !== i))}
+            className="text-brand-400 hover:text-brand-600 leading-none"
+            aria-label={`Remove ${c}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === ",") {
+            // Enter would otherwise submit the surrounding form.
+            e.preventDefault();
+            commit();
+          } else if (e.key === "Backspace" && !draft && chips.length) {
+            write(chips.slice(0, -1));
+          }
+        }}
+        // A name typed but not entered would otherwise be lost on submit.
+        onBlur={commit}
+        placeholder={chips.length ? "" : placeholder}
+        aria-label={addLabel}
+        className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-ink-300"
+      />
+    </div>
+  );
+}
+interface SensoryRow { id: number; panelName: string; taste: string; odor: string; appearance: string; mouthfeel: string; }
+const emptySensoryRow = (id: number): SensoryRow => ({ id, panelName: "", taste: DEFAULT_SCORE, odor: DEFAULT_SCORE, appearance: DEFAULT_SCORE, mouthfeel: DEFAULT_SCORE });
 
 interface IngredientRow { id: number; ingredient: string; variety: string; vendor: string; percentage: string; specification: string; protein: string; fiber: string; sugar: string; energy: string; }
 const emptyIngredientRow = (id: number): IngredientRow => ({ id, ingredient: "", variety: "", vendor: "", percentage: "", specification: "", protein: "", fiber: "", sugar: "", energy: "" });
@@ -25,7 +94,7 @@ const INGREDIENT_COLS: { key: keyof Omit<IngredientRow, "id">; label: string; mi
 // One trial = the Trial Information → Chemical Analysis block (repeated via tabs).
 interface Trial {
   date: string; productName: string; customerName: string; trialNo: string;
-  personsPresent: string; preroastingTemp: string; batchNumber: string; bakingTemp: string;
+  personsPresent: string; batchNumber: string; bakingTemp: string;
   ingredientChanges: string; flowChart: string; equipmentAdded: string;
   ingredientRows: IngredientRow[]; sensoryRows: SensoryRow[];
   moisture: string; fat: string; acidValue: string; peroxideValue: string; salt: string; ph: string;
@@ -36,7 +105,7 @@ const mapIngredients = (src: any): IngredientRow[] => {
   return Array.from({ length: 3 }, (_, i) => emptyIngredientRow(i + 1));
 };
 const mapSensory = (src: any): SensoryRow[] => {
-  if (Array.isArray(src)) return src.map((r: any, i: number) => ({ id: i + 1, panelName: r.panel_name || r.panelName || "", taste: r.taste || "", odor: r.odor || "", appearance: r.appearance || "", mouthfeel: r.mouthfeel || "", decision: r.decision || "", signature: r.signature || "" }));
+  if (Array.isArray(src)) return src.map((r: any, i: number) => ({ id: i + 1, panelName: r.panel_name || r.panelName || "", taste: r.taste || DEFAULT_SCORE, odor: r.odor || DEFAULT_SCORE, appearance: r.appearance || DEFAULT_SCORE, mouthfeel: r.mouthfeel || DEFAULT_SCORE }));
   return Array.from({ length: 3 }, (_, i) => emptySensoryRow(i + 1));
 };
 const makeTrial = (src?: any): Trial => ({
@@ -45,7 +114,6 @@ const makeTrial = (src?: any): Trial => ({
   customerName: src?.customer_name ?? src?.customerName ?? "",
   trialNo: src?.trial_no ?? src?.trialNo ?? "",
   personsPresent: src?.persons_present ?? src?.personsPresent ?? "",
-  preroastingTemp: src?.preroasting_temp ?? src?.preroastingTemp ?? "",
   batchNumber: src?.batch_number ?? src?.batchNumber ?? "",
   bakingTemp: src?.baking_temp ?? src?.bakingTemp ?? "",
   ingredientChanges: src?.ingredient_changes ?? src?.ingredientChanges ?? "",
@@ -63,10 +131,10 @@ const makeTrial = (src?: any): Trial => ({
 const numOrNull = (s: string) => (s ? Number(s) : null);
 const trialPayload = (tr: Trial) => ({
   verify_date: tr.date, product_name: tr.productName, customer_name: tr.customerName, trial_no: tr.trialNo,
-  persons_present: tr.personsPresent, preroasting_temp: tr.preroastingTemp, batch_number: tr.batchNumber, baking_temp: tr.bakingTemp,
+  persons_present: tr.personsPresent, batch_number: tr.batchNumber, baking_temp: tr.bakingTemp,
   ingredient_changes: tr.ingredientChanges, flow_chart: tr.flowChart, equipment_added: tr.equipmentAdded,
   ingredients_used: tr.ingredientRows.filter((r) => r.ingredient.trim() || r.variety.trim() || r.vendor.trim() || r.percentage.trim() || r.specification.trim()).map((r) => ({ ingredient: r.ingredient, variety: r.variety, vendor: r.vendor, percentage: r.percentage, specification: r.specification, protein: r.protein, fiber: r.fiber, sugar: r.sugar, energy: r.energy })),
-  sensory_rows: tr.sensoryRows.filter((r) => r.panelName).map((r) => ({ panel_name: r.panelName, taste: r.taste, odor: r.odor, appearance: r.appearance, mouthfeel: r.mouthfeel, decision: r.decision, signature: r.signature })),
+  sensory_rows: tr.sensoryRows.filter((r) => r.panelName).map((r) => ({ panel_name: r.panelName, taste: r.taste, odor: r.odor, appearance: r.appearance, mouthfeel: r.mouthfeel })),
   moisture: numOrNull(tr.moisture), fat: numOrNull(tr.fat), acid_value: numOrNull(tr.acidValue), peroxide_value: numOrNull(tr.peroxideValue), salt: numOrNull(tr.salt), ph: numOrNull(tr.ph),
 });
 
@@ -116,6 +184,25 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
     setTrials((prev) => prev.map((tr, i) => (i === activeTrial ? { ...tr, ...patch } : tr)));
 
   const addTrial = () => { setTrials((prev) => [...prev, makeTrial()]); setActiveTrial(trials.length); };
+  /**
+   * A new trial pre-filled from an existing one. Trial 2 normally repeats Trial
+   * 1's product, customer and ingredient list with only a couple of parameters
+   * changed, so copying beats retyping it. The row arrays are rebuilt rather
+   * than carried over by reference, so editing one trial's rows can never reach
+   * into the other's.
+   */
+  const duplicateTrial = (idx: number) => {
+    setTrials((prev) => {
+      const src = prev[idx];
+      if (!src) return prev;
+      return [...prev, {
+        ...src,
+        ingredientRows: src.ingredientRows.map((r) => ({ ...r })),
+        sensoryRows: src.sensoryRows.map((r) => ({ ...r })),
+      }];
+    });
+    setActiveTrial(trials.length);
+  };
   const removeTrial = (idx: number) => {
     if (trials.length <= 1) return;
     setTrials((prev) => prev.filter((_, i) => i !== idx));
@@ -131,7 +218,6 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
   const customerName = t.customerName, setCustomerName = (v: string) => patchTrial({ customerName: v });
   const trialNo = t.trialNo, setTrialNo = (v: string) => patchTrial({ trialNo: v });
   const personsPresent = t.personsPresent, setPersonsPresent = (v: string) => patchTrial({ personsPresent: v });
-  const preroastingTemp = t.preroastingTemp, setPreroastingTemp = (v: string) => patchTrial({ preroastingTemp: v });
   const batchNumber = t.batchNumber, setBatchNumber = (v: string) => patchTrial({ batchNumber: v });
   const bakingTemp = t.bakingTemp, setBakingTemp = (v: string) => patchTrial({ bakingTemp: v });
   const ingredientChanges = t.ingredientChanges, setIngredientChanges = (v: string) => patchTrial({ ingredientChanges: v });
@@ -191,27 +277,38 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
   const addSensoryRow = () => setSensoryRows((p) => [...p, emptySensoryRow(p.length + 1)]);
   const addIngredientRow = () => setIngredientRows((p) => [...p, emptyIngredientRow(p.length + 1)]);
   const removeIngredientRow = (id: number) => setIngredientRows((p) => p.filter((s) => s.id !== id));
-  const OkSel = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  /** 0–5 panel score. 4–5 reads as good, 3 as borderline, 0–2 as poor. */
+  const scoreTone = (v: string) =>
+    v === "4" || v === "5" || v === "Ok"
+      ? "bg-success-50 text-success-700 border-success-200"
+      : v === "3"
+      ? "bg-warning-50 text-warning-700 border-warning-200"
+      : v === "0" || v === "1" || v === "2" || v === "Not ok"
+      ? "bg-danger-50 text-danger-600 border-danger-200"
+      : "bg-cream-50 border-cream-300 text-ink-500";
+
+  const ScoreSel = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`w-full border rounded-md px-1.5 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${
-        value === "Ok"
-          ? "bg-success-50 text-success-700 border-success-200"
-          : value === "Not ok"
-          ? "bg-danger-50 text-danger-600 border-danger-200"
-          : "bg-cream-50 border-cream-300 text-ink-500"
-      }`}
+      className={`w-full border rounded-md px-1.5 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${scoreTone(value)}`}
     >
-      <option value="">—</option><option value="Ok">Ok</option><option value="Not ok">Not ok</option>
+      {SENSORY_SCORES.map((n) => (
+        <option key={n} value={n}>{n}</option>
+      ))}
+      {/* A record filed on the old Ok / Not ok wording keeps its answer visible
+          and re-saveable instead of being silently cleared. */}
+      {value && !(SENSORY_SCORES as readonly string[]).includes(value) && (
+        <option value={value}>{value}</option>
+      )}
     </select>
   );
 
   const fields = [
     { label: "Date", value: date, set: setDate, type: "date" }, { label: "Product Name", value: productName, set: setProductName },
-    { label: "Customer Name", value: customerName, set: setCustomerName }, { label: "Trial No", value: trialNo, set: setTrialNo },
+    { label: "Customer Name", value: customerName, set: setCustomerName, chips: true }, { label: "Trial No", value: trialNo, set: setTrialNo },
     { label: "Persons Present for Trial", value: personsPresent, set: setPersonsPresent },
-    { label: "Time & Temp for Preroasting (if applicable)", value: preroastingTemp, set: setPreroastingTemp }, { label: "Batch Number", value: batchNumber, set: setBatchNumber },
+    { label: "Batch Number", value: batchNumber, set: setBatchNumber },
     { label: "Time & Temp for Baking/Roasting (if applicable)", value: bakingTemp, set: setBakingTemp },
     { label: "Ingredients Changed/Replaced (if any)", value: ingredientChanges, set: setIngredientChanges },
     { label: "Flow Chart/Line Used for Pilot Run", value: flowChart, set: setFlowChart }, { label: "Equipment Added (if any)", value: equipmentAdded, set: setEquipmentAdded },
@@ -253,7 +350,17 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
         <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-sm font-bold text-ink-600">Trial Information</h2>
-            <button type="button" onClick={addTrial} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Trial</button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => duplicateTrial(activeTrial)}
+                title={`Start a new trial pre-filled from Trial ${activeTrial + 1}`}
+                className="btn-outline !py-1.5 !px-3 text-xs"
+              >
+                Copy Trial {activeTrial + 1}
+              </button>
+              <button type="button" onClick={addTrial} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Trial</button>
+            </div>
           </div>
           <div className="mt-2 flex items-center gap-1.5 flex-wrap">
             {trials.map((_, i) => (
@@ -283,7 +390,11 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
             <div key={f.label} className="grid grid-cols-1 sm:grid-cols-[35%_65%] gap-1 sm:gap-0">
               <label className="px-4 sm:px-5 pt-3 sm:py-3 text-xs sm:text-sm font-semibold text-ink-500 bg-cream-100/40 sm:border-r border-cream-300 flex items-center">{f.label}</label>
               <div className="px-3 sm:px-4 pb-3 sm:py-2.5">
-                <input type={f.type || "text"} value={f.value} onChange={(e) => f.set(e.target.value)} className="input-base !py-2 !px-3" />
+                {"chips" in f && f.chips ? (
+                  <ChipInput value={f.value} onChange={f.set} addLabel="Add customer" placeholder="Type a customer and press Enter…" />
+                ) : (
+                  <input type={f.type || "text"} value={f.value} onChange={(e) => f.set(e.target.value)} className="input-base !py-2 !px-3" />
+                )}
               </div>
             </div>
           ))}
@@ -348,7 +459,7 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
           <table className="w-full text-sm">
             <thead className="bg-cream-100/70 border-b border-cream-300">
               <tr>
-                {["Panel", "Taste", "Odor", "Appearance", "Mouthfeel", "Decision", "Signature"].map((h) => (
+                {["Panel", "Taste (0–5)", "Odor (0–5)", "Appearance (0–5)", "Mouthfeel (0–5)"].map((h) => (
                   <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>
                 ))}
               </tr>
@@ -357,26 +468,10 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
               {sensoryRows.map((r) => (
                 <tr key={r.id} className="hover:bg-cream-100/60">
                   <td className="px-1 py-1"><input type="text" value={r.panelName} onChange={(e) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, panelName: e.target.value } : s))} className="input-base !py-1 !px-2 text-sm" /></td>
-                  <td className="px-1 py-1"><OkSel value={r.taste} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, taste: v as any } : s))} /></td>
-                  <td className="px-1 py-1"><OkSel value={r.odor} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, odor: v as any } : s))} /></td>
-                  <td className="px-1 py-1"><OkSel value={r.appearance} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, appearance: v as any } : s))} /></td>
-                  <td className="px-1 py-1"><OkSel value={r.mouthfeel} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, mouthfeel: v as any } : s))} /></td>
-                  <td className="px-1 py-1">
-                    <select
-                      value={r.decision}
-                      onChange={(e) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, decision: e.target.value as any } : s))}
-                      className={`w-full border rounded-md px-1.5 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${
-                        r.decision === "Accept"
-                          ? "bg-success-50 text-success-700 border-success-200"
-                          : r.decision === "Reject"
-                          ? "bg-danger-50 text-danger-600 border-danger-200"
-                          : "bg-cream-50 border-cream-300 text-ink-500"
-                      }`}
-                    >
-                      <option value="">—</option><option value="Accept">Accept</option><option value="Reject">Reject</option>
-                    </select>
-                  </td>
-                  <td className="px-1 py-1"><input type="text" value={r.signature} onChange={(e) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, signature: e.target.value } : s))} className="input-base !py-1 !px-2 text-sm" /></td>
+                  <td className="px-1 py-1"><ScoreSel value={r.taste} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, taste: v as any } : s))} /></td>
+                  <td className="px-1 py-1"><ScoreSel value={r.odor} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, odor: v as any } : s))} /></td>
+                  <td className="px-1 py-1"><ScoreSel value={r.appearance} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, appearance: v as any } : s))} /></td>
+                  <td className="px-1 py-1"><ScoreSel value={r.mouthfeel} onChange={(v) => setSensoryRows((p) => p.map((s) => s.id === r.id ? { ...s, mouthfeel: v as any } : s))} /></td>
                 </tr>
               ))}
             </tbody>

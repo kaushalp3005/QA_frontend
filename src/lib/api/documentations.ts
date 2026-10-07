@@ -1,7 +1,7 @@
 // frontend/src/lib/api/documentations.ts
 
 import { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
-import { adminScope, getUserEmail, isFullAdmin } from '@/lib/warehouseAccess'
+import { adminScope, canDeleteForm, getUserEmail, isFullAdmin } from '@/lib/warehouseAccess'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
@@ -242,4 +242,13 @@ export function isDocAdminFor(warehouse?: string | null): boolean {
   // warehouse without administering it, and reading the lock here would hand
   // every one of them admin rights over their own plant's records.
   return adminScope() === warehouse
+}
+
+/**
+ * Delete rights for one record of `formType`: the doc admins above, plus any
+ * account granted delete on this form (FORM_DELETE_GRANTS) — a grant that
+ * carries no other admin right.
+ */
+export function canDeleteDoc(formType: string, warehouse?: string | null): boolean {
+  return isDocAdminFor(warehouse) || canDeleteForm(formType)
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Printer, Copy } from 'lucide-react'
-import { docsApi, isDocAdminFor } from '@/lib/api/documentations'
+import { docsApi, canDeleteDoc } from '@/lib/api/documentations'
 import { PRINTABLE_SLUGS, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 import SignatureCell from '@/components/ui/SignatureCell'
 
@@ -48,7 +48,7 @@ export default function DocViewPage({ config, renderJsonField }: Props) {
   const [loading, setLoading] = useState(true)
   const [prevId, setPrevId] = useState<number | null>(null)
   const [nextId, setNextId] = useState<number | null>(null)
-  const admin = isDocAdminFor(record?.warehouse)
+  const canDelete = canDeleteDoc(config.formType, record?.warehouse)
   const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
   const showDuplicate = DUPLICATABLE_SLUGS.has(config.routeSlug)
 
@@ -206,7 +206,7 @@ export default function DocViewPage({ config, renderJsonField }: Props) {
               </button>
             )}
             <button onClick={() => router.push(`${base}/${config.routeSlug}/${id}/edit`)} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 ml-2">Edit</button>
-            {admin && <button onClick={handleDelete} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700">Delete</button>}
+            {canDelete && <button onClick={handleDelete} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700">Delete</button>}
           </div>
         </div>
 

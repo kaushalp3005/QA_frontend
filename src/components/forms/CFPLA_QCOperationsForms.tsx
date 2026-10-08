@@ -399,17 +399,9 @@ interface LuxMonitoringRecordProps {
   initialData?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => Promise<void>;
   isEdit?: boolean;
-  /**
-   * Set when the readings in initialData are pre-filled starting values (a
-   * duplicate) rather than measurements. Every row that arrived with a reading
-   * must be ticked Confirmed against the actual reading before anything saves.
-   */
-  confirmReadings?: boolean;
 }
 
-const LUX_READING_FIELDS = ["r1", "r2", "r3", "r4", "r5"] as const;
-
-export function LuxMonitoringRecord({ initialData, onSubmit, isEdit, confirmReadings }: LuxMonitoringRecordProps = {}) {
+export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonitoringRecordProps = {}) {
   const [date, setDate] = useState(initialData?.check_date || ""); const [checkedBy, setCheckedBy] = useState(initialData?.checked_by || ""); const [verifiedBy, setVerifiedBy] = useState(initialData?.verified_by || "");
   const warehouse = getStoredWarehouse();
   const locationOptions = luxLocationsFor(warehouse);
@@ -419,15 +411,6 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit, confirmRead
     }
     return seedLuxRows(warehouse);
   });
-  // Row ids (i + 1, as mapped above) still awaiting confirmation.
-  const [unconfirmed, setUnconfirmed] = useState<Set<number>>(() =>
-    confirmReadings && Array.isArray(initialData?.rows)
-      ? new Set(initialData.rows.flatMap((r: any, i: number) =>
-          LUX_READING_FIELDS.some((k) => r[k] !== "" && r[k] != null) ? [i + 1] : []))
-      : new Set());
-  const toggleConfirmed = (id: number) =>
-    setUnconfirmed((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const pendingRows = rows.filter((r) => unconfirmed.has(r.id));
   // Created on the first save, then updated — so "Submit Partially" can be used
   // repeatedly without creating a new record each time.
   // Only a real edit adopts the record's id — see PreProductionInspectionForm.
@@ -457,15 +440,6 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit, confirmRead
 
   const handleSave = async (status: "draft" | "submitted") => {
     if (saving) return;
-    // Drafts too: a draft is a stored record, so unchecked starting values must
-    // never reach the database under either status.
-    if (pendingRows.length) {
-      setMessage({
-        kind: "err",
-        text: `Check ${pendingRows.length} highlighted row${pendingRows.length === 1 ? "" : "s"} against the actual readings and tick Confirmed before saving.`,
-      });
-      return;
-    }
     setSaving(status === "draft" ? "draft" : "final");
     setMessage(null);
     try {
@@ -512,7 +486,7 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit, confirmRead
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-cream-100/70 border-b border-cream-300">
-              <tr>{["Location", "Table No.", "R1", "R2", "R3", "R4", "R5", "Corrective Action", ...(confirmReadings ? ["Confirmed"] : []), ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+              <tr>{["Location", "Table No.", "R1", "R2", "R3", "R4", "R5", "Corrective Action", ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-cream-300">
               {rows.map((r) => (
@@ -544,24 +518,9 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit, confirmRead
                       <input type="text" value={r.tableNo} onChange={(e) => up(r.id, "tableNo", e.target.value)} className="input-base !py-1 !px-2 text-xs" />
                     )}
                   </td>
-                  {(["r1", "r2", "r3", "r4", "r5", "correctiveAction"] as (keyof LuxRow)[]).map((f) => {
-                    const isReading = (LUX_READING_FIELDS as readonly string[]).includes(f);
-                    const pending = isReading && unconfirmed.has(r.id);
-                    return (
-                      <td key={f} className="px-1 py-1"><input type={isReading ? "number" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className={`input-base !py-1 !px-2 text-xs ${pending ? "!bg-warning-50 !border-warning-300" : ""}`} /></td>
-                    );
-                  })}
-                  {confirmReadings && (
-                    <td className="px-1 py-1 text-center">
-                      <input
-                        type="checkbox"
-                        checked={!unconfirmed.has(r.id)}
-                        onChange={() => toggleConfirmed(r.id)}
-                        title="Readings checked against the actual measurement"
-                        className="accent-brand-600 w-4 h-4"
-                      />
-                    </td>
-                  )}
+                  {(["r1", "r2", "r3", "r4", "r5", "correctiveAction"] as (keyof LuxRow)[]).map((f) => (
+                    <td key={f} className="px-1 py-1"><input type={["r1", "r2", "r3", "r4", "r5"].includes(f) ? "number" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
+                  ))}
                   <td className="px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
                 </tr>
               ))}

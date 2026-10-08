@@ -1,7 +1,8 @@
 "use client";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
+import { getUserEmail } from "@/lib/warehouseAccess";
 
 // ===================== F.13 — New Product Verification =====================
 /**
@@ -178,6 +179,26 @@ interface NewProductVerificationProps {
   isEdit?: boolean;
 }
 
+/**
+ * Unsaved-draft cache for a NEW record, so a stray Back click or closed tab
+ * doesn't lose a half-filled form. Lives in this browser's localStorage, one
+ * draft per user, and is cleared the moment the record is created. Edits and
+ * duplicates don't use it: they start from a saved record, not a blank form.
+ */
+interface NpvDraft {
+  trials: Trial[]; pilots: Pilot[];
+  supervisorName: string; productionManagerName: string; approvedByName: string; customerRepName: string;
+}
+const npvDraftKey = () => `qc-draft:new-product-verification:${getUserEmail() || "anon"}`;
+const loadNpvDraft = (): NpvDraft | null => {
+  try {
+    const d = JSON.parse(localStorage.getItem(npvDraftKey()) || "null");
+    return d && Array.isArray(d.trials) && d.trials.length && Array.isArray(d.pilots) && d.pilots.length ? d : null;
+  } catch { return null; }
+};
+const saveNpvDraft = (d: NpvDraft) => { try { localStorage.setItem(npvDraftKey(), JSON.stringify(d)); } catch { /* storage full or blocked */ } };
+const clearNpvDraft = () => { try { localStorage.removeItem(npvDraftKey()); } catch { /* blocked */ } };
+
 export function NewProductVerification({ initialData, onSubmit, isEdit }: NewProductVerificationProps = {}) {
   // Trials: each holds Trial Information → Chemical Analysis. Tabs switch between them.
   const [trials, setTrials] = useState<Trial[]>(() => {
@@ -276,6 +297,38 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
   const [approvedByName, setApprovedByName] = useState(initialData?.approved_by_fstl || initialData?.approved_by_name || ""); const [customerRepName, setCustomerRepName] = useState(initialData?.customer_representative || initialData?.customer_rep_name || "");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Draft cache — plain create only (see NpvDraft). Restored after mount rather
+  // than in the useState initialisers, since localStorage doesn't exist during
+  // the server render and reading it there would break hydration.
+  const draftEnabled = !onSubmit && !isEdit && !initialData;
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  useEffect(() => {
+    if (!draftEnabled) return;
+    const d = loadNpvDraft();
+    if (d) {
+      setTrials(d.trials); setPilots(d.pilots);
+      setSupervisorName(d.supervisorName || ""); setProductionManagerName(d.productionManagerName || "");
+      setApprovedByName(d.approvedByName || ""); setCustomerRepName(d.customerRepName || "");
+      setDraftRestored(true);
+    }
+    // Saving starts on the next render, once the restored values are in state —
+    // saving on this one would overwrite the draft with the blank form.
+    setDraftReady(true);
+  }, []);
+  useEffect(() => {
+    if (!draftEnabled || !draftReady) return;
+    saveNpvDraft({ trials, pilots, supervisorName, productionManagerName, approvedByName, customerRepName });
+  }, [draftEnabled, draftReady, trials, pilots, supervisorName, productionManagerName, approvedByName, customerRepName]);
+  const discardDraft = () => {
+    clearNpvDraft();
+    setTrials([makeTrial()]); setActiveTrial(0);
+    setPilots([makePilot()]); setActivePilot(0);
+    setSupervisorName(""); setProductionManagerName(""); setApprovedByName(""); setCustomerRepName("");
+    setDraftRestored(false);
+  };
+
   // Optional ingredient columns (Protein/Fiber/Sugar/Energy) can be toggled; the 3 core columns are always shown.
   const [hiddenIngCols, setHiddenIngCols] = useState<Record<string, boolean>>({});
   const toggleIngCol = (key: string) => setHiddenIngCols((p) => ({ ...p, [key]: !p[key] }));
@@ -340,6 +393,8 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
       } else {
         const { docsApi } = await import("@/lib/api/documentations");
         await docsApi.create("new-product-verification", payload);
+        // Saved — the next new form must start blank, not from this one.
+        clearNpvDraft();
         setSuccess(true);
         router.push("/documentations/new-product-verification");
       }
@@ -352,6 +407,12 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
 
   return (
     <div className="space-y-5">
+      {draftRestored && (
+        <div className="flex items-center justify-between gap-3 flex-wrap rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm text-ink-600">
+          <span>Restored your unsaved entry from last time. It is cleared once you submit.</span>
+          <button type="button" onClick={discardDraft} className="btn-outline !py-1 !px-3 text-xs">Discard &amp; start blank</button>
+        </div>
+      )}
       <section className="surface-card overflow-hidden">
         <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
           <div className="flex items-center justify-between gap-3 flex-wrap">

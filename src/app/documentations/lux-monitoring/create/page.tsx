@@ -11,8 +11,7 @@ const LUX_READING_KEYS = ["r1", "r2", "r3", "r4", "r5"] as const;
 /**
  * A duplicated record starts each reading 45–51 lux above or below the source
  * value (sign picked at random, floored at 0). Blank readings stay blank. These
- * are starting values only: the form makes the user confirm every row against
- * the actual reading before it will save (see `confirmReadings`).
+ * are starting values only and stay editable before saving.
  */
 function shiftReading(value: unknown): unknown {
   if (value === "" || value == null || Number.isNaN(Number(value))) return value;
@@ -54,7 +53,7 @@ export default function Page() {
       docNo="CFPLA.C4.F.32"
       icon={Sun}
       width="lg"
-      note={duplicateFrom ? `Duplicating record #${duplicateFrom} — R1–R5 are pre-filled at ±45–51 from that record. Check each row against the actual reading, tick Confirmed, then Submit to save as a new record.` : undefined}
+      note={duplicateFrom ? `Duplicating record #${duplicateFrom} — R1–R5 are pre-filled at ±45–51 from that record. Adjust any reading if needed, then Submit to save as a new record.` : undefined}
     >
       {loading ? (
         <div className="flex items-center justify-center py-20 gap-3 text-ink-400">
@@ -62,7 +61,7 @@ export default function Page() {
           <span className="text-sm">Loading record to duplicate…</span>
         </div>
       ) : (
-        <LuxMonitoringRecord initialData={initialData || undefined} confirmReadings={!!duplicateFrom && !!initialData} />
+        <LuxMonitoringRecord initialData={initialData || undefined} />
       )}
     </DocFormShell>
   );

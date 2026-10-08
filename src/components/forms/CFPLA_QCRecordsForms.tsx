@@ -7,21 +7,38 @@ import {
   QC_VERIFIED_BY_OPTIONS,
   filterSignaturesByWarehouse,
   type SignatureOption,
+  type WarehouseScope,
 } from "@/lib/signatures";
+import {
+  TH_DAYS,
+  thFormSections,
+  thHasData,
+  type THSection,
+} from "@/lib/temperature-humidity";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-/** Compact per-day signatory dropdown, warehouse-filtered like the other docs. */
+/**
+ * Compact per-day signatory dropdown, warehouse-filtered like the other docs.
+ *
+ * Filtered by the record's plant (not the plant currently selected in the
+ * header), and a saved name that isn't in the list — an older free-text entry,
+ * or someone since removed — is kept as an option. Otherwise the <select> has no
+ * matching option and a saved signature shows as "—".
+ */
 function CompactSignSelect({
   value,
   onChange,
   options,
+  warehouse,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: SignatureOption[];
+  warehouse: WarehouseScope;
 }) {
-  const visible = filterSignaturesByWarehouse(options, getStoredWarehouse());
+  const visible = filterSignaturesByWarehouse(options, warehouse).filter((o) => o.name !== "Other");
+  const keepSaved = value !== "" && !visible.some((o) => o.name === value);
   return (
     <select
       value={value}
@@ -30,13 +47,12 @@ function CompactSignSelect({
       title={value || "Select"}
     >
       <option value="">—</option>
-      {visible
-        .filter((o) => o.name !== "Other")
-        .map((o) => (
-          <option key={o.name} value={o.name}>
-            {o.name}
-          </option>
-        ))}
+      {keepSaved && <option value={value}>{value}</option>}
+      {visible.map((o) => (
+        <option key={o.name} value={o.name}>
+          {o.name}
+        </option>
+      ))}
     </select>
   );
 }
@@ -49,102 +65,19 @@ interface TemperatureHumidityProps {
 }
 
 const TH_FORM_TYPE = "temperature-humidity";
-const TH_DAYS = 31;
-
-/** Monitored areas — each gets its own tab, readings grid and notes. */
-const TH_SECTIONS = ["Lab", "Cold storage", "Mezzanine"];
-
-type THReading = { temp: string; humidity: string };
-
-interface THSection {
-  area: string;
-  /** day number → [Start, Mid, End] */
-  grid: Record<number, THReading[]>;
-  checkedBy: Record<number, string>;
-  verifiedBy: Record<number, string>;
-  observations: string;
-  correctiveAction: string;
-}
-
-const thEmptyGrid = (): Record<number, THReading[]> => {
-  const g: Record<number, THReading[]> = {};
-  for (let d = 1; d <= TH_DAYS; d++) {
-    g[d] = [{ temp: "", humidity: "" }, { temp: "", humidity: "" }, { temp: "", humidity: "" }];
-  }
-  return g;
-};
-
-const thEmptySection = (area: string): THSection => ({
-  area,
-  grid: thEmptyGrid(),
-  checkedBy: {},
-  verifiedBy: {},
-  observations: "",
-  correctiveAction: "",
-});
-
-/** Day-rows (legacy flat array, or one v2 section's rows) → editable section. */
-function thSectionFromRows(
-  area: string,
-  rows: any[],
-  observations?: string,
-  correctiveAction?: string,
-): THSection {
-  const s = thEmptySection(area);
-  for (const r of Array.isArray(rows) ? rows : []) {
-    const d = Number(r?.day);
-    if (!d || d < 1 || d > TH_DAYS) continue;
-    s.grid[d] = [
-      { temp: r.start_temp ?? "", humidity: r.start_humidity ?? "" },
-      { temp: r.mid_temp ?? "", humidity: r.mid_humidity ?? "" },
-      { temp: r.end_temp ?? "", humidity: r.end_humidity ?? "" },
-    ];
-    if (r.checked_by) s.checkedBy[d] = r.checked_by;
-    if (r.verified_by) s.verifiedBy[d] = r.verified_by;
-  }
-  s.observations = observations || "";
-  s.correctiveAction = correctiveAction || "";
-  return s;
-}
-
-const thHasData = (s: THSection) =>
-  s.observations.trim() !== "" ||
-  s.correctiveAction.trim() !== "" ||
-  Object.values(s.checkedBy).some(Boolean) ||
-  Object.values(s.verifiedBy).some(Boolean) ||
-  Object.values(s.grid).some((day) => day.some((r) => r.temp !== "" || r.humidity !== ""));
-
-/**
- * Build the tab list: always the three standard areas, plus any other area a
- * saved record used (older records stored one free-text area like "First floor",
- * so those keep their data instead of silently disappearing).
- */
-function thParseSections(initialData?: Record<string, any>): THSection[] {
-  const raw = initialData?.readings;
-  let parsed: THSection[] = [];
-
-  if (raw && !Array.isArray(raw) && typeof raw === "object" && Array.isArray(raw.sections)) {
-    parsed = raw.sections.map((s: any) =>
-      thSectionFromRows(s?.area || "", s?.rows, s?.observations, s?.corrective_action),
-    );
-  } else if (Array.isArray(raw) && raw.length > 0) {
-    // Legacy shape: one flat day-rows array for the record's single area.
-    parsed = [thSectionFromRows(initialData?.area || "", raw, initialData?.observations, initialData?.corrective_action)];
-  }
-
-  const key = (a: string) => a.trim().toLowerCase();
-  const byArea = new Map(parsed.map((s) => [key(s.area), s]));
-  const out = TH_SECTIONS.map((name) => byArea.get(key(name)) ?? thEmptySection(name));
-  parsed.forEach((s) => {
-    if (s.area.trim() && !TH_SECTIONS.some((n) => key(n) === key(s.area))) out.push(s);
-  });
-  return out;
-}
-
 export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: TemperatureHumidityProps = {}) {
   const [month, setMonth] = useState(initialData?.month || "");
-  const [sections, setSections] = useState<THSection[]>(() => thParseSections(initialData));
-  const [activeIdx, setActiveIdx] = useState(0);
+  const [sections, setSections] = useState<THSection[]>(() => thFormSections(initialData));
+  // Open on the first area that has data. Older records keep their readings in
+  // an extra tab (e.g. "First floor") after the three standard areas, so
+  // starting on "Lab" made a filled record look empty.
+  const [activeIdx, setActiveIdx] = useState(() => Math.max(0, sections.findIndex(thHasData)));
+  // An edit keeps the record in its own plant. A new record (or a duplicate)
+  // belongs to the plant selected in the header.
+  const recordWarehouse: WarehouseScope =
+    isEdit && (initialData?.warehouse === "A185" || initialData?.warehouse === "W202")
+      ? initialData.warehouse
+      : getStoredWarehouse();
   // Created on the first save, updated on every save after — so a draft can be
   // saved repeatedly without piling up duplicate records.
   const [savedId, setSavedId] = useState<number | null>(initialData?.id ?? null);
@@ -206,7 +139,7 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
       return "";
     };
     return {
-      warehouse: getStoredWarehouse() || null,
+      warehouse: recordWarehouse || null,
       month,
       // Kept as a plain string for the DB column and the list's AREA cell.
       area: filled.map((s) => s.area).join(", ") || section?.area || "",
@@ -401,6 +334,7 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
                       value={section?.checkedBy[d + 1] || ""}
                       onChange={(v) => updateSection(activeIdx, (s) => ({ ...s, checkedBy: { ...s.checkedBy, [d + 1]: v } }))}
                       options={CHECKED_BY_OPTIONS}
+                      warehouse={recordWarehouse}
                     />
                   </td>
                 ))}
@@ -418,6 +352,7 @@ export function TemperatureHumidityRecord({ initialData, onSubmit, isEdit }: Tem
                       value={section?.verifiedBy[d + 1] || ""}
                       onChange={(v) => updateSection(activeIdx, (s) => ({ ...s, verifiedBy: { ...s.verifiedBy, [d + 1]: v } }))}
                       options={QC_VERIFIED_BY_OPTIONS}
+                      warehouse={recordWarehouse}
                     />
                   </td>
                 ))}

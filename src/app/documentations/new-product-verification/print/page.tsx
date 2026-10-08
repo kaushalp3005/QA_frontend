@@ -40,8 +40,8 @@ const TRIAL_FIELDS: { key: string; label: string; date?: boolean }[] = [
   { key: "trial_no", label: "Trial No" },
   { key: "persons_present", label: "Persons Present for Trial" },
   { key: "batch_number", label: "Batch Number" },
-  { key: "baking_temp", label: "Time & Temp for Baking/Roasting (if applicable)" },
-  { key: "ingredient_changes", label: "Ingredients Changed/Replaced (if any)" },
+  { key: "baking_roasting_time_temp", label: "Time & Temp for Baking/Roasting (if applicable)" },
+  { key: "ingredients_changed", label: "Ingredients Changed/Replaced (if any)" },
   { key: "flow_chart", label: "Flow Chart/Line Used for Pilot Run" },
   { key: "equipment_added", label: "Equipment Added (if any)" },
 ];
@@ -54,18 +54,18 @@ const OPTIONAL_ING_COLS: { key: keyof IngredientRow; label: string }[] = [
 ];
 
 const CHEM_FIELDS: { key: string; label: string }[] = [
-  { key: "moisture", label: "Moisture %" },
-  { key: "fat", label: "Fat %" },
+  { key: "moisture_pct", label: "Moisture %" },
+  { key: "fat_pct", label: "Fat %" },
   { key: "acid_value", label: "Acid Value" },
   { key: "peroxide_value", label: "Peroxide Value" },
-  { key: "salt", label: "Salt %" },
+  { key: "salt_pct", label: "Salt %" },
   { key: "ph", label: "pH" },
 ];
 
 const PILOT_FIELDS: { key: string; label: string }[] = [
-  { key: "lab_trial_name", label: "Lab Scale Trial Done By" },
-  { key: "pilot_qty", label: "Quantity for Pilot Run (kg)" },
-  { key: "pilot_batch", label: "Batch Number" },
+  { key: "lab_scale_trial_by", label: "Lab Scale Trial Done By" },
+  { key: "pilot_qty_kg", label: "Quantity for Pilot Run (kg)" },
+  { key: "pilot_batch_no", label: "Batch Number" },
   { key: "pilot_success", label: "Pilot Scale Production Done Successfully?" },
   { key: "pilot_persons", label: "Persons Present for Pilot Run" },
   { key: "packaging_material", label: "Packaging Material Used" },
@@ -231,10 +231,10 @@ function RecordSheet({ record }: { record: Record<string, any> }) {
         <tbody>
           <tr>
             {[
-              { l: "Pilot Run Supervisor", k: "supervisor_name" },
-              { l: "Production Manager", k: "production_manager_name" },
-              { l: "Approved by (FSTL)", k: "approved_by_name" },
-              { l: "Customer Representative", k: "customer_rep_name" },
+              { l: "Pilot Run Supervisor", k: "pilot_supervisor" },
+              { l: "Production Manager", k: "production_manager" },
+              { l: "Approved by (FSTL)", k: "approved_by_fstl" },
+              { l: "Customer Representative", k: "customer_representative" },
             ].map((c) => (
               <td key={c.k} style={{ ...tdInfo, width: "25%", textAlign: "center", verticalAlign: "top" }}>
                 <div style={{ minHeight: "34px", display: "flex", alignItems: "center", justifyContent: "center" }}>

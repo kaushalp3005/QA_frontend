@@ -6,7 +6,7 @@ import { ArrowLeft, FileText, Plus, Pencil, Eye, Trash2, Inbox, Printer, Copy, S
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { docsApi, canDeleteDoc } from '@/lib/api/documentations'
-import { PRINTABLE_SLUGS, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
+import { canPrintDoc, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 
 interface Props {
   config: DocFormConfig
@@ -33,7 +33,7 @@ export default function DocListPage({ config, renderExpanded }: Props) {
   // Every row on screen belongs to the currently selected warehouse (the list
   // is server-filtered to it below), so one delete check covers the whole page.
   const canDelete = canDeleteDoc(config.formType, hasWarehouseCol ? warehouse : undefined)
-  const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
+  const showPrint = canPrintDoc(config, hasWarehouseCol ? warehouse : getStoredWarehouse())
   const showDuplicate = DUPLICATABLE_SLUGS.has(config.routeSlug)
 
   const expandable = typeof renderExpanded === 'function'

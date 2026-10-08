@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Printer, Copy } from 'lucide-react'
 import { docsApi, canDeleteDoc } from '@/lib/api/documentations'
-import { PRINTABLE_SLUGS, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
+import { canPrintDoc, DUPLICATABLE_SLUGS, type DocFormConfig } from '@/config/doc-forms'
 import SignatureCell from '@/components/ui/SignatureCell'
 
 const SIGNATURE_FIELD_KEYS = new Set([
@@ -49,7 +49,7 @@ export default function DocViewPage({ config, renderJsonField }: Props) {
   const [prevId, setPrevId] = useState<number | null>(null)
   const [nextId, setNextId] = useState<number | null>(null)
   const canDelete = canDeleteDoc(config.formType, record?.warehouse)
-  const showPrint = PRINTABLE_SLUGS.has(config.routeSlug) || config.printable === true
+  const showPrint = canPrintDoc(config, record?.warehouse)
   const showDuplicate = DUPLICATABLE_SLUGS.has(config.routeSlug)
 
   useEffect(() => {

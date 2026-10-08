@@ -108,6 +108,12 @@ const mapSensory = (src: any): SensoryRow[] => {
   if (Array.isArray(src)) return src.map((r: any, i: number) => ({ id: i + 1, panelName: r.panel_name || r.panelName || "", taste: r.taste || DEFAULT_SCORE, odor: r.odor || DEFAULT_SCORE, appearance: r.appearance || DEFAULT_SCORE, mouthfeel: r.mouthfeel || DEFAULT_SCORE }));
   return Array.from({ length: 3 }, (_, i) => emptySensoryRow(i + 1));
 };
+/**
+ * Keys follow the doc_new_product_verification columns (baking_roasting_time_temp,
+ * moisture_pct, …). The backend drops any key with no matching column, so the
+ * older names this form used to send (baking_temp, moisture, …) were never
+ * stored; they are still read as a fallback for any value held under them.
+ */
 const makeTrial = (src?: any): Trial => ({
   date: src?.verify_date ?? src?.date ?? "",
   productName: src?.product_name ?? src?.productName ?? "",
@@ -115,27 +121,27 @@ const makeTrial = (src?: any): Trial => ({
   trialNo: src?.trial_no ?? src?.trialNo ?? "",
   personsPresent: src?.persons_present ?? src?.personsPresent ?? "",
   batchNumber: src?.batch_number ?? src?.batchNumber ?? "",
-  bakingTemp: src?.baking_temp ?? src?.bakingTemp ?? "",
-  ingredientChanges: src?.ingredient_changes ?? src?.ingredientChanges ?? "",
+  bakingTemp: src?.baking_roasting_time_temp ?? src?.baking_temp ?? src?.bakingTemp ?? "",
+  ingredientChanges: src?.ingredients_changed ?? src?.ingredient_changes ?? src?.ingredientChanges ?? "",
   flowChart: src?.flow_chart ?? src?.flowChart ?? "",
   equipmentAdded: src?.equipment_added ?? src?.equipmentAdded ?? "",
   ingredientRows: mapIngredients(src?.ingredients_used ?? src?.ingredientRows),
   sensoryRows: mapSensory(src?.sensory_rows ?? src?.sensoryRows),
-  moisture: src?.moisture != null ? String(src.moisture) : "",
-  fat: src?.fat != null ? String(src.fat) : "",
+  moisture: src?.moisture_pct != null ? String(src.moisture_pct) : src?.moisture != null ? String(src.moisture) : "",
+  fat: src?.fat_pct != null ? String(src.fat_pct) : src?.fat != null ? String(src.fat) : "",
   acidValue: src?.acid_value != null ? String(src.acid_value) : (src?.acidValue ?? ""),
   peroxideValue: src?.peroxide_value != null ? String(src.peroxide_value) : (src?.peroxideValue ?? ""),
-  salt: src?.salt != null ? String(src.salt) : "",
+  salt: src?.salt_pct != null ? String(src.salt_pct) : src?.salt != null ? String(src.salt) : "",
   ph: src?.ph != null ? String(src.ph) : "",
 });
 const numOrNull = (s: string) => (s ? Number(s) : null);
 const trialPayload = (tr: Trial) => ({
   verify_date: tr.date, product_name: tr.productName, customer_name: tr.customerName, trial_no: tr.trialNo,
-  persons_present: tr.personsPresent, batch_number: tr.batchNumber, baking_temp: tr.bakingTemp,
-  ingredient_changes: tr.ingredientChanges, flow_chart: tr.flowChart, equipment_added: tr.equipmentAdded,
+  persons_present: tr.personsPresent, batch_number: tr.batchNumber, baking_roasting_time_temp: tr.bakingTemp,
+  ingredients_changed: tr.ingredientChanges, flow_chart: tr.flowChart, equipment_added: tr.equipmentAdded,
   ingredients_used: tr.ingredientRows.filter((r) => r.ingredient.trim() || r.variety.trim() || r.vendor.trim() || r.percentage.trim() || r.specification.trim()).map((r) => ({ ingredient: r.ingredient, variety: r.variety, vendor: r.vendor, percentage: r.percentage, specification: r.specification, protein: r.protein, fiber: r.fiber, sugar: r.sugar, energy: r.energy })),
   sensory_rows: tr.sensoryRows.filter((r) => r.panelName).map((r) => ({ panel_name: r.panelName, taste: r.taste, odor: r.odor, appearance: r.appearance, mouthfeel: r.mouthfeel })),
-  moisture: numOrNull(tr.moisture), fat: numOrNull(tr.fat), acid_value: numOrNull(tr.acidValue), peroxide_value: numOrNull(tr.peroxideValue), salt: numOrNull(tr.salt), ph: numOrNull(tr.ph),
+  moisture_pct: numOrNull(tr.moisture), fat_pct: numOrNull(tr.fat), acid_value: numOrNull(tr.acidValue), peroxide_value: numOrNull(tr.peroxideValue), salt_pct: numOrNull(tr.salt), ph: numOrNull(tr.ph),
 });
 
 // One pilot = the Pilot Run Details block (repeated via tabs).
@@ -145,9 +151,9 @@ interface Pilot {
   storageCondition: string; haccpImpact: string; crossContamination: string;
 }
 const makePilot = (src?: any): Pilot => ({
-  labTrialName: src?.lab_trial_name ?? src?.labTrialName ?? "",
-  pilotQty: src?.pilot_qty ?? src?.pilotQty ?? "",
-  pilotBatch: src?.pilot_batch ?? src?.pilotBatch ?? "",
+  labTrialName: src?.lab_scale_trial_by ?? src?.lab_trial_name ?? src?.labTrialName ?? "",
+  pilotQty: src?.pilot_qty_kg ?? src?.pilot_qty ?? src?.pilotQty ?? "",
+  pilotBatch: src?.pilot_batch_no ?? src?.pilot_batch ?? src?.pilotBatch ?? "",
   pilotSuccess: src?.pilot_success ?? src?.pilotSuccess ?? "",
   pilotPersons: src?.pilot_persons ?? src?.pilotPersons ?? "",
   packagingMaterial: src?.packaging_material ?? src?.packagingMaterial ?? "",
@@ -159,7 +165,7 @@ const makePilot = (src?: any): Pilot => ({
   crossContamination: src?.cross_contamination ?? src?.crossContamination ?? "",
 });
 const pilotPayload = (p: Pilot) => ({
-  lab_trial_name: p.labTrialName, pilot_qty: p.pilotQty, pilot_batch: p.pilotBatch,
+  lab_scale_trial_by: p.labTrialName, pilot_qty_kg: p.pilotQty, pilot_batch_no: p.pilotBatch,
   pilot_success: p.pilotSuccess, pilot_persons: p.pilotPersons,
   packaging_material: p.packagingMaterial, claims: p.claims, regulatory: p.regulatory,
   shelf_life: p.shelfLife, storage_condition: p.storageCondition,
@@ -266,8 +272,8 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
   const haccpImpact = pl.haccpImpact, setHaccpImpact = (v: string) => patchPilot({ haccpImpact: v });
   const crossContamination = pl.crossContamination, setCrossContamination = (v: string) => patchPilot({ crossContamination: v });
   const router = useRouter();
-  const [supervisorName, setSupervisorName] = useState(initialData?.supervisor_name || ""); const [productionManagerName, setProductionManagerName] = useState(initialData?.production_manager_name || "");
-  const [approvedByName, setApprovedByName] = useState(initialData?.approved_by_name || ""); const [customerRepName, setCustomerRepName] = useState(initialData?.customer_rep_name || "");
+  const [supervisorName, setSupervisorName] = useState(initialData?.pilot_supervisor || initialData?.supervisor_name || ""); const [productionManagerName, setProductionManagerName] = useState(initialData?.production_manager || initialData?.production_manager_name || "");
+  const [approvedByName, setApprovedByName] = useState(initialData?.approved_by_fstl || initialData?.approved_by_name || ""); const [customerRepName, setCustomerRepName] = useState(initialData?.customer_representative || initialData?.customer_rep_name || "");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   // Optional ingredient columns (Protein/Fiber/Sugar/Energy) can be toggled; the 3 core columns are always shown.
@@ -325,8 +331,8 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
       // Pilot 1 is mirrored to the top-level columns so list/view/print keep working.
       ...pilotPayload(pilots[0]),
       pilots: pilots.map(pilotPayload),
-      supervisor_name: supervisorName, production_manager_name: productionManagerName,
-      approved_by_name: approvedByName, customer_rep_name: customerRepName,
+      pilot_supervisor: supervisorName, production_manager: productionManagerName,
+      approved_by_fstl: approvedByName, customer_representative: customerRepName,
     };
     try {
       if (onSubmit) {

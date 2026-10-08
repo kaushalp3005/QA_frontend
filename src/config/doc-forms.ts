@@ -10,6 +10,11 @@ export interface DocFormConfig {
   listColumns: string[]
   routeSlug: string
   printable?: boolean
+  /**
+   * Plants that have a print layout for this form. Omit when the print page
+   * serves every plant; when set, the Print button only shows for these.
+   */
+  printWarehouses?: WarehouseCode[]
   /** Warehouse-specific text prefixed in front of `label` (e.g. A185 → "Tray Roaster"). */
   titlePrefixByWarehouse?: Record<string, string>
   /**
@@ -31,6 +36,13 @@ export interface DocFormConfig {
    * entry fall back to the column name with underscores turned into spaces.
    */
   columnLabels?: Record<string, string>
+}
+
+/** Whether to offer Print for a record of this form at `warehouse`. */
+export function canPrintDoc(config: DocFormConfig, warehouse?: string | null): boolean {
+  if (!PRINTABLE_SLUGS.has(config.routeSlug) && config.printable !== true) return false
+  if (!config.printWarehouses) return true
+  return !!warehouse && (config.printWarehouses as string[]).includes(warehouse)
 }
 
 export const PRINTABLE_SLUGS = new Set<string>([
@@ -144,7 +156,8 @@ export const DOC_FORMS: Record<string, DocFormConfig> = {
   "mock-recall":             { formType: "mock-recall",               routeSlug: "mock-recall",               label: "Mock Recall",                      docNo: "CFPLA.C3.F.31",  dateField: "recall_date",     listColumns: ["recall_date", "product_name", "batch_number", "recall_efficiency_pct", "warehouse"] },
   "lux-monitoring":          { formType: "lux-monitoring",            routeSlug: "lux-monitoring",            label: "Lux Monitoring Record",            docNo: "CFPLA.C4.F.32",  dateField: "check_date",      listColumns: ["check_date", "checked_by", "warehouse", "status"] },
   "pre-weighing":            { formType: "pre-weighing",              routeSlug: "pre-weighing",              label: "Pre Weighing Check Record",        docNo: "CFPLA.C6.F.34",  dateField: "check_date",      listColumns: ["check_date", "customer", "product", "warehouse"] },
-  "fly-catcher":             { formType: "fly-catcher",               routeSlug: "fly-catcher",               label: "Daily Fly Catcher Check",          docNo: "CFPLA.C7.F.37",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
+  // Only W202's paper layout is built (print/page.tsx); A185 has no print yet.
+  "fly-catcher":             { formType: "fly-catcher",               routeSlug: "fly-catcher",               label: "Daily Fly Catcher Check",          docNo: "CFPLA.C7.F.37",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"], printable: true, printWarehouses: ["W202"] },
   "ccp-roasting-bar":        { formType: "ccp-roasting-bar",          routeSlug: "ccp-roasting-bar",          label: "CCP Roasting (Bar Line)",          docNo: "CFPLA.C2.F.43",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   "vehicle-inspection":      { formType: "vehicle-inspection",        routeSlug: "vehicle-inspection",        label: "Incoming Vehicle Inspection",      docNo: "CFPLA.C3.F.45",  dateField: "inspection_date", listColumns: ["inspection_date", "vendor_name", "vehicle_number", "warehouse"] },
   "outgoing-vehicle-inspection": { formType: "outgoing-vehicle-inspection", routeSlug: "outgoing-vehicle-inspection", label: "Outgoing Vehicle Inspection", docNo: "CFPLA.C5.F.46", dateField: "dispatch_date",  listColumns: ["dispatch_date", "customer_name", "vehicle_number", "warehouse"] },

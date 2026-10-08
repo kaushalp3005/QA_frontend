@@ -25,6 +25,10 @@ interface Props {
   prefillFields?: readonly string[]
   /** Extra props handed straight to the form, e.g. state a page shares between forms. */
   formProps?: Record<string, any>
+  /** Adjusts a record loaded via ?duplicateFrom before the form receives it. */
+  transformDuplicate?: (record: Record<string, any>) => Record<string, any>
+  /** Extra props for the form only when it was loaded from ?duplicateFrom. */
+  duplicateFormProps?: Record<string, any>
 }
 
 // Identity / bookkeeping fields belonging to the record being copied. They must
@@ -46,7 +50,7 @@ function stripIdentity(record: Record<string, any>): Record<string, any> {
  * passes no `onSubmit`, so the form falls back to `docsApi.create` and saves a
  * NEW record rather than updating the one it was copied from.
  */
-function DocCreateFormInner({ formType, FormComponent, prefillFields, formProps }: Props) {
+function DocCreateFormInner({ formType, FormComponent, prefillFields, formProps, transformDuplicate, duplicateFormProps }: Props) {
   const searchParams = useSearchParams()
   const duplicateFrom = searchParams.get('duplicateFrom')
 
@@ -71,7 +75,10 @@ function DocCreateFormInner({ formType, FormComponent, prefillFields, formProps 
     setLoading(true)
     setLoadError(false)
     docsApi.get(formType, id)
-      .then((res) => setInitialData(stripIdentity(res.data)))
+      .then((res) => {
+        const copy = stripIdentity(res.data)
+        setInitialData(transformDuplicate ? transformDuplicate(copy) : copy)
+      })
       .catch((e) => { console.error('Failed to load record to duplicate:', e); setLoadError(true) })
       .finally(() => setLoading(false))
   }, [duplicateFrom, formType])
@@ -101,7 +108,11 @@ function DocCreateFormInner({ formType, FormComponent, prefillFields, formProps 
           Prefilled from the training attendance sheet — check the details, complete the card, then submit to save it.
         </div>
       )}
-      <FormComponent initialData={initialData ?? prefill ?? undefined} {...formProps} />
+      <FormComponent
+        initialData={initialData ?? prefill ?? undefined}
+        {...formProps}
+        {...(duplicateFrom && initialData ? duplicateFormProps : undefined)}
+      />
     </div>
   )
 }

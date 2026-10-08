@@ -126,7 +126,13 @@ export default function EditComplaintPage() {
         quantityRejected: data.quantityRejected || complaint.quantityRejected,
         quantityApproved: data.quantityApproved || complaint.quantityApproved,
         uom: data.articles?.[0]?.uom || complaint.uom,
-        complaintNature: data.complaintCategory || complaint.complaintNature,
+        // Same mapping as the create page, so an edited complaint stores the
+        // category the way a new one does ('Food Safety' / 'Non Food Safety').
+        complaintNature: data.complaintCategory === 'food_safety'
+          ? 'Food Safety'
+          : data.complaintCategory === 'non_food_safety'
+          ? 'Non Food Safety'
+          : complaint.complaintNature,
         complaintCategory: data.complaintCategory || complaint.complaintCategory || '',
         complaintSubcategory: data.complaintSubcategory || complaint.complaintSubcategory || '',
         otherComplaintNature: data.complaintSubcategory || '',
@@ -211,7 +217,10 @@ export default function EditComplaintPage() {
   // Create initial data for the form from the loaded complaint
   // Map complaintNature to form fields
   const mapComplaintNatureToCategory = (nature: string): 'food_safety' | 'non_food_safety' => {
-    const natureLower = nature.toLowerCase().replace(/_/g, ' ')
+    const natureLower = nature.toLowerCase().replace(/[_-]/g, ' ')
+    // "non food safety" also contains "food safety", so test for it first —
+    // otherwise every non-food-safety complaint opens as Food Safety.
+    if (natureLower.includes('non food safety')) return 'non_food_safety'
     if (natureLower.includes('food safety')) return 'food_safety'
     if (natureLower.includes('food quality')) return 'food_safety' // map quality to food_safety
     if (natureLower.includes('packaging')) return 'non_food_safety'
@@ -226,7 +235,9 @@ export default function EditComplaintPage() {
     complaintCategory: complaint.complaintCategory
       ? complaint.complaintCategory as 'food_safety' | 'non_food_safety'
       : mapComplaintNatureToCategory(complaint.complaintNature || 'FOOD_SAFETY'),
-    complaintSubcategory: complaint.complaintSubcategory || complaint.otherComplaintNature || '',
+    // The API upper-cases this ("PHYSICAL_HAZARD") but the form's <select> options
+    // are lowercase slugs, so without this the required field opens blank.
+    complaintSubcategory: (complaint.complaintSubcategory || complaint.otherComplaintNature || '').toLowerCase(),
     complaintReceiveDate: complaint.receivedDate,
     batchNo: complaint.batchNo || '',
     packingDate: complaint.packingDate || '',

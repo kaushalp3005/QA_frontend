@@ -399,9 +399,17 @@ interface LuxMonitoringRecordProps {
   initialData?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => Promise<void>;
   isEdit?: boolean;
+  /**
+   * Set when the readings in initialData are pre-filled starting values (a
+   * duplicate) rather than measurements. Every row that arrived with a reading
+   * must be ticked Confirmed against the actual reading before anything saves.
+   */
+  confirmReadings?: boolean;
 }
 
-export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonitoringRecordProps = {}) {
+const LUX_READING_FIELDS = ["r1", "r2", "r3", "r4", "r5"] as const;
+
+export function LuxMonitoringRecord({ initialData, onSubmit, isEdit, confirmReadings }: LuxMonitoringRecordProps = {}) {
   const [date, setDate] = useState(initialData?.check_date || ""); const [checkedBy, setCheckedBy] = useState(initialData?.checked_by || ""); const [verifiedBy, setVerifiedBy] = useState(initialData?.verified_by || "");
   const warehouse = getStoredWarehouse();
   const locationOptions = luxLocationsFor(warehouse);
@@ -411,6 +419,15 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonito
     }
     return seedLuxRows(warehouse);
   });
+  // Row ids (i + 1, as mapped above) still awaiting confirmation.
+  const [unconfirmed, setUnconfirmed] = useState<Set<number>>(() =>
+    confirmReadings && Array.isArray(initialData?.rows)
+      ? new Set(initialData.rows.flatMap((r: any, i: number) =>
+          LUX_READING_FIELDS.some((k) => r[k] !== "" && r[k] != null) ? [i + 1] : []))
+      : new Set());
+  const toggleConfirmed = (id: number) =>
+    setUnconfirmed((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const pendingRows = rows.filter((r) => unconfirmed.has(r.id));
   // Created on the first save, then updated — so "Submit Partially" can be used
   // repeatedly without creating a new record each time.
   // Only a real edit adopts the record's id — see PreProductionInspectionForm.
@@ -440,6 +457,15 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonito
 
   const handleSave = async (status: "draft" | "submitted") => {
     if (saving) return;
+    // Drafts too: a draft is a stored record, so unchecked starting values must
+    // never reach the database under either status.
+    if (pendingRows.length) {
+      setMessage({
+        kind: "err",
+        text: `Check ${pendingRows.length} highlighted row${pendingRows.length === 1 ? "" : "s"} against the actual readings and tick Confirmed before saving.`,
+      });
+      return;
+    }
     setSaving(status === "draft" ? "draft" : "final");
     setMessage(null);
     try {
@@ -486,7 +512,7 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonito
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-cream-100/70 border-b border-cream-300">
-              <tr>{["Location", "Table No.", "R1", "R2", "R3", "R4", "R5", "Corrective Action", ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+              <tr>{["Location", "Table No.", "R1", "R2", "R3", "R4", "R5", "Corrective Action", ...(confirmReadings ? ["Confirmed"] : []), ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-cream-300">
               {rows.map((r) => (
@@ -518,9 +544,24 @@ export function LuxMonitoringRecord({ initialData, onSubmit, isEdit }: LuxMonito
                       <input type="text" value={r.tableNo} onChange={(e) => up(r.id, "tableNo", e.target.value)} className="input-base !py-1 !px-2 text-xs" />
                     )}
                   </td>
-                  {(["r1", "r2", "r3", "r4", "r5", "correctiveAction"] as (keyof LuxRow)[]).map((f) => (
-                    <td key={f} className="px-1 py-1"><input type={["r1", "r2", "r3", "r4", "r5"].includes(f) ? "number" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
-                  ))}
+                  {(["r1", "r2", "r3", "r4", "r5", "correctiveAction"] as (keyof LuxRow)[]).map((f) => {
+                    const isReading = (LUX_READING_FIELDS as readonly string[]).includes(f);
+                    const pending = isReading && unconfirmed.has(r.id);
+                    return (
+                      <td key={f} className="px-1 py-1"><input type={isReading ? "number" : "text"} value={r[f] as string} onChange={(e) => up(r.id, f, e.target.value)} className={`input-base !py-1 !px-2 text-xs ${pending ? "!bg-warning-50 !border-warning-300" : ""}`} /></td>
+                    );
+                  })}
+                  {confirmReadings && (
+                    <td className="px-1 py-1 text-center">
+                      <input
+                        type="checkbox"
+                        checked={!unconfirmed.has(r.id)}
+                        onChange={() => toggleConfirmed(r.id)}
+                        title="Readings checked against the actual measurement"
+                        className="accent-brand-600 w-4 h-4"
+                      />
+                    </td>
+                  )}
                   <td className="px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
                 </tr>
               ))}
@@ -776,22 +817,59 @@ interface DailyFlyCatcherCheckProps {
   initialData?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => Promise<void>;
   isEdit?: boolean;
+  /**
+   * Set when the Flies Qty values in initialData are pre-filled starting values
+   * (a recreated sheet) rather than weighed catches. Every row that arrived with
+   * a quantity must be ticked Confirmed against the actual catch before submit.
+   */
+  confirmReadings?: boolean;
 }
 
-export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFlyCatcherCheckProps = {}) {
+export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit, confirmReadings }: DailyFlyCatcherCheckProps = {}) {
   const [rows, setRows] = useState<FlyRow[]>(() => {
     if (initialData?.rows && Array.isArray(initialData.rows)) {
       return initialData.rows.map((r: any, i: number) => ({ id: i + 1, location: r.location || "", flyCatcherNo: r.fly_catcher_no || "", date: r.date || "", gluePadStatus: r.glue_pad_status || "", fliesWeight: r.flies_weight?.toString() || "", integrityTubelights: r.integrity_tubelights || "", doneBy: r.done_by || "", observation: r.observation || "", correctiveAction: r.corrective_action || "", verifiedBy: r.verified_by || "" }));
     }
     return initialFlyRows(initialData?.warehouse || getStoredWarehouse());
   });
+  // Row ids (i + 1, as mapped above) still awaiting confirmation.
+  const [unconfirmed, setUnconfirmed] = useState<Set<number>>(() =>
+    confirmReadings && Array.isArray(initialData?.rows)
+      ? new Set(initialData.rows.flatMap((r: any, i: number) =>
+          r.flies_weight !== "" && r.flies_weight != null ? [i + 1] : []))
+      : new Set());
+  const toggleConfirmed = (id: number) =>
+    setUnconfirmed((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const pendingRows = rows.filter((r) => unconfirmed.has(r.id));
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const add = () => setRows((p) => [...p, eFC(p.length + 1)]);
+  // Ids come from the highest in use, not the row count: `length + 1` repeats an
+  // id once a middle row is removed, and then editing one row edits both.
+  // A new row starts with the first row's date and verifier, same as the rest.
+  const add = () => setRows((p) => {
+    const row = eFC(p.reduce((max, r) => Math.max(max, r.id), 0) + 1);
+    if (p[0]) { row.date = p[0].date; row.verifiedBy = p[0].verifiedBy; }
+    return [...p, row];
+  });
   const rm = (id: number) => { if (rows.length > 1) setRows((p) => p.filter((r) => r.id !== id)); };
-  const up = (id: number, f: keyof FlyRow, v: string) => setRows((p) => p.map((r) => (r.id === id ? { ...r, [f]: v } : r)));
+  // The whole round is usually one date and one verifier, so setting either on
+  // the first row fills the column. A row given its own value keeps it: only
+  // rows still blank or still matching the first row's old value follow along.
+  const up = (id: number, f: keyof FlyRow, v: string) => setRows((p) => {
+    if (p[0]?.id === id && (f === "date" || f === "verifiedBy")) {
+      const prev = p[0][f];
+      return p.map((r) => (r.id === id || r[f] === "" || r[f] === prev ? { ...r, [f]: v } : r));
+    }
+    return p.map((r) => (r.id === id ? { ...r, [f]: v } : r));
+  });
 
   const handleSubmit = async () => {
+    if (pendingRows.length) {
+      setConfirmError(`Check ${pendingRows.length} highlighted row${pendingRows.length === 1 ? "" : "s"} against the actual Flies Qty and tick Confirmed before submitting.`);
+      return;
+    }
+    setConfirmError(null);
     setSubmitting(true);
     setSuccess(false);
     const payload: Record<string, any> = {
@@ -807,6 +885,11 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
 
   return (
     <div className="space-y-5">
+      {confirmReadings && (
+        <div className="rounded-lg border border-warning-300 bg-warning-50 px-4 py-2.5 text-sm text-ink-600">
+          Flies Qty is pre-filled at ±0.5 from the copied sheet. Check each highlighted row against the actual catch and tick Confirmed before submitting.
+        </div>
+      )}
       <section className="surface-card overflow-hidden">
         <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
           <h2 className="text-sm font-bold text-ink-600">Fly Catcher Checks</h2>
@@ -815,7 +898,7 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-cream-100/70 border-b border-cream-300">
-              <tr>{["Location", "Catcher No.", "Date", "Glue Pad", "Flies Qty (g)", "Tubelight", "Done By", "Observation", "Corrective", "Verified By", ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
+              <tr>{["Location", "Catcher No.", "Date", "Glue Pad", "Flies Qty (g)", "Tubelight", "Done By", "Observation", "Corrective", "Verified By", ...(confirmReadings ? ["Confirmed"] : []), ""].map((h) => <th key={h} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-cream-300">
               {rows.map((r) => (
@@ -838,12 +921,23 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
                       <option value="">—</option><option value="Cleaned">Cleaned</option><option value="Uncleaned">Uncleaned</option>
                     </select>
                   </td>
-                  <td className="px-1 py-1"><input type="number" value={r.fliesWeight} onChange={(e) => up(r.id, "fliesWeight", e.target.value)} className="input-base !py-1 !px-2 text-xs w-16" step="0.1" /></td>
+                  <td className="px-1 py-1"><input type="number" value={r.fliesWeight} onChange={(e) => up(r.id, "fliesWeight", e.target.value)} className={`input-base !py-1 !px-2 text-xs w-16 ${unconfirmed.has(r.id) ? "!bg-warning-50 !border-warning-300" : ""}`} step="0.1" /></td>
                   <td className="px-1 py-1"><input type="text" value={r.integrityTubelights} onChange={(e) => up(r.id, "integrityTubelights", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
                   <td className="px-1 py-1"><FlyRowSignSelect value={r.doneBy} onChange={(v) => up(r.id, "doneBy", v)} options={HYGIENE_CHECKED_BY_OPTIONS} /></td>
                   <td className="px-1 py-1"><input type="text" value={r.observation} onChange={(e) => up(r.id, "observation", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
                   <td className="px-1 py-1"><input type="text" value={r.correctiveAction} onChange={(e) => up(r.id, "correctiveAction", e.target.value)} className="input-base !py-1 !px-2 text-xs" /></td>
                   <td className="px-1 py-1"><FlyRowSignSelect value={r.verifiedBy} onChange={(v) => up(r.id, "verifiedBy", v)} options={QC_VERIFIED_BY_OPTIONS} /></td>
+                  {confirmReadings && (
+                    <td className="px-1 py-1 text-center">
+                      <input
+                        type="checkbox"
+                        checked={!unconfirmed.has(r.id)}
+                        onChange={() => toggleConfirmed(r.id)}
+                        title="Flies Qty checked against the actual catch"
+                        className="accent-brand-600 w-4 h-4"
+                      />
+                    </td>
+                  )}
                   <td className="px-1 py-1 text-center"><button onClick={() => rm(r.id)} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-ink-400 hover:text-danger-600 hover:bg-danger-50">✕</button></td>
                 </tr>
               ))}
@@ -856,6 +950,7 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit }: DailyFly
         <p className="text-xs text-ink-400">Prepared by: <span className="font-semibold text-ink-500">FST</span><span className="mx-2 text-cream-300">|</span>Approved by: <span className="font-semibold text-ink-500">FSTL</span></p>
         <div className="flex items-center gap-3">
           {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
+          {confirmError && <span className="text-xs font-semibold text-danger-600">{confirmError}</span>}
           <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
             {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
           </button>

@@ -18,6 +18,33 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
+/**
+ * A readable message from an error response body.
+ *
+ * The backend answers in several shapes:
+ *   - `{detail: {error, message}}`  auth routes (wrong password, locked out, …)
+ *   - `{detail: "text"}`            a plain HTTPException
+ *   - `{detail: [{loc, msg}, …]}`   request validation (422)
+ *   - `{error, message}`            the auth gate in front of every route
+ * Handing `detail` straight to `new Error()` is what printed "[object Object]"
+ * on the login page whenever it was one of the object or list shapes.
+ */
+export function apiErrorMessage(body: any, fallback: string): string {
+  const detail = body?.detail
+  if (typeof detail === 'string' && detail.trim()) return detail
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    if (typeof detail.message === 'string' && detail.message.trim()) return detail.message
+  }
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((d: any) => (typeof d?.msg === 'string' ? d.msg.replace(/^Value error, /, '') : ''))
+      .filter(Boolean)
+    if (msgs.length) return msgs.join('; ')
+  }
+  if (typeof body?.message === 'string' && body.message.trim()) return body.message
+  return fallback
+}
+
 const ACCESS_KEY = 'access_token'
 const REFRESH_KEY = 'refresh_token'
 const USER_KEY = 'user'
@@ -101,7 +128,7 @@ export async function login(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    throw new Error(error?.detail?.message || error?.detail || error?.message || 'Login failed')
+    throw new Error(apiErrorMessage(error, 'Login failed'))
   }
 
   const data: LoginResponse = await response.json()
@@ -185,7 +212,7 @@ export async function changePassword(
   })
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    throw new Error(error?.detail?.message || error?.detail || 'Password change failed')
+    throw new Error(apiErrorMessage(error, 'Password change failed'))
   }
   return response.json()
 }
@@ -200,7 +227,7 @@ export async function requestPasswordReset(email: string): Promise<{ message: st
   })
   if (!res.ok) {
     const error = await res.json().catch(() => ({}))
-    throw new Error(error?.detail?.message || 'Could not send the reset code')
+    throw new Error(apiErrorMessage(error, 'Could not send the reset code'))
   }
   return res.json()
 }
@@ -217,7 +244,7 @@ export async function confirmPasswordReset(payload: {
   })
   if (!res.ok) {
     const error = await res.json().catch(() => ({}))
-    throw new Error(error?.detail?.message || 'That code is invalid or has expired')
+    throw new Error(apiErrorMessage(error, 'That code is invalid or has expired'))
   }
   return res.json()
 }

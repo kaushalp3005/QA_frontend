@@ -8,6 +8,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { Spinner } from '@/components/ui/Loader'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 import { landingPathFor, type StoredPermissions } from '@/lib/landing'
+import { apiErrorMessage } from '@/lib/api/auth'
 
 interface LoginFormData {
   email: string
@@ -33,18 +34,33 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/auth/login`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: formData.email, password: formData.password }),
-        },
-      )
+      let response: Response
+      try {
+        response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/auth/login`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: formData.email, password: formData.password }),
+          },
+        )
+      } catch {
+        // fetch only rejects when no response came back at all — the browser's
+        // own wording ("Failed to fetch", "Load failed") means nothing to a user.
+        throw new Error("Can't reach the server. Check your internet connection and try again.")
+      }
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Login failed')
+        // A proxy or crash can answer with an HTML page, not JSON.
+        const errorData = await response.json().catch(() => null)
+        throw new Error(
+          apiErrorMessage(
+            errorData,
+            response.status >= 500
+              ? 'The sign-in service is having a problem. Please try again in a minute.'
+              : 'Login failed. Please check your email and password.',
+          ),
+        )
       }
 
       const data = await response.json()

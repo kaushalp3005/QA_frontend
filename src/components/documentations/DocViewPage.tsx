@@ -37,9 +37,14 @@ interface Props {
     value: any,
     record: Record<string, any>
   ) => React.ReactNode | null
+  /**
+   * Columns to leave off the page altogether — for fields a custom
+   * `renderJsonField` panel already shows as part of another field.
+   */
+  hiddenFields?: readonly string[]
 }
 
-export default function DocViewPage({ config, renderJsonField }: Props) {
+export default function DocViewPage({ config, renderJsonField, hiddenFields }: Props) {
   const router = useRouter()
   const base = config.basePath ?? '/documentations'
   const params = useParams()
@@ -133,6 +138,7 @@ export default function DocViewPage({ config, renderJsonField }: Props) {
   const jsonFields: [string, any][] = []
   for (const [k, v] of Object.entries(record)) {
     if (k === 'id' || k === '_prev_id' || k === '_next_id') continue
+    if (hiddenFields?.includes(k)) continue
     if (Array.isArray(v) || (typeof v === 'object' && v !== null)) {
       jsonFields.push([k, v])
     } else {

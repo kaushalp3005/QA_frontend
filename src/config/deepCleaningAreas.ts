@@ -1,7 +1,4 @@
-// frontend/src/config/deepCleaningAreas.ts
-//
-// Row seeds for the Housekeeping Deep Cleaning record, per plant.
-//
+
 // The two plants run different controlled formats, so the schedule rows differ:
 //   A185 → CFPLB.C4.F.57  (11 rows, plus an "Area" header field)
 //   W202 → CFPLA.C4.F.55  (14 rows, no Area field)

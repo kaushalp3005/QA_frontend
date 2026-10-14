@@ -1,7 +1,7 @@
 "use client";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import DocBackButton from "@/components/documentations/DocBackButton";
-import { GlassBrittleCheckRecord } from "@/components/forms/CFPLA_MaintenanceForms";
+import { GlassBrittleCheckRecord } from "@/components/forms/GlassBrittleForms";
 import DocCreateForm from "@/components/documentations/DocCreateForm";
 
 export default function Page() {

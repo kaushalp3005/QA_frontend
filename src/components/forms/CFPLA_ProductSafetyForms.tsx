@@ -1,8 +1,10 @@
 "use client";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { getUserEmail } from "@/lib/warehouseAccess";
+import toast from "react-hot-toast";
+import SpreadsheetGrid from "@/components/ui/SpreadsheetGrid";
 
 // ===================== F.13 — New Product Verification =====================
 /**
@@ -79,6 +81,11 @@ const emptySensoryRow = (id: number): SensoryRow => ({ id, panelName: "", taste:
 
 interface IngredientRow { id: number; ingredient: string; variety: string; vendor: string; percentage: string; specification: string; protein: string; fiber: string; sugar: string; energy: string; }
 const emptyIngredientRow = (id: number): IngredientRow => ({ id, ingredient: "", variety: "", vendor: "", percentage: "", specification: "", protein: "", fiber: "", sugar: "", energy: "" });
+/** Grid column widths (px) for the Excel-style ingredients sheet. */
+const INGREDIENT_COL_WIDTHS: Record<string, number> = {
+  ingredient: 180, variety: 130, vendor: 140, percentage: 120, specification: 230,
+  protein: 90, fiber: 90, sugar: 90, energy: 120,
+};
 const INGREDIENT_COLS: { key: keyof Omit<IngredientRow, "id">; label: string; min: string; optional?: boolean }[] = [
   // First five are mandatory (always shown, no checkbox); the rest are optional (toggle via checkbox).
   { key: "ingredient", label: "Ingredient", min: "min-w-[150px]" },
@@ -180,31 +187,115 @@ interface NewProductVerificationProps {
 }
 
 /**
+ * One article = one product's Trial Information → Pilot Run Details. The create
+ * page can hold several, for when one customer asks for several products at
+ * once; Approvals are shared by all of them. Each article is still saved as its
+ * own record — one per product, exactly as before — so the list, view, print
+ * and edit pages are unchanged. The edit page edits one record, so it always
+ * shows exactly one article.
+ */
+interface NpvArticle {
+  trials: Trial[];
+  pilots: Pilot[];
+  /** Record id once saved, so submitting again after a partial failure updates it instead of creating a duplicate. */
+  savedId: number | null;
+}
+const makeArticle = (src?: any): NpvArticle => ({
+  trials: Array.isArray(src?.trials) && src.trials.length ? src.trials.map(makeTrial) : [makeTrial(src)],
+  pilots: Array.isArray(src?.pilots) && src.pilots.length ? src.pilots.map(makePilot) : [makePilot(src)],
+  savedId: null,
+});
+
+/**
  * Unsaved-draft cache for a NEW record, so a stray Back click or closed tab
  * doesn't lose a half-filled form. Lives in this browser's localStorage, one
  * draft per user, and is cleared the moment the record is created. Edits and
  * duplicates don't use it: they start from a saved record, not a blank form.
  */
 interface NpvDraft {
-  trials: Trial[]; pilots: Pilot[];
+  articles: NpvArticle[];
   supervisorName: string; productionManagerName: string; approvedByName: string; customerRepName: string;
 }
 const npvDraftKey = () => `qc-draft:new-product-verification:${getUserEmail() || "anon"}`;
 const loadNpvDraft = (): NpvDraft | null => {
   try {
     const d = JSON.parse(localStorage.getItem(npvDraftKey()) || "null");
-    return d && Array.isArray(d.trials) && d.trials.length && Array.isArray(d.pilots) && d.pilots.length ? d : null;
+    if (!d) return null;
+    // Drafts saved before articles existed hold one article's trials / pilots at the top.
+    const raw: any[] = Array.isArray(d.articles) ? d.articles : Array.isArray(d.trials) ? [{ trials: d.trials, pilots: d.pilots }] : [];
+    const usable = raw.length > 0 && raw.every((a) => Array.isArray(a?.trials) && a.trials.length && Array.isArray(a?.pilots) && a.pilots.length);
+    if (!usable) return null;
+    return { ...d, articles: raw.map((a) => ({ trials: a.trials, pilots: a.pilots, savedId: typeof a.savedId === "number" ? a.savedId : null })) };
   } catch { return null; }
 };
 const saveNpvDraft = (d: NpvDraft) => { try { localStorage.setItem(npvDraftKey(), JSON.stringify(d)); } catch { /* storage full or blocked */ } };
 const clearNpvDraft = () => { try { localStorage.removeItem(npvDraftKey()); } catch { /* blocked */ } };
 
+/**
+ * Checks run before submit, so the user gets a toast naming the field instead of
+ * a failed save. Date / Product / Customer are filled on every record filed so
+ * far and are what the listing shows, so they are required per trial. Length
+ * caps are the doc_new_product_verification column sizes — they only bind Trial 1
+ * and Pilot 1, the ones mirrored into real columns (the rest live in JSON).
+ */
+const NPV_TRIAL_LIMITS: [keyof Trial, string, number][] = [
+  ["productName", "Product Name", 255], ["customerName", "Customer Name", 255], ["trialNo", "Trial No", 64],
+  ["batchNumber", "Batch Number", 128], ["bakingTemp", "Time & Temp for Baking/Roasting", 255],
+];
+const NPV_PILOT_LIMITS: [keyof Pilot, string, number][] = [
+  ["labTrialName", "Lab Scale Trial Done By", 128], ["pilotQty", "Quantity for Pilot Run", 64],
+  ["pilotBatch", "Pilot Batch Number", 128], ["shelfLife", "Shelf Life", 128], ["storageCondition", "Storage Condition", 255],
+];
+const NPV_NUMBER_FIELDS: [keyof Trial, string][] = [
+  ["moisture", "Moisture %"], ["fat", "Fat %"], ["acidValue", "Acid Value"],
+  ["peroxideValue", "Peroxide Value"], ["salt", "Salt %"], ["ph", "pH"],
+];
+function validateNpv(
+  trials: Trial[], pilots: Pilot[], approvals: Record<string, string>,
+): { message: string; trial?: number; pilot?: number } | null {
+  for (let i = 0; i < trials.length; i++) {
+    const tr = trials[i];
+    const where = trials.length > 1 ? `Trial ${i + 1}: ` : "";
+    const missing = [
+      !tr.date && "Date", !tr.productName.trim() && "Product Name", !tr.customerName.trim() && "Customer Name",
+    ].filter(Boolean);
+    if (missing.length) return { message: `${where}please fill ${missing.join(", ")}`, trial: i };
+    const notNumber = NPV_NUMBER_FIELDS.filter(([k]) => String(tr[k]).trim() && !Number.isFinite(Number(tr[k]))).map(([, l]) => l);
+    if (notNumber.length) return { message: `${where}${notNumber.join(", ")} must be a number`, trial: i };
+  }
+  const tooLongTrial = NPV_TRIAL_LIMITS.find(([k, , max]) => String(trials[0][k] ?? "").length > max);
+  if (tooLongTrial) {
+    const [k, label, max] = tooLongTrial;
+    return { message: `${trials.length > 1 ? "Trial 1: " : ""}${label} is too long (${String(trials[0][k]).length} characters, max ${max})`, trial: 0 };
+  }
+  const tooLongPilot = NPV_PILOT_LIMITS.find(([k, , max]) => String(pilots[0][k] ?? "").length > max);
+  if (tooLongPilot) {
+    const [k, label, max] = tooLongPilot;
+    return { message: `${pilots.length > 1 ? "Pilot 1: " : ""}${label} is too long (${String(pilots[0][k]).length} characters, max ${max})`, pilot: 0 };
+  }
+  const approvalLabels: Record<string, string> = {
+    supervisorName: "Pilot Run Supervisor", productionManagerName: "Production Manager",
+    approvedByName: "Approved by (FSTL)", customerRepName: "Customer Representative",
+  };
+  const longApproval = Object.entries(approvals).find(([, v]) => (v || "").length > 128);
+  if (longApproval) return { message: `${approvalLabels[longApproval[0]]} is too long (max 128 characters)` };
+  return null;
+}
+
 export function NewProductVerification({ initialData, onSubmit, isEdit }: NewProductVerificationProps = {}) {
+  // Articles: each holds its own trials and pilots. Tabs switch between them.
+  const [articles, setArticles] = useState<NpvArticle[]>(() => [makeArticle(initialData)]);
+  const [activeArticle, setActiveArticle] = useState(0);
+  const art = articles[activeArticle] ?? articles[0];
+  // Several articles only on the create page — the edit page edits one record.
+  const canAddArticles = !onSubmit && !isEdit;
+
   // Trials: each holds Trial Information → Chemical Analysis. Tabs switch between them.
-  const [trials, setTrials] = useState<Trial[]>(() => {
-    if (Array.isArray(initialData?.trials) && initialData.trials.length) return initialData.trials.map(makeTrial);
-    return [makeTrial(initialData)];
-  });
+  // `trials` / `setTrials` read and write the active article, so everything
+  // below works exactly as it did when the form held a single article.
+  const trials = art.trials;
+  const setTrials = (u: Trial[] | ((p: Trial[]) => Trial[])) =>
+    setArticles((prev) => prev.map((a, i) => (i === activeArticle ? { ...a, trials: typeof u === "function" ? u(a.trials) : u } : a)));
   const [activeTrial, setActiveTrial] = useState(0);
   const t = trials[activeTrial] ?? trials[0];
   const patchTrial = (patch: Partial<Trial>) =>
@@ -263,11 +354,39 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
   const setSensoryRows = (u: SensoryRow[] | ((p: SensoryRow[]) => SensoryRow[])) =>
     setTrials((prev) => prev.map((tr, i) => (i === activeTrial ? { ...tr, sensoryRows: typeof u === "function" ? (u as any)(tr.sensoryRows) : u } : tr)));
   // Pilots: each holds the Pilot Run Details block. Tabs switch between them.
-  const [pilots, setPilots] = useState<Pilot[]>(() => {
-    if (Array.isArray(initialData?.pilots) && initialData.pilots.length) return initialData.pilots.map(makePilot);
-    return [makePilot(initialData)];
-  });
+  const pilots = art.pilots;
+  const setPilots = (u: Pilot[] | ((p: Pilot[]) => Pilot[])) =>
+    setArticles((prev) => prev.map((a, i) => (i === activeArticle ? { ...a, pilots: typeof u === "function" ? u(a.pilots) : u } : a)));
   const [activePilot, setActivePilot] = useState(0);
+
+  // Article tabs. Switching article opens its first trial and pilot.
+  const selectArticle = (i: number) => { setActiveArticle(i); setActiveTrial(0); setActivePilot(0); };
+  const addArticle = () => {
+    // Usually the same customer, another product: carry the customer and date over.
+    const from = art.trials[0];
+    const next = makeArticle();
+    next.trials[0] = { ...next.trials[0], customerName: from?.customerName ?? "", date: from?.date ?? "" };
+    setArticles((prev) => [...prev, next]);
+    selectArticle(articles.length);
+  };
+  const removeArticle = (idx: number) => {
+    if (articles.length <= 1) return;
+    const label = `Article ${idx + 1}`;
+    const savedId = articles[idx]?.savedId;
+    const ok = window.confirm(
+      savedId != null
+        ? `${label} is already saved as record #${savedId}. Removing it here does not delete that record.\n\nRemove ${label} from this form?`
+        : `Remove ${label} and everything entered in it?`,
+    );
+    if (!ok) return;
+    setArticles((prev) => prev.filter((_, i) => i !== idx));
+    if (idx === activeArticle) selectArticle(Math.max(0, idx - 1));
+    else if (idx < activeArticle) setActiveArticle(activeArticle - 1);
+  };
+  const articleLabel = (a: NpvArticle, i: number) => {
+    const name = a.trials[0]?.productName.trim();
+    return name ? `Article ${i + 1} · ${name}` : `Article ${i + 1}`;
+  };
   const pl = pilots[activePilot] ?? pilots[0];
   const patchPilot = (patch: Partial<Pilot>) =>
     setPilots((prev) => prev.map((pv, i) => (i === activePilot ? { ...pv, ...patch } : pv)));
@@ -308,7 +427,7 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
     if (!draftEnabled) return;
     const d = loadNpvDraft();
     if (d) {
-      setTrials(d.trials); setPilots(d.pilots);
+      setArticles(d.articles);
       setSupervisorName(d.supervisorName || ""); setProductionManagerName(d.productionManagerName || "");
       setApprovedByName(d.approvedByName || ""); setCustomerRepName(d.customerRepName || "");
       setDraftRestored(true);
@@ -317,14 +436,16 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
     // saving on this one would overwrite the draft with the blank form.
     setDraftReady(true);
   }, []);
+  // Set once every article is saved, so the state updates that follow can't
+  // write the finished form back as a draft after it was cleared.
+  const submittedRef = useRef(false);
   useEffect(() => {
-    if (!draftEnabled || !draftReady) return;
-    saveNpvDraft({ trials, pilots, supervisorName, productionManagerName, approvedByName, customerRepName });
-  }, [draftEnabled, draftReady, trials, pilots, supervisorName, productionManagerName, approvedByName, customerRepName]);
+    if (!draftEnabled || !draftReady || submittedRef.current) return;
+    saveNpvDraft({ articles, supervisorName, productionManagerName, approvedByName, customerRepName });
+  }, [draftEnabled, draftReady, articles, supervisorName, productionManagerName, approvedByName, customerRepName]);
   const discardDraft = () => {
     clearNpvDraft();
-    setTrials([makeTrial()]); setActiveTrial(0);
-    setPilots([makePilot()]); setActivePilot(0);
+    setArticles([makeArticle()]); selectArticle(0);
     setSupervisorName(""); setProductionManagerName(""); setApprovedByName(""); setCustomerRepName("");
     setDraftRestored(false);
   };
@@ -373,33 +494,79 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
     { label: "Flow Chart/Line Used for Pilot Run", value: flowChart, set: setFlowChart }, { label: "Equipment Added (if any)", value: equipmentAdded, set: setEquipmentAdded },
   ];
 
+  /** One record's payload: an article plus the shared Approvals. */
+  const articlePayload = (a: NpvArticle): Record<string, any> => ({
+    warehouse: getStoredWarehouse() || null,
+    // Trial 1 is mirrored to the top-level columns so list/view/print keep working.
+    ...trialPayload(a.trials[0]),
+    trials: a.trials.map(trialPayload),
+    // Pilot 1 is mirrored to the top-level columns so list/view/print keep working.
+    ...pilotPayload(a.pilots[0]),
+    pilots: a.pilots.map(pilotPayload),
+    pilot_supervisor: supervisorName, production_manager: productionManagerName,
+    approved_by_fstl: approvedByName, customer_representative: customerRepName,
+  });
+
   const handleSubmit = async () => {
+    const approvals = { supervisorName, productionManagerName, approvedByName, customerRepName };
+    const multi = articles.length > 1;
+    for (let ai = 0; ai < articles.length; ai++) {
+      const problem = validateNpv(articles[ai].trials, articles[ai].pilots, approvals);
+      if (!problem) continue;
+      // Approvals are shared, so their problem belongs to no article.
+      if (problem.trial == null && problem.pilot == null) {
+        toast.error(problem.message, { duration: 6000 });
+        return;
+      }
+      if (ai !== activeArticle) selectArticle(ai);
+      if (problem.trial != null) setActiveTrial(problem.trial);
+      if (problem.pilot != null) setActivePilot(problem.pilot);
+      toast.error(`${multi ? `Article ${ai + 1}: ` : ""}${problem.message}`, { duration: 6000 });
+      return;
+    }
     setSubmitting(true);
     setSuccess(false);
-    const payload: Record<string, any> = {
-      warehouse: getStoredWarehouse() || null,
-      // Trial 1 is mirrored to the top-level columns so list/view/print keep working.
-      ...trialPayload(trials[0]),
-      trials: trials.map(trialPayload),
-      // Pilot 1 is mirrored to the top-level columns so list/view/print keep working.
-      ...pilotPayload(pilots[0]),
-      pilots: pilots.map(pilotPayload),
-      pilot_supervisor: supervisorName, production_manager: productionManagerName,
-      approved_by_fstl: approvedByName, customer_representative: customerRepName,
-    };
     try {
       if (onSubmit) {
-        await onSubmit(payload);
-      } else {
-        const { docsApi } = await import("@/lib/api/documentations");
-        await docsApi.create("new-product-verification", payload);
-        // Saved — the next new form must start blank, not from this one.
-        clearNpvDraft();
-        setSuccess(true);
-        router.push("/documentations/new-product-verification");
+        // Edit page: the record being edited is a single article.
+        await onSubmit(articlePayload(articles[0]));
+        return;
       }
+      const { docsApi } = await import("@/lib/api/documentations");
+      // One record per article — per product — as before. An article saved by an
+      // earlier submit that failed part-way is updated, never created twice.
+      let saved = 0;
+      for (let ai = 0; ai < articles.length; ai++) {
+        const a = articles[ai];
+        try {
+          if (a.savedId != null) {
+            await docsApi.update("new-product-verification", a.savedId, articlePayload(a));
+          } else {
+            const res = await docsApi.create("new-product-verification", articlePayload(a));
+            const id = res.data?.id;
+            if (typeof id === "number") setArticles((prev) => prev.map((x, i) => (i === ai ? { ...x, savedId: id } : x)));
+          }
+          saved++;
+        } catch (e: any) {
+          if (ai !== activeArticle) selectArticle(ai);
+          const reason = e?.message || "Submit failed";
+          toast.error(
+            multi
+              ? `Article ${ai + 1} could not be saved: ${reason}. ${saved} of ${articles.length} saved; submit again once it is fixed — saved articles are not duplicated.`
+              : reason,
+            { duration: 10000 },
+          );
+          return;
+        }
+      }
+      // Saved — the next new form must start blank, not from this one.
+      submittedRef.current = true;
+      clearNpvDraft();
+      setSuccess(true);
+      toast.success(multi ? `${articles.length} articles saved, one record each` : "New Product Verification saved");
+      router.push("/documentations/new-product-verification");
     } catch (e: any) {
-      alert(e.message || "Submit failed");
+      toast.error(e?.message || "Submit failed", { duration: 8000 });
     } finally {
       setSubmitting(false);
     }
@@ -413,6 +580,50 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
           <button type="button" onClick={discardDraft} className="btn-outline !py-1 !px-3 text-xs">Discard &amp; start blank</button>
         </div>
       )}
+      {/* ── Article: one product's Trial Information → Pilot Run Details ── */}
+      <div className="rounded-2xl border-2 border-brand-200 bg-brand-50/30 p-2 sm:p-3 space-y-4">
+        <section className="surface-card px-4 sm:px-5 py-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-ink-600">
+                {articles.length > 1 ? `Article ${activeArticle + 1} of ${articles.length}` : "Article"}
+              </h2>
+              <p className="text-[11px] text-ink-400 mt-0.5">
+                Trial Information to Pilot Run Details for one product.
+                {canAddArticles && " Each article is saved as its own record; the Approvals below apply to every article."}
+              </p>
+            </div>
+            {canAddArticles && (
+              <button type="button" onClick={addArticle} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Article</button>
+            )}
+          </div>
+          {articles.length > 1 && (
+            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+              {articles.map((a, i) => (
+                <div
+                  key={i}
+                  className={`inline-flex items-center rounded-md border text-xs font-semibold transition-colors ${
+                    i === activeArticle ? "bg-brand-500 text-white border-brand-500" : "bg-cream-50 text-ink-500 border-cream-300 hover:border-brand-400"
+                  }`}
+                >
+                  <button type="button" onClick={() => selectArticle(i)} className="px-2.5 py-1 max-w-[220px] truncate" title={articleLabel(a, i)}>
+                    {articleLabel(a, i)}
+                    {a.savedId != null && <span className={i === activeArticle ? "text-white/80" : "text-success-600"}> ✓</span>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeArticle(i)}
+                    title={`Remove Article ${i + 1}`}
+                    className={`pr-1.5 pl-0.5 leading-none ${i === activeArticle ? "text-white/80 hover:text-white" : "text-ink-300 hover:text-danger-600"}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
       <section className="surface-card overflow-hidden">
         <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -471,49 +682,31 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
             <h3 className="text-xs sm:text-sm font-semibold text-ink-500">Ingredients list</h3>
             <button type="button" onClick={addIngredientRow} className="btn-primary !py-1.5 !px-3 text-xs">+ Add Ingredient</button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-cream-100/70 border-b border-cream-300">
-                <tr>
-                  {INGREDIENT_COLS.map((c) => {
-                    if (!c.optional) {
-                      return (
-                        <th key={c.key} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400 whitespace-nowrap">
-                          {c.label}
-                        </th>
-                      );
-                    }
-                    const hidden = !!hiddenIngCols[c.key];
-                    return (
-                      <th key={c.key} className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400 whitespace-nowrap">
-                        <label className="inline-flex items-center gap-1.5 cursor-pointer select-none" title={hidden ? `Show ${c.label}` : `Hide ${c.label}`}>
-                          <input type="checkbox" checked={!hidden} onChange={() => toggleIngCol(c.key)} className="accent-brand-600 w-3.5 h-3.5" />
-                          {!hidden && <span>{c.label}</span>}
-                        </label>
-                      </th>
-                    );
-                  })}
-                  <th className="px-2 py-2 w-10 text-[11px] font-semibold uppercase tracking-wider text-ink-400"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-cream-300">
-                {ingredientRows.map((r) => (
-                  <tr key={r.id} className="hover:bg-cream-100/60">
-                    {INGREDIENT_COLS.map((c) => (
-                      <td key={c.key} className="px-1 py-1">
-                        {!hiddenIngCols[c.key] && (
-                          <input type="text" value={r[c.key]} onChange={(e) => setIngredientRows((p) => p.map((s) => s.id === r.id ? { ...s, [c.key]: e.target.value } : s))} className={`input-base !py-1 !px-2 text-sm ${c.min}`} />
-                        )}
-                      </td>
-                    ))}
-                    <td className="px-1 py-1 text-center">
-                      <button type="button" onClick={() => removeIngredientRow(r.id)} title="Remove ingredient" className="inline-flex items-center justify-center w-6 h-6 rounded-md text-danger-500 hover:bg-danger-50 hover:text-danger-600 transition-colors text-sm font-bold leading-none">✕</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Optional columns are switched here; switching one off hides it, its values stay. */}
+          <div className="px-4 sm:px-5 py-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-y border-cream-300 bg-cream-50/60">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Optional columns</span>
+            {INGREDIENT_COLS.filter((c) => c.optional).map((c) => (
+              <label key={c.key} className="inline-flex items-center gap-1.5 text-xs text-ink-500 cursor-pointer select-none">
+                <input type="checkbox" checked={!hiddenIngCols[c.key]} onChange={() => toggleIngCol(c.key)} className="accent-brand-600 w-3.5 h-3.5" />
+                {c.label}
+              </label>
+            ))}
+            <span className="text-[11px] text-ink-400 sm:ml-auto">
+              Works like Excel: click a cell and type, drag to select, Ctrl/⌘+C and Ctrl/⌘+V to copy and paste — rows are added for you.
+            </span>
           </div>
+          <SpreadsheetGrid
+            // Each trial of each article keeps its own selection and undo history.
+            key={`${activeArticle}-${activeTrial}`}
+            label="Ingredients list"
+            columns={INGREDIENT_COLS.filter((c) => !c.optional || !hiddenIngCols[c.key]).map((c) => ({ key: c.key, label: c.label, width: INGREDIENT_COL_WIDTHS[c.key] }))}
+            hiddenColumns={INGREDIENT_COLS.filter((c) => c.optional && hiddenIngCols[c.key]).map((c) => c.label)}
+            rows={ingredientRows}
+            onChange={setIngredientRows}
+            makeRow={emptyIngredientRow}
+            onRemoveRow={removeIngredientRow}
+            onNotice={(m) => toast(m, { duration: 7000 })}
+          />
         </div>
       </section>
 
@@ -604,9 +797,14 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
           ))}
         </div>
       </section>
+      </div>
+      {/* ── end Article ── */}
 
       <section className="surface-card p-4 sm:p-5">
-        <h2 className="text-sm font-bold text-ink-600 mb-3">Approvals</h2>
+        <h2 className="text-sm font-bold text-ink-600">Approvals</h2>
+        <p className="text-[11px] text-ink-400 mt-0.5 mb-3">
+          {articles.length > 1 ? `Common to all ${articles.length} articles — saved on each one's record.` : "Saved with the record."}
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label className="label-base">Pilot Run Supervisor Name</label><input type="text" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="input-base" /></div>
           <div><label className="label-base">Production Manager Name</label><input type="text" value={productionManagerName} onChange={(e) => setProductionManagerName(e.target.value)} className="input-base" /></div>
@@ -624,7 +822,7 @@ export function NewProductVerification({ initialData, onSubmit, isEdit }: NewPro
         <div className="flex items-center gap-3">
           {success && <span className="text-xs font-semibold text-success-600">Saved successfully</span>}
           <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
-            {submitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
+            {submitting ? "Submitting..." : isEdit ? "Update" : articles.length > 1 ? `Submit ${articles.length} Articles` : "Submit"}
           </button>
         </div>
       </div>

@@ -16,9 +16,29 @@ async function request<T = any>(url: string, options: RequestInit = {}): Promise
   const res = await fetch(url, { ...options, headers })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail || `Request failed: ${res.status}`)
+    throw new Error(errorMessage(err, res.status))
   }
   return res.json()
+}
+
+/**
+ * A readable message from any error body the backend sends: a string `detail`
+ * (HTTPException), a list `detail` (FastAPI request validation), or QC's
+ * `{error, message}` from its global handler.
+ */
+function errorMessage(err: any, status: number): string {
+  const detail = err?.detail
+  if (typeof detail === 'string' && detail) return detail
+  if (Array.isArray(detail) && detail.length) {
+    return detail
+      .map((d: any) => {
+        const field = Array.isArray(d?.loc) ? d.loc.filter((p: any) => p !== 'body').join(' → ') : ''
+        return field ? `${field}: ${d?.msg}` : String(d?.msg ?? d)
+      })
+      .join('; ')
+  }
+  if (status >= 500) return 'Server error while saving. Please try again; if it keeps happening, tell the QC system admin.'
+  return err?.message || `Request failed: ${status}`
 }
 
 export const docsApi = {

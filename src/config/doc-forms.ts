@@ -65,6 +65,7 @@ export const PRINTABLE_SLUGS = new Set<string>([
   "mock-recall",
   "temperature-humidity",
   "personalhygienecheckup",
+  "glass-brittle-check",
   // Training forms (basePath /training — these are routeSlugs, not formTypes).
   "attendance-sheet",
   "training-card",
@@ -161,7 +162,7 @@ export const DOC_FORMS: Record<string, DocFormConfig> = {
   "ccp-roasting-bar":        { formType: "ccp-roasting-bar",          routeSlug: "ccp-roasting-bar",          label: "CCP Roasting (Bar Line)",          docNo: "CFPLA.C2.F.43",  dateField: null,              listColumns: ["warehouse", "created_at", "created_by"] },
   "vehicle-inspection":      { formType: "vehicle-inspection",        routeSlug: "vehicle-inspection",        label: "Incoming Vehicle Inspection",      docNo: "CFPLA.C3.F.45",  dateField: "inspection_date", listColumns: ["inspection_date", "vendor_name", "vehicle_number", "warehouse"] },
   "outgoing-vehicle-inspection": { formType: "outgoing-vehicle-inspection", routeSlug: "outgoing-vehicle-inspection", label: "Outgoing Vehicle Inspection", docNo: "CFPLA.C5.F.46", dateField: "dispatch_date",  listColumns: ["dispatch_date", "customer_name", "vehicle_number", "warehouse"] },
-  "glass-brittle-check":     { formType: "glass-brittle-check",       routeSlug: "glass-brittle-check",       label: "Glass & Brittle Check Record",     docNo: "CFPLA.C4.F.48",  dateField: "year",            listColumns: ["year", "warehouse", "created_by"] },
+  "glass-brittle-check":     { formType: "glass-brittle-check",       routeSlug: "glass-brittle-check",       label: "Glass & Brittle Check Record",     docNo: "CFPLA.C4.F.48",  dateField: "year",            listColumns: ["year", "month", "status", "warehouse", "created_by"], columnLabels: { month: "Month (A185)" } },
   // W202 files this as CFPLA.C4.F.47, A185 as CFPLB.C4.RA.04 — same layout,
   // different areas and header block (see config/dailyPestAreas.ts). docNo here
   // is only the list-page fallback; the printed sheet reads the per-plant one.

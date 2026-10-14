@@ -1,6 +1,8 @@
 // frontend/src/config/glassBrittleAreas.ts
 //
-// A185's Glass and Brittle Check register, transcribed from
+// Glass and Brittle Check registers for both plants.
+//
+// A185 (CFPLB.C4.F.59), transcribed from
 //   docs/59) CFPLB.C4.F59 Glass and Brittle Check Record.pdf
 // Nine area sheets, each listing the same four item types.
 //
@@ -113,3 +115,204 @@ export const A185_GLASS_AREAS: GlassBrittleArea[] = [
 ];
 
 export const A185_GLASS_AREA_NAMES = A185_GLASS_AREAS.map((a) => a.area);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W202 — Glass and Hard Plastic Check Record (CFPLA.C4.F.48)
+//
+// Transcribed from
+//   "48) CFPLA.C4.F.48  Glass and Brittle Check Record - new.docx"
+// One yearly sheet: every item of every floor is a row, ticked month by month.
+//
+// Transcription notes:
+//   * Spacing around commas, slashes and range dashes is tidied; no ID is
+//     changed, added or dropped.
+//   * "Entance Staircase Passage…" is the document's spelling of "Entrance".
+//   * The five merged Location cells under "Exit Staircase Passage" read
+//     "Entrance Staircase Passage from Lower Basement to Terrace" in the source
+//     too. That is kept as written — it may be a copy-paste slip in the format,
+//     but that is the QA team's call to correct, not this file's.
+//   * Gaps in the glass-number sequence are the source's own; nothing is filled in.
+
+export interface GlassBrittleFloorRow {
+  item: string;
+  location: string;
+  glassNo: string;
+  /** "Glass", "Hard Plastic" or "Hard Glass". */
+  details: string;
+}
+
+export interface GlassBrittleFloor {
+  floor: string;
+  rows: GlassBrittleFloorRow[];
+}
+
+export const GLASS_DETAIL_TYPES = ["Glass", "Hard Plastic", "Hard Glass"];
+
+export const W202_GLASS_FLOORS: GlassBrittleFloor[] = [
+  {
+    floor: "Lower Basement",
+    rows: [
+      { item: "Door", location: "Entrance/Exit", glassNo: "1 & 4", details: "Glass" },
+      { item: "Fire Extinguisher Box", location: "Entrance", glassNo: "2, 3", details: "Glass" },
+      { item: "Display Board", location: "Exit/Area", glassNo: "5, 9, 19-21", details: "Hard Plastic" },
+      { item: "Exit Sign Board", location: "Entrance/Exit", glassNo: "10 & 11", details: "Hard Plastic" },
+      { item: "CCTV", location: "Processing/FG/Passage", glassNo: "12, 13-15, 22", details: "Glass" },
+      { item: "Clock", location: "Wall", glassNo: "16", details: "Glass" },
+      { item: "Window", location: "RM/FG Partition", glassNo: "17-18", details: "Glass" },
+      { item: "Switch Board Plate", location: "Processing Area", glassNo: "23", details: "Hard Plastic" },
+    ],
+  },
+  {
+    floor: "Upper Basement",
+    rows: [
+      { item: "Fire Pipe Box", location: "Stair Case", glassNo: "24", details: "Glass" },
+      { item: "Door", location: "Exit/entrance", glassNo: "25, 58, 73, 74, 86, 87, 121, 129", details: "Glass" },
+      { item: "Switch Board Plate", location: "Processing Area/Passage", glassNo: "26, 59, 60", details: "Hard Plastic" },
+      { item: "Display Board", location: "Passage/Process area/Store", glassNo: "27-31, 63, 64, 69, 91-93, 116-117, 122-125", details: "Hard Plastic" },
+      { item: "CCTV", location: "Process Area/Passage", glassNo: "32, 70", details: "Glass" },
+      { item: "Window", location: "Processing Area/RM partition/Passage/Store", glassNo: "33-57, 61, 62, 65-68, 71, 72, 89, 90, 94-99, 104-120, 126-128", details: "Hard Plastic" },
+      { item: "Partition", location: "Process Area", glassNo: "75-85, 100-103", details: "Hard Plastic" },
+    ],
+  },
+  {
+    floor: "Service Floor - Lab, Printing, NPD, Canteen",
+    rows: [
+      { item: "Door", location: "Entrance/Exit/Equipment", glassNo: "132, 159, 171, 172, 176, 177, 200", details: "Glass" },
+      { item: "Exit Sign Board", location: "Entrance", glassNo: "133", details: "Glass" },
+      { item: "Partition", location: "Laboratory/Printing", glassNo: "134-148, 158, 160-163", details: "Hard Plastic" },
+      { item: "Window", location: "Passage/NPD", glassNo: "164-170, 178-186, 191-193, 201", details: "Hard Plastic" },
+      { item: "Display Board", location: "NPD/Exit/Canteen", glassNo: "173-175, 202, 203, 266-269", details: "Glass" },
+      { item: "CCTV", location: "Passage", glassNo: "187", details: "Glass" },
+      { item: "Electric Pannel Door", location: "Passage", glassNo: "188-190, 194-199", details: "Hard Plastic" },
+      { item: "Clock", location: "Canteen", glassNo: "204", details: "Glass" },
+    ],
+  },
+  {
+    floor: "First Floor",
+    rows: [
+      { item: "Door", location: "Entrance/Process Area", glassNo: "205, 264, 265", details: "Glass" },
+      { item: "Window", location: "Process Area/Passage", glassNo: "206-229, 238-254, 260-263", details: "Hard Glass" },
+      { item: "Display Board", location: "Passage", glassNo: "230-232, 236, 237, 255-258", details: "Hard Glass" },
+      { item: "Clock", location: "Processing Area", glassNo: "259", details: "Glass" },
+    ],
+  },
+  {
+    floor: "First Floor Mezzanine",
+    rows: [
+      { item: "Window", location: "Passage/Process Area", glassNo: "269-288, 298-311", details: "Hard Glass" },
+      { item: "Door", location: "Exit/Lift/Entrance", glassNo: "289, 320, 321", details: "Hard Glass" },
+      { item: "Display Board", location: "Process Area/Passage", glassNo: "290-294, 312-314, 323", details: "Hard Glass" },
+      { item: "Switch Board Plate", location: "Green Passage", glassNo: "295", details: "Hard Plastic" },
+      { item: "Partition", location: "FG/Maintenance room", glassNo: "317-319", details: "Hard Plastic" },
+      { item: "CCTV", location: "Processing Area", glassNo: "315, 316, 322", details: "Hard Plastic" },
+    ],
+  },
+  {
+    floor: "Second Floor",
+    rows: [
+      { item: "Door", location: "Entrance/Exit/Equipments", glassNo: "324, 343, 358, 359, 388-391, 398-402", details: "Glass" },
+      { item: "Window", location: "Passage/Kruger Machine Area/Equipment", glassNo: "325-342, 354, 355, 356, 360-365, 366-367, 372-373, 374-380, 384, 385, 392, 393-397, 404, 405", details: "Hard Plastic" },
+      { item: "CCTV", location: "Passage/Process Area", glassNo: "350, 386, 387", details: "Glass" },
+      { item: "Display Board", location: "Passage/Kruger Machine Area/Enrobing Section", glassNo: "344-349, 353, 368-371, 403", details: "Hard Plastic" },
+      { item: "Partition", location: "Kruger Machine Area/Passage/Enrobing Area", glassNo: "351, 352, 357, 381-383", details: "Hard Plastic" },
+    ],
+  },
+  {
+    floor: "Second Floor Mezz",
+    rows: [
+      { item: "Door", location: "Exit/Entrance", glassNo: "406, 407, 414, 436-438", details: "Glass" },
+      { item: "Partition", location: "Staircase/Green Passage Backside", glassNo: "418-420", details: "Hard Plastic" },
+      { item: "Window", location: "Process Area", glassNo: "408-413, 415-417, 421-435, 439-441", details: "Hard Plastic" },
+    ],
+  },
+  {
+    floor: "Terrace Floor",
+    rows: [
+      { item: "Display Board", location: "Processing Area", glassNo: "442-445", details: "Hard Plastic" },
+      { item: "Door", location: "Cupboard/Equipment/Entrance/Lift/Exit", glassNo: "446-447, 450-456, 466", details: "Hard Plastic" },
+      { item: "Window", location: "Vaccum pack Machine/Passage", glassNo: "448, 457-460", details: "Glass" },
+      { item: "Switch Board Cover", location: "Switch Board", glassNo: "449", details: "Hard Plastic" },
+      { item: "CCTV", location: "Exit", glassNo: "465", details: "Glass" },
+      { item: "Tube light Cover", location: "Roasting Area", glassNo: "461-464", details: "Hard Plastic" },
+    ],
+  },
+  {
+    floor: "Entrance Staircase Passage",
+    rows: [
+      { item: "Fire Pipe Box", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "467, 480, 481, 487, 491", details: "Glass" },
+      { item: "Window", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "468-469, 473-475, 477-479, 483-486, 488-490, 492-495, 498-499, 500-502", details: "Hard Plastic" },
+      { item: "Exit Sign Board", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "471", details: "Hard Plastic" },
+      { item: "Fire Alarm Acrylic", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "472, 482, 496", details: "Hard Plastic" },
+      { item: "CCTV", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "476, 497", details: "Glass" },
+      { item: "Emergency Exit Door", location: "Office passage", glassNo: "470", details: "Hard Plastic" },
+    ],
+  },
+  {
+    floor: "Exit Staircase Passage",
+    rows: [
+      { item: "Pump Meter Cover", location: "Terrace Jocky Pump Meter", glassNo: "504", details: "Glass" },
+      { item: "Window", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "506-508, 511-513, 515-517, 521-523, 525-529", details: "Hard Plastic" },
+      { item: "Fire Pipe Box", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "505, 510, 514, 519, 524", details: "Glass" },
+      { item: "Fire Alarm Acrylic", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "509, 518", details: "Hard Plastic" },
+      { item: "CCTV", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "520, 531", details: "Glass" },
+      { item: "Exit Sign Board", location: "Entrance Staircase Passage from Lower Basement to Terrace", glassNo: "530", details: "Hard Plastic" },
+    ],
+  },
+  {
+    floor: "Office Staff Room",
+    rows: [
+      { item: "Window", location: "Office Beside RM Room", glassNo: "533-535", details: "Hard Plastic" },
+    ],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Controlled-format header, per plant. The two plants file this record as
+// separately controlled documents with different layouts: W202's is a yearly
+// grid, A185's is one sheet per month.
+
+export type GlassBrittleFormat = "yearly" | "monthly";
+
+export interface GlassBrittleDocMeta {
+  format: GlassBrittleFormat;
+  title: string;
+  docNo: string;
+  issueDate: string;
+  issueNo: string;
+  revDate: string;
+  revNo: string;
+  footerLeft: string;
+  footerRight: string;
+}
+
+const DOC_META: Record<GlassBrittleFormat, GlassBrittleDocMeta> = {
+  yearly: {
+    format: "yearly",
+    title: "Glass and Hard Plastic Check Record",
+    docNo: "CFPLA.C4.F.48",
+    issueDate: "01/11/2017",
+    issueNo: "04",
+    revDate: "09/09/2025",
+    revNo: "03",
+    footerLeft: "Prepared By: FST",
+    footerRight: "Approved By: FSTL",
+  },
+  monthly: {
+    format: "monthly",
+    title: "Glass and Brittle Check Record",
+    docNo: "CFPLB.C4.F.59",
+    issueDate: "04/08/2021",
+    issueNo: "02",
+    revDate: "02/09/2024",
+    revNo: "01",
+    footerLeft: "Prepared By: FST",
+    footerRight: "Verified By: FSTL",
+  },
+};
+
+/** A185 keeps the monthly F.59 sheet; every other plant the yearly F.48 grid. */
+export const glassBrittleFormatFor = (warehouse?: string | null): GlassBrittleFormat =>
+  warehouse === "A185" ? "monthly" : "yearly";
+
+export const glassBrittleDocMeta = (warehouse?: string | null): GlassBrittleDocMeta =>
+  DOC_META[glassBrittleFormatFor(warehouse)];

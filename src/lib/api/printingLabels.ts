@@ -10,6 +10,7 @@
 import { docsApi, isDocAdminFor } from '@/lib/api/documentations'
 import { isSuperAdmin } from '@/lib/constants/modules'
 import { getUserEmail } from '@/lib/warehouseAccess'
+import { apiErrorMessage } from '@/lib/api/auth'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
@@ -359,3 +360,34 @@ export async function deleteLabelImage(url: string): Promise<void> {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
 }
+
+// ── Read details off the label photos (Gemini, server-side) ───────────────────
+
+export interface LabelReadResult {
+  /** Register parameter name → value as printed. Only parameters that were read. */
+  fields: Record<string, string>
+  /** Things to double-check, e.g. a barcode that fails its check digit. */
+  warnings: string[]
+  model: string
+  photos_used: number
+}
+
+/** Ask the server to read the printed details off an entry's label photos.
+ *  Nothing is saved — the form pre-fills empty details for the operator to check. */
+export async function readLabelDetails(urls: string[]): Promise<LabelReadResult> {
+  const token = localStorage.getItem('access_token')
+  const res = await fetch(`${API_BASE}/api/printing-labels/extract`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ urls }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(apiErrorMessage(body, 'Could not read the label photos. Try again.'))
+  }
+  return res.json()
+}
+

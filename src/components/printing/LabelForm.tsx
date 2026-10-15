@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Camera, CopyPlus, FileClock, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-react'
+import { Camera, CopyPlus, FileClock, ImagePlus, Loader2, Plus, Save, Sparkles, Trash2, X } from 'lucide-react'
 import { todayLocalISO } from '@/lib/date-utils'
 import { cn } from '@/lib/styles'
 import { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
@@ -19,6 +19,7 @@ import {
   MAX_LABEL_PHOTOS,
   normalizeParameters,
   printingLabelsApi,
+  readLabelDetails,
   uploadLabelImage,
   deleteLabelImage,
   validateLabelImage,
@@ -584,6 +585,12 @@ function EntryBlockFields({
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
 
+  // Reading details off the photos. `fromPhoto` marks the parameters that were
+  // filled that way until the operator touches them, so each gets checked.
+  const [reading, setReading] = useState(false)
+  const [readNote, setReadNote] = useState<{ kind: 'ok' | 'err'; text: string; warnings: string[] } | null>(null)
+  const [fromPhoto, setFromPhoto] = useState<Set<string>>(() => new Set())
+
   const { parameters, labelUrls: photos } = block
   const atPhotoLimit = photos.length >= MAX_LABEL_PHOTOS
   const checkedCount = parameters.filter((r) => r.checked).length
@@ -594,11 +601,68 @@ function EntryBlockFields({
   const approvers = approvedByOptions(warehouse)
   const printers = printedByOptions(warehouse)
 
+  // The latest parameters, for code that resumes after an await: anything the
+  // operator typed while the photos were being read must not be overwritten.
+  const latestParams = useRef(parameters)
+  latestParams.current = parameters
+
+  const unmark = (parameter: string) =>
+    setFromPhoto((s) => {
+      if (!s.has(parameter)) return s
+      const next = new Set(s)
+      next.delete(parameter)
+      return next
+    })
+
   function setDetail(i: number, details: string) {
+    unmark(parameters[i].parameter)
     onChange({ parameters: parameters.map((r, n) => (n === i ? { ...r, details } : r)) })
   }
 
+  /**
+   * Read the printed details off the label photos and fill the empty ones.
+   * A detail already typed is never replaced — if the photo reads differently,
+   * that is reported instead. The four production values (WO, machine, PM
+   * quantities) are not on a label and are left alone.
+   */
+  async function readFromPhotos() {
+    setReading(true)
+    setReadNote(null)
+    onBusyChange(true)
+    try {
+      const { fields, warnings } = await readLabelDetails(photos)
+      const filled: string[] = []
+      const differs: string[] = []
+      const next = latestParams.current.map((r) => {
+        const value = fields[r.parameter]
+        if (!value) return r
+        if (r.details.trim()) {
+          if (r.details.trim() !== value) differs.push(r.parameter)
+          return r
+        }
+        filled.push(r.parameter)
+        return { ...r, details: value, checked: true }
+      })
+      if (filled.length) onChange({ parameters: next })
+      setFromPhoto(new Set(filled))
+
+      const read = Object.keys(fields).length
+      const notes: string[] = []
+      if (!read) notes.push('Nothing could be read from the photos. Try a sharp, well-lit photo of each side of the label.')
+      else if (filled.length) notes.push(`Filled ${filled.length} detail${filled.length > 1 ? 's' : ''} from the photos — check each one against the label before submitting.`)
+      else notes.push('No empty details to fill — everything the photos show was already entered.')
+      if (differs.length) notes.push(`Kept what was typed for ${differs.join(', ')}; the photo reads differently, so compare them.`)
+      setReadNote({ kind: read ? 'ok' : 'err', text: notes.join(' '), warnings })
+    } catch (err: any) {
+      setReadNote({ kind: 'err', text: err.message || 'Could not read the label photos.', warnings: [] })
+    } finally {
+      setReading(false)
+      onBusyChange(false)
+    }
+  }
+
   function toggleParam(i: number) {
+    unmark(parameters[i].parameter)
     // `details` is kept on untick so re-ticking restores what was typed.
     onChange({
       parameters: parameters.map((r, n) => (n === i ? { ...r, checked: !r.checked } : r)),
@@ -756,6 +820,39 @@ function EntryBlockFields({
           </div>
         )}
 
+        {photos.length > 0 && (
+          <div className="mb-3 rounded-xl border border-brand-200 bg-brand-50/60 p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={readFromPhotos}
+                disabled={reading || uploading}
+                className="btn-base btn-primary"
+              >
+                {reading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {reading ? 'Reading the label…' : 'Read details from photos'}
+              </button>
+              <span className="text-[11px] font-medium text-ink-400">
+                Fills empty details below from what is printed on the label. You still check every value.
+              </span>
+            </div>
+            {readNote && (
+              <div
+                role="status"
+                className={cn(
+                  'mt-2 text-xs font-medium',
+                  readNote.kind === 'ok' ? 'text-success-700' : 'text-danger-700',
+                )}
+              >
+                <p>{readNote.text}</p>
+                {readNote.warnings.map((w) => (
+                  <p key={w} className="mt-1 text-warning-700">{w}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {uploading ? (
           <p className="inline-flex items-center gap-2 text-sm font-semibold text-ink-500">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -853,6 +950,12 @@ function EntryBlockFields({
                 <span className="text-sm font-semibold leading-snug text-ink-600">
                   {row.parameter}
                 </span>
+                {fromPhoto.has(row.parameter) && (
+                  <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-warning-50 px-1.5 py-0.5 align-middle text-[10px] font-bold text-warning-700 ring-1 ring-warning-200">
+                    <Sparkles className="h-3 w-3" />
+                    From photo — check
+                  </span>
+                )}
                 {row.checked && (
                   <input
                     type="text"
@@ -863,7 +966,10 @@ function EntryBlockFields({
                     // Stops the wrapping <label> from re-toggling the checkbox
                     // when the operator clicks into the field.
                     onClick={(e) => e.stopPropagation()}
-                    className="mt-1.5 w-full rounded-md border border-cream-300 bg-white px-2.5 py-1.5 text-xs text-ink-600 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                    className={cn(
+                      'mt-1.5 w-full rounded-md border bg-white px-2.5 py-1.5 text-xs text-ink-600 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30',
+                      fromPhoto.has(row.parameter) ? 'border-warning-300' : 'border-cream-300',
+                    )}
                   />
                 )}
               </div>

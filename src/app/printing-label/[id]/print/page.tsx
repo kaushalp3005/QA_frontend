@@ -62,11 +62,13 @@ export default function PrintEntryPage() {
           setEntries([data])
           return
         }
-        // No warehouse filter, matching the register listing — the printed sheet
-        // must hold exactly the entries the expanded date row shows, or rows go
-        // missing from a controlled document without saying so.
+        // The entry's own plant, matching the register listing — the printed
+        // sheet must hold exactly the entries the expanded date row shows, and
+        // one plant's day must never print another plant's entries. The record's
+        // plant, not the selector's, so reprinting from either plant gives the
+        // same sheet. An entry with no plant falls back to no filter.
         // byDate excludes drafts by default, so the sheet holds filed entries only.
-        const sameDay = await printingLabelsApi.byDate(data.entry_date, null)
+        const sameDay = await printingLabelsApi.byDate(data.entry_date, data.warehouse ?? null)
         if (cancelled) return
         // Fall back to the single entry if the day query somehow misses it.
         setEntries(sameDay.length ? sameDay : [data])

@@ -16,7 +16,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import ModuleGuard from '@/components/ModuleGuard'
 import PageHeader from '@/components/ui/PageHeader'
 import { Spinner } from '@/components/ui/Loader'
-import WarehouseSelector from '@/components/ui/WarehouseSelector'
+import WarehouseSelector, { getStoredWarehouse } from '@/components/ui/WarehouseSelector'
 import { formatDateShort } from '@/lib/date-utils'
 import { isDocAdminFor } from '@/lib/api/documentations'
 import {
@@ -63,14 +63,14 @@ function BatchCodingRegister() {
 
   // One date open at a time, plus its full set of entries. Expanding asks the
   // by-date endpoint, which is authoritative: it returns every entry written on
-  // that date including drafts, whichever plant stamped them.
+  // that date for the selected plant, including drafts.
   const [openDate, setOpenDate] = useState<string | null>(null)
   const [entriesByDate, setEntriesByDate] = useState<Record<string, PrintingLabelRecord[]>>({})
   const [loadingDate, setLoadingDate] = useState<string | null>(null)
 
   // Switching plant changes what this listing is: drop the cached days, close
-  // any open group and go back to page 1, then refetch. docsApi.list stamps the
-  // active warehouse onto the query, so the fetch below picks the new one up.
+  // any open group and go back to page 1, then refetch. The fetch below reads
+  // the selected plant when it runs, so it picks the new one up.
   useEffect(() => {
     function onWarehouseChanged() {
       setEntriesByDate({})
@@ -88,8 +88,10 @@ function BatchCodingRegister() {
     // The table shows one row per date, so a server page of 25 entries would
     // collapse into a handful of rows. Pull every entry and page the date rows
     // below instead.
+    // Only the plant chosen in the warehouse selector. (A plant-pinned account
+    // gets its own plant whatever is sent — the server enforces that.)
     printingLabelsApi
-      .listAll()
+      .listAll({ warehouse: getStoredWarehouse() })
       .then((rows) => {
         if (cancelled) return
         setRecords(rows)
@@ -146,11 +148,11 @@ function BatchCodingRegister() {
 
     setLoadingDate(group.date)
     try {
-      // No warehouse filter, matching the listing above — a date must expand to
-      // every entry written on it, whichever plant stamped them.
+      // Same plant as the listing above, so a date expands to that plant's
+      // entries only.
       // includeDrafts: the listing is where a half-filled entry gets picked back
       // up, so drafts must appear here. Only the printed register hides them.
-      const rows = await printingLabelsApi.byDate(group.date, null, true)
+      const rows = await printingLabelsApi.byDate(group.date, getStoredWarehouse(), true)
       setEntriesByDate((m) => ({ ...m, [group.date]: rows.length ? rows : group.onPage }))
     } catch (err: any) {
       setError(err.message || 'Failed to load entries for this date')

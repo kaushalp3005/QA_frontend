@@ -222,19 +222,18 @@ export function detailOf(record: PrintingLabelRecord, parameter: string): string
 // get real types instead of Record<string, any>.
 export const printingLabelsApi = {
   list: async (params: Record<string, any> = {}) => {
-    // `warehouse: null` switches off docsApi's default plant filter. This
-    // register is one book for the printing team, not one per plant: entries
-    // are still stamped with a warehouse (scoped admins need it to delete), but
-    // filtering the listing by the browser's active plant hides every entry
-    // whenever that plant is not the one the entry was written under — which is
-    // the default on any browser that has never picked a plant.
+    // No plant filter unless the caller passes `warehouse` — `warehouse: null`
+    // switches off docsApi's default of the browser's active plant. The
+    // register page passes the plant chosen in its warehouse selector, so the
+    // listing follows the selector. (A plant-pinned account is clamped to its
+    // own plant by the server either way.)
     const res = await docsApi.list(FORM_TYPE, { warehouse: null, ...params })
     return { ...res, records: (res.records ?? []) as unknown as PrintingLabelRecord[] }
   },
 
   /** Every entry, pulled in 500-row pages. The register collapses entries into
    *  one row per date, so the whole set has to be here before those rows can be
-   *  paged. Same `warehouse: null` reasoning as `list` above. */
+   *  paged. Pass `warehouse` to limit it to one plant, as `list` above. */
   listAll: async (params: Record<string, any> = {}) => {
     const records = await docsApi.listAll(FORM_TYPE, { warehouse: null, ...params })
     return records as unknown as PrintingLabelRecord[]

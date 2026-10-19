@@ -29,6 +29,7 @@ export const QC_MODULES: { code: string; label: string }[] = [
   // The stored module_code stays `section_1`: it is the key in
   // qc_module_permissions rows that already exist, so only the label moves.
   { code: "section_1", label: "Printing Label" },
+  { code: "maintenance_work", label: "Maintenance Work" },
 ];
 
 export const PERMISSION_FLAGS = [

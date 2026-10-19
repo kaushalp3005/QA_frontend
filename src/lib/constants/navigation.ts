@@ -10,6 +10,7 @@ import {
   GraduationCap,
   Beaker,
   Wrench,
+  HardHat,
   Printer,
   PhoneCall,
   type LucideIcon,
@@ -64,6 +65,9 @@ export const NAVIGATION: NavItem[] = [
   },
   { name: 'NI Report',       href: '/ni-report',       icon: ClipboardList,   moduleCode: 'ni_report' },
   { name: 'PM Inspection',   href: '/pm-inspection',   icon: Wrench,          moduleCode: 'pm_inspection' },
+  // QC sign-off of the maintenance team's preventive-maintenance work orders
+  // (mt_pm_work_order). view = see them, edit = approve or send back.
+  { name: 'Maintenance Work', href: '/maintenance-work', icon: HardHat,        moduleCode: 'maintenance_work' },
   { name: 'Printing Label',  href: '/printing-label',  icon: Printer,         moduleCode: 'section_1' },
   // AI voice-agent call log (quality calls + every safety issue). Its module
   // code is deliberately absent from QC_MODULES: the backend allows QC

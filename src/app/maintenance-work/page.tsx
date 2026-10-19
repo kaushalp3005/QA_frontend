@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/Loader'
 import { useCompany } from '@/contexts/CompanyContext'
 import { cn } from '@/lib/styles'
 import StatusBadge, { plantLabel } from '@/components/maintenance-work/StatusBadge'
+import { lockedWarehouse } from '@/lib/warehouseAccess'
 import {
   AWAITING_QC,
   MODULE_CODE,
@@ -33,6 +34,32 @@ const PLANTS = [
   { value: 'W202', label: 'W-202' },
 ]
 
+// The filters live in sessionStorage so opening a work order and coming back
+// (or reloading) keeps them. sessionStorage, not localStorage: they last for this
+// browser tab only, so a fresh tab starts on the default view.
+const FILTERS_KEY = 'maintenance-work:filters'
+
+interface SavedFilters {
+  tabKey: string
+  plant: string
+  search: string
+}
+
+function readSavedFilters(): SavedFilters {
+  const fallback: SavedFilters = { tabKey: STATUS_TABS[0].key, plant: '', search: '' }
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(FILTERS_KEY) || '{}')
+    return {
+      // Validate: a value saved by an older build may no longer be an option.
+      tabKey: STATUS_TABS.some((t) => t.key === saved.tabKey) ? saved.tabKey : fallback.tabKey,
+      plant: PLANTS.some((p) => p.value === saved.plant) ? saved.plant : fallback.plant,
+      search: typeof saved.search === 'string' ? saved.search : fallback.search,
+    }
+  } catch {
+    return fallback // storage blocked or unreadable — just start on the defaults
+  }
+}
+
 export default function MaintenanceWorkPage() {
   return (
     <DashboardLayout>
@@ -47,10 +74,16 @@ function MaintenanceWorkList() {
   const router = useRouter()
   const { currentCompany } = useCompany()
 
-  const [tabKey, setTabKey] = useState(STATUS_TABS[0].key)
-  const [plant, setPlant] = useState('')
-  const [search, setSearch] = useState('')
-  const [activeSearch, setActiveSearch] = useState('')
+  // Read once on mount. Safe from hydration mismatch: ModuleGuard renders a
+  // spinner until its client-side permission check, so this never renders on the server.
+  const [initial] = useState(readSavedFilters)
+  // A plant-bound account (e.g. quality.a-185@) works one plant only. The backend
+  // clamps the list to it regardless; this just stops offering a switch.
+  const [locked] = useState(lockedWarehouse)
+  const [tabKey, setTabKey] = useState(initial.tabKey)
+  const [plant, setPlant] = useState<string>(locked || initial.plant)
+  const [search, setSearch] = useState(initial.search)
+  const [activeSearch, setActiveSearch] = useState(initial.search.trim())
   const [page, setPage] = useState(1)
 
   const [items, setItems] = useState<WorkOrderSummary[]>([])
@@ -65,6 +98,18 @@ function MaintenanceWorkList() {
     const t = setTimeout(() => setActiveSearch(search.trim()), 350)
     return () => clearTimeout(t)
   }, [search])
+
+  useEffect(() => {
+    try {
+      // A locked plant is not a choice, so it is not remembered as one.
+      sessionStorage.setItem(
+        FILTERS_KEY,
+        JSON.stringify({ tabKey, plant: locked ? initial.plant : plant, search: activeSearch }),
+      )
+    } catch {
+      /* storage blocked (private mode) — the filters just won't be remembered */
+    }
+  }, [tabKey, plant, activeSearch])
 
   // A changed filter starts from page 1, or it can land past the end of a
   // shorter result and read as "nothing here".
@@ -162,13 +207,22 @@ function MaintenanceWorkList() {
             className="input-base !pl-9 w-full"
           />
         </div>
-        <select value={plant} onChange={(e) => setPlant(e.target.value)} className="input-base sm:!w-44">
-          {PLANTS.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
-          ))}
-        </select>
+        {locked ? (
+          <div
+            className="input-base sm:!w-44 !bg-cream-100 text-ink-500 font-semibold"
+            title="Your account works in this plant only"
+          >
+            {plantLabel(locked)}
+          </div>
+        ) : (
+          <select value={plant} onChange={(e) => setPlant(e.target.value)} className="input-base sm:!w-44">
+            {PLANTS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="surface-card overflow-hidden animate-fade-in-up">
@@ -199,7 +253,7 @@ function MaintenanceWorkList() {
               {tab.statuses === AWAITING_QC ? 'Nothing is waiting for QC' : 'No work orders here'}
             </h3>
             <p className="mt-1 text-xs text-ink-400">
-              {activeSearch || plant
+              {activeSearch || (plant && !locked)
                 ? 'Try clearing the search or the plant filter.'
                 : 'Work orders appear here once maintenance generates them.'}
             </p>
@@ -262,7 +316,7 @@ function MaintenanceWorkList() {
                       {wo.assigned_technician_name || '—'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-[13px] text-ink-500 tabular-nums">
-                      <KeyDate wo={wo} />
+                      <KeyDate wo={wo} waitingColumn={tab.statuses === AWAITING_QC} />
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-[12px] text-ink-400">
                       {wo.qc_acknowledged_by_name ? (
@@ -318,9 +372,15 @@ function MaintenanceWorkList() {
 }
 
 /** The one date that matters for where the work order is now. */
-function KeyDate({ wo }: { wo: WorkOrderSummary }) {
+function KeyDate({ wo, waitingColumn }: { wo: WorkOrderSummary; waitingColumn: boolean }) {
   if (wo.status === AWAITING_QC) {
-    return <span title={formatIstDateTime(wo.supervisor_approved_at)}>{waitingFor(wo.supervisor_approved_at)}</span>
+    // Under a "Date" heading a bare "2 d" reads like a date, so say what it is.
+    const wait = waitingFor(wo.supervisor_approved_at)
+    return (
+      <span title={formatIstDateTime(wo.supervisor_approved_at)}>
+        {waitingColumn ? wait : `waiting ${wait}`}
+      </span>
+    )
   }
   if (wo.closed_at) return <span title="Closed">{formatIstDate(wo.closed_at)}</span>
   return <span title="Scheduled">{formatIstDate(wo.scheduled_date)}</span>

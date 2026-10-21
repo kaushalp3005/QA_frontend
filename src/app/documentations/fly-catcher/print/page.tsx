@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import SignatureCell from "@/components/ui/SignatureCell";
+import { averageFliesWeight } from "@/lib/flyCatcher";
 
 const FORM_TYPE = "fly-catcher";
 // The paper sheet has nine ruled rows; a short round is padded out to match.
@@ -83,6 +84,8 @@ function FlyCatcherPrint() {
   const rows: any[] = Array.isArray(record?.rows) ? record!.rows : [];
   const blankRows = Math.max(0, MIN_ROWS - rows.length);
   const firstDate = rows.find((r) => r.date)?.date;
+
+  const avgWeight = averageFliesWeight(rows);
 
   return (
     <div className="min-h-screen bg-gray-300 print:bg-white">
@@ -185,6 +188,13 @@ function FlyCatcherPrint() {
                   ))}
                 </tr>
               ))}
+              {/* Only the Flies Qty column is averaged; the label spans the four
+                  columns before it and the rest of the row stays empty. */}
+              <tr>
+                <td colSpan={4} style={{ ...td, textAlign: "right", paddingRight: "6px", fontWeight: "bold" }}>Average</td>
+                <td style={{ ...td, fontWeight: "bold" }}>{avgWeight === null ? "" : avgWeight}</td>
+                <td colSpan={COLUMNS.length - 5} style={td}></td>
+              </tr>
             </tbody>
           </table>
 

@@ -97,6 +97,7 @@ function SignSelect({
   options,
   warehouse,
   field,
+  compact,
   label,
 }: {
   value: string;
@@ -105,6 +106,8 @@ function SignSelect({
   warehouse: WarehouseScope;
   /** Full-height field, to sit beside `input-base` inputs. */
   field?: boolean;
+  /** Narrow, to fit a month column of the yearly grid. */
+  compact?: boolean;
   label: string;
 }) {
   const visible = filterSignaturesByWarehouse(options, warehouse).filter((o) => o.name !== "Other");
@@ -118,7 +121,9 @@ function SignSelect({
       className={
         field
           ? "input-base sm:w-48"
-          : "w-full min-w-[130px] text-xs px-1.5 py-1 border border-cream-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+          : compact
+            ? signoffInput
+            : "w-full min-w-[130px] text-xs px-1.5 py-1 border border-cream-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
       }
     >
       <option value="">—</option>
@@ -336,6 +341,9 @@ function SubmitBar({
 const cellInput =
   "w-full border border-cream-300 rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-500";
 const thBase = "px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-400";
+/** Date / signatory input in a month column — wide enough for a date picker. */
+const signoffInput =
+  "w-full min-w-[108px] border border-cream-300 rounded px-1 py-1 text-[11px] bg-white focus:outline-none focus:ring-1 focus:ring-brand-500";
 
 const nextId = (rows: { id: number }[]) => Math.max(0, ...rows.map((r) => r.id)) + 1;
 
@@ -504,10 +512,11 @@ function GlassBrittleYearlyForm({ initialData, onSubmit, isEdit, warehouse }: Pl
           Click a month cell to cycle <span className="text-success-600 font-bold">{GB_TICK}</span> (OK) →{" "}
           <span className="text-danger-600 font-bold">{GB_CROSS}</span> (damaged / missing) → empty. The{" "}
           <span className="font-semibold">{GB_TICK}</span> under a month fills this floor&apos;s empty cells; note any{" "}
-          {GB_CROSS} in Observations below.
+          {GB_CROSS} in Observations below. The Date, Checked By and Verified By rows at the bottom are one sign-off
+          per month for the whole sheet.
         </p>
-        <p className="text-[11px] text-ink-400 italic px-4 sm:px-5 pt-1 lg:hidden">
-          ← Swipe the table sideways to reach later months.
+        <p className="text-[11px] text-ink-400 italic px-4 sm:px-5 pt-1">
+          ← Scroll the table sideways to reach later months.
         </p>
 
         <div className="overflow-x-auto mt-2">
@@ -604,6 +613,68 @@ function GlassBrittleYearlyForm({ initialData, onSubmit, isEdit, warehouse }: Pl
                 </tr>
               ))}
             </tbody>
+
+            {/* Per-month sign-off, as on the last rows of the format. It covers the
+                whole sheet, so every floor tab shows — and edits — the same values. */}
+            <tfoot className="border-t-2 border-cream-300 divide-y divide-cream-300 bg-cream-100/50">
+              {([
+                [
+                  "Date",
+                  (m: GbMonth) => (
+                    <input
+                      type="date"
+                      value={monthDates[m] || ""}
+                      onChange={(e) => setMonthDates((p) => ({ ...p, [m]: e.target.value }))}
+                      aria-label={`Date of check — ${m}`}
+                      className={signoffInput}
+                    />
+                  ),
+                ],
+                [
+                  "Checked By",
+                  (m: GbMonth) => (
+                    <SignSelect
+                      compact
+                      label={`Checked by — ${m}`}
+                      value={signoffs[m].checkedBy}
+                      onChange={(v) => setSignoffs((p) => ({ ...p, [m]: { ...p[m], checkedBy: v } }))}
+                      options={CHECKED_BY_OPTIONS}
+                      warehouse={warehouse}
+                    />
+                  ),
+                ],
+                [
+                  "Verified By",
+                  (m: GbMonth) => (
+                    <SignSelect
+                      compact
+                      label={`Verified by — ${m}`}
+                      value={signoffs[m].verifiedBy}
+                      onChange={(v) => setSignoffs((p) => ({ ...p, [m]: { ...p[m], verifiedBy: v } }))}
+                      options={QC_VERIFIED_BY_OPTIONS}
+                      warehouse={warehouse}
+                    />
+                  ),
+                ],
+              ] as const).map(([label, cell], i) => (
+                <tr key={label}>
+                  <td className="sticky left-0 z-10 bg-cream-100 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-500 whitespace-nowrap">
+                    {label}
+                  </td>
+                  {i === 0 && (
+                    <td colSpan={3} rowSpan={3} className="px-3 py-2 text-[11px] italic text-ink-400">
+                      One sign-off per month for all floors.
+                    </td>
+                  )}
+                  {GB_MONTHS.map((m) => (
+                    <td key={m} className="border-l border-cream-300 px-1 py-1">
+                      {cell(m)}
+                    </td>
+                  ))}
+                  <td className="border-l border-cream-300" />
+                </tr>
+              ))}
+            </tfoot>
           </table>
         </div>
       </section>
@@ -613,83 +684,6 @@ function GlassBrittleYearlyForm({ initialData, onSubmit, isEdit, warehouse }: Pl
           <option key={o} value={o} />
         ))}
       </datalist>
-
-      {/* Per-month sign-off — one Checked By / Verified By per month for the
-          whole sheet, as on the last two rows of the format. */}
-      <section className="surface-card overflow-hidden">
-        <header className="px-4 sm:px-5 py-3 border-b border-cream-300 bg-cream-100/60">
-          <h2 className="text-sm font-bold text-ink-600">Monthly sign-off — all floors</h2>
-          <p className="text-[11px] text-ink-400 mt-0.5">
-            One sign-off per month for the whole sheet. <span className="font-semibold">Mark all</span> fills every
-            unchecked item on every floor with {GB_TICK} for that month.
-          </p>
-        </header>
-        <div className="overflow-x-auto">
-          <table className="text-xs border-collapse w-full">
-            <thead>
-              <tr className="bg-cream-100/70 border-b border-cream-300">
-                <th className={`${thBase} w-20`}>Month</th>
-                <th className={`${thBase} min-w-[150px]`}>Items checked</th>
-                <th className={`${thBase} min-w-[150px]`}>Date of check</th>
-                <th className={`${thBase} min-w-[150px]`}>Checked By</th>
-                <th className={`${thBase} min-w-[150px]`}>Verified By</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cream-300">
-              {GB_MONTHS.map((m) => {
-                const done = marked(m, rows);
-                return (
-                  <tr key={m} className="hover:bg-cream-100/60">
-                    <td className="px-2 py-1.5 font-semibold text-ink-500">{m}</td>
-                    <td className="px-2 py-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-12 text-[11px] font-semibold ${done === rows.length ? "text-success-600" : "text-ink-500"}`}>
-                          {done}/{rows.length}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => tickMonth(m, () => true)}
-                          className="text-[10px] font-bold leading-none bg-success-50 text-success-700 px-2 py-1 rounded hover:bg-success-100 whitespace-nowrap"
-                          title={`Mark every unchecked item on every floor ${GB_TICK} for ${m}`}
-                        >
-                          Mark all
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-2 py-1">
-                      <input
-                        type="date"
-                        value={monthDates[m] || ""}
-                        onChange={(e) => setMonthDates((p) => ({ ...p, [m]: e.target.value }))}
-                        aria-label={`Date of check — ${m}`}
-                        className={cellInput}
-                      />
-                    </td>
-                    <td className="px-2 py-1">
-                      <SignSelect
-                        label={`Checked by — ${m}`}
-                        value={signoffs[m].checkedBy}
-                        onChange={(v) => setSignoffs((p) => ({ ...p, [m]: { ...p[m], checkedBy: v } }))}
-                        options={CHECKED_BY_OPTIONS}
-                        warehouse={warehouse}
-                      />
-                    </td>
-                    <td className="px-2 py-1">
-                      <SignSelect
-                        label={`Verified by — ${m}`}
-                        value={signoffs[m].verifiedBy}
-                        onChange={(v) => setSignoffs((p) => ({ ...p, [m]: { ...p[m], verifiedBy: v } }))}
-                        options={QC_VERIFIED_BY_OPTIONS}
-                        warehouse={warehouse}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
       <section className="surface-card p-4 sm:p-5">
         <h2 className="text-sm font-bold text-ink-600 mb-3">Observations &amp; Actions</h2>

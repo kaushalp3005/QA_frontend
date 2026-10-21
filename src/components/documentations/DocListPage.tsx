@@ -17,9 +17,15 @@ interface Props {
    * expand and cached for the rest of the visit.
    */
   renderExpanded?: (record: Record<string, any>) => ReactNode
+  /**
+   * Cell text for columns that are not a field on the record — e.g. a value
+   * computed from its rows. Return undefined to show the record's own field.
+   * Search matches the text shown, so computed columns are searchable too.
+   */
+  columnValue?: (column: string, record: Record<string, any>) => string | undefined
 }
 
-export default function DocListPage({ config, renderExpanded }: Props) {
+export default function DocListPage({ config, renderExpanded, columnValue }: Props) {
   const router = useRouter()
   const base = config.basePath ?? '/documentations'
   const [records, setRecords] = useState<Record<string, any>[]>([])
@@ -113,11 +119,16 @@ export default function DocListPage({ config, renderExpanded }: Props) {
     return String(val)
   }
 
+  const cellText = (rec: Record<string, any>, col: string): string => {
+    const custom = columnValue?.(col, rec)
+    return custom === undefined ? formatValue(rec[col]) : custom || '—'
+  }
+
   // Filter the loaded records by a free-text query across the visible columns.
   const query = search.trim().toLowerCase()
   const filtered = query
     ? records.filter((rec) =>
-        config.listColumns.some((col) => formatValue(rec[col]).toLowerCase().includes(query))
+        config.listColumns.some((col) => cellText(rec, col).toLowerCase().includes(query))
       )
     : records
 
@@ -284,7 +295,7 @@ export default function DocListPage({ config, renderExpanded }: Props) {
                         // Free-text columns (e.g. the training topic) can run long or
                         // hold newlines — cap them to one line and put the full value
                         // in the tooltip so the row height stays uniform.
-                        const text = formatValue(rec[col])
+                        const text = cellText(rec, col)
                         return (
                           <td
                             key={col}

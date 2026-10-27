@@ -1,5 +1,6 @@
 import { NAVIGATION } from '@/lib/constants/navigation'
 import { isSuperAdmin } from '@/lib/constants/modules'
+import { ACTIVE_SYSTEM_KEY, MAINTENANCE_HOME } from '@/lib/systems'
 
 /** Shape the login flow stores in localStorage, from GET /auth/permissions/{company}.
  *  Note the short keys — /settings/my-permissions uses can_view/can_access instead. */
@@ -33,8 +34,10 @@ function readJson<T>(key: string): T | null {
   }
 }
 
-/** landingPathFor() using whatever the last login cached in localStorage. */
+/** landingPathFor() using whatever the last login cached in localStorage.
+ *  A user who picked the Maintenance system at login goes back there. */
 export function landingPathFromStorage(): string {
+  if (localStorage.getItem(ACTIVE_SYSTEM_KEY) === 'maintenance_system') return MAINTENANCE_HOME
   const email =
     localStorage.getItem('user_email') ??
     readJson<{ email?: string }>('user')?.email ??

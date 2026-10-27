@@ -34,6 +34,13 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       // so guarding it would redirect them to the page they are stuck on.
       const publicRoutes = ['/login', '/forgot-password', '/']
 
+      // The Maintenance system signs in against its own backend and guards
+      // itself (app/maintenance/layout.tsx), so the QC session is irrelevant there.
+      if (pathname === '/maintenance' || pathname.startsWith('/maintenance/')) {
+        setIsChecking(false)
+        return
+      }
+
       // Check if current route is public
       const isPublicRoute = publicRoutes.includes(pathname)
 
@@ -49,6 +56,11 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       if (isAuthenticated() && pathname === '/login') {
         // Check for return URL in query params
         const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+        // Sent here to sign in to Maintenance — a QC session doesn't cover that.
+        if (urlParams.get('system') === 'maintenance') {
+          setIsChecking(false)
+          return
+        }
         const returnUrl = urlParams.get('returnUrl')
         if (returnUrl) {
           router.push(returnUrl)

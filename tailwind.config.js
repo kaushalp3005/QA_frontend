@@ -35,6 +35,20 @@ module.exports = {
           800: '#410C08',
           900: '#210604',
         },
+        // Maintenance system accent — the FactoryOps app's teal (#0F6E56).
+        // Used only under /maintenance so the two systems look distinct.
+        factory: {
+          50:  '#ECF7F3',
+          100: '#D0EDE3',
+          200: '#A3DBC8',
+          300: '#6CC2A6',
+          400: '#36A383',
+          500: '#17866A',
+          600: '#0F6E56',
+          700: '#0C5946',
+          800: '#0A4638',
+          900: '#07332A',
+        },
         ink: {
           50:  'rgb(var(--c-ink-50) / <alpha-value>)',
           100: 'rgb(var(--c-ink-100) / <alpha-value>)',

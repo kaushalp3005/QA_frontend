@@ -299,6 +299,7 @@ export function logout(): void {
   localStorage.removeItem(USER_KEY)
   localStorage.removeItem(COMPANY_KEY)
   localStorage.removeItem('permissions')
+  localStorage.removeItem('active_system')
 }
 
 /**

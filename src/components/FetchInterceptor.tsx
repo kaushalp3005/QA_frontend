@@ -2,6 +2,7 @@
 
 import axios from 'axios'
 import { refreshTokens, getFreshAccessToken, getAuthToken } from '@/lib/api/auth'
+import { MT_API_BASE } from '@/lib/maintenance/client'
 
 /**
  * Global fetch wrapper. Does two jobs, both of which have to be central.
@@ -77,6 +78,11 @@ function installFetchInterceptor(): void {
 
   const isOurApi = (url: string): boolean => {
     if (!apiOrigin) return false
+    // The merged backend serves Maintenance from the same host (/maintenance/*)
+    // with its own mt_users JWT. Its calls carry their own token and 401
+    // handling (lib/maintenance/client.ts); a QC token or a QC refresh there
+    // would be wrong, and a failed refresh would log the user out of QC.
+    if (url.startsWith(`${MT_API_BASE}/`)) return false
     try {
       return new URL(url, window.location.origin).origin === apiOrigin
     } catch {

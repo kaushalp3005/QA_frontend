@@ -47,6 +47,8 @@ export const MT = {
 
   // Technician
   breakdowns: `${M}/breakdowns`,
+  /** Breakdowns opened on its Raised Tickets tab (maintenance WhatsApp complaints). */
+  breakdownsRaised: `${M}/breakdowns?tab=raised`,
   breakdown: (id: string) => `${M}/breakdowns/${encodeURIComponent(id)}`,
   pm: `${M}/pm`,
   pmDetail: (woId: string) => `${M}/pm/${encodeURIComponent(woId)}`,

@@ -17,7 +17,7 @@ import {
 } from '@/components/maintenance/ui'
 import { TicketPhoto, TicketStatusBadge } from '@/components/maintenance/tickets/TicketBits'
 import { useMtQuery } from '@/lib/maintenance/hooks'
-import { fmtDateTime } from '@/lib/maintenance/format'
+import { fmtDateTime, plantLabel } from '@/lib/maintenance/format'
 import { MT } from '@/lib/maintenance/nav'
 import {
   acknowledgeTicket,
@@ -74,7 +74,8 @@ export default function RaisedTicketDetailPage({ params }: { params: { id: strin
       <PageHeader
         title={ticket?.ticket_no ?? 'Ticket'}
         subtitle={ticket ? <TicketStatusBadge status={ticket.status} /> : undefined}
-        back={MT.raisedTickets}
+        // Maintenance tickets are listed under Breakdowns, IT ones on Raised Tickets.
+        back={ticket?.module === 'maintenance' ? MT.breakdownsRaised : MT.raisedTickets}
         actions={
           <Button variant="secondary" icon={RefreshCw} onClick={reload} disabled={loading}>
             Refresh
@@ -104,6 +105,7 @@ export default function RaisedTicketDetailPage({ params }: { params: { id: strin
               items={[
                 { label: 'Asset', value: dash(ticket.asset) },
                 { label: 'Area', value: dash(ticket.area) },
+                ...(ticket.plant ? [{ label: 'Plant', value: plantLabel(ticket.plant) }] : []),
                 { label: 'Problem', value: dash(ticket.description), wide: true },
                 { label: 'Raised by', value: dash(ticket.raised_by) },
                 { label: 'Raised at', value: fmtDateTime(ticket.created_at) },

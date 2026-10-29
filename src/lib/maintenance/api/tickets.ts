@@ -32,6 +32,8 @@ export interface WaTicket {
   module?: string | null
   asset?: string | null
   area?: string | null
+  /** 'A185' | 'W202' — picked in the WhatsApp maintenance form; null for IT and older tickets */
+  plant?: string | null
   description?: string | null
   /** Public S3 URL (expires after 45 days), or null when the reporter skipped it */
   photo_url?: string | null
@@ -46,9 +48,23 @@ export interface WaTicket {
   recipients?: WaReceive[]
 }
 
-/** live = open + acknowledged (oldest first); history = resolved (newest first) */
-export function listTickets(scope: TicketScope, limit = 100) {
-  return mtFetch<WaTicket[]>('/wa-tickets', { query: { scope, limit } })
+/** Which technician pool's queue: 'it' (WhatsApp → Raise IT Complaint, worked
+ *  by IT_TECHNICIAN) or 'maintenance' (Maintenance → Raise Complaint, worked by
+ *  TECHNICIAN from Breakdowns). */
+export type TicketModule = 'it' | 'maintenance'
+
+export interface ListTicketsOptions {
+  limit?: number
+  /** Omitted = every pool */
+  module?: TicketModule
+  /** Only tickets routed to (or taken by) the signed-in user — for a maintenance
+   *  ticket that means technicians at its plant. Omitted = everyone's. */
+  mine?: boolean
+}
+
+/** live = open + acknowledged (oldest first); history = resolved (newest first). */
+export function listTickets(scope: TicketScope, { limit = 100, module, mine }: ListTicketsOptions = {}) {
+  return mtFetch<WaTicket[]>('/wa-tickets', { query: { scope, limit, module, mine } })
 }
 
 export function getTicket(id: number | string) {

@@ -110,7 +110,7 @@ export default function CreateVendorCOAPage() {
       formDataToSend.append('file', file)
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/vendor-coa/extract?mode=ai`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/vendor-coa/extract`,
         {
           method: 'POST',
           body: formDataToSend,
@@ -119,7 +119,7 @@ export default function CreateVendorCOAPage() {
 
       if (response.ok) {
         const result = await response.json()
-        
+
         if (result.extraction_success) {
           // Auto-fill the form with extracted data
           if (result.data.vendor_name) {
@@ -131,12 +131,16 @@ export default function CreateVendorCOAPage() {
           if (result.data.item_name) {
             setFormData(prev => ({ ...prev, itemName: result.data.item_name }))
           }
-          
-          setExtractionMessage('✓ AI extracted data successfully! Please verify the fields.')
-          toast.success('Data extracted successfully! Please verify the fields.')
+        }
+
+        // A Gemini read gets a tick. A fallback read, or nothing found, is a
+        // warning: the message says why and what to check.
+        if (result.extraction_success && result.source === 'gemini') {
+          setExtractionMessage(`✓ ${result.message}`)
+          toast.success(result.message)
         } else {
-          setExtractionMessage('⚠ AI could not extract all data. Please fill the fields manually.')
-          toast.error('Could not extract all data. Please fill the fields manually.')
+          setExtractionMessage(`⚠ ${result.message}`)
+          toast.error(result.message)
         }
       } else {
         let msg = 'Extraction failed. Please fill the fields manually.'

@@ -503,25 +503,6 @@ export default function ProductWeightSealCheckRecord() {
                   Not saved
                 </span>
               )}
-              <button
-                type="button"
-                onClick={() => saveProduct(product.entryId)}
-                disabled={product.saving || (!!product.savedId && !product.dirty)}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-50 px-2.5 py-1 rounded"
-                title="Save this product to the database"
-              >
-                {product.saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {product.saving ? "Saving…" : product.savedId ? "Update" : "Save"}
-              </button>
-              {(products.length > 1 || product.savedId) && (
-                <button
-                  type="button"
-                  onClick={() => removeProduct(product.entryId)}
-                  className="inline-flex items-center gap-1 text-xs text-danger-600 hover:bg-danger-50 px-2 py-1 rounded"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> {product.savedId ? "Delete" : "Remove"}
-                </button>
-              )}
             </div>
           </div>
 
@@ -672,6 +653,29 @@ export default function ProductWeightSealCheckRecord() {
                 <label className="label-base">Remarks</label>
                 <textarea value={product.remarks} onChange={(e) => updateEntry(product.entryId, { remarks: e.target.value })} rows={2} className="input-base" placeholder="Optional remarks for this product..." />
               </div>
+          </div>
+
+          {/* Product actions — at the bottom, after the user has filled the block */}
+          <div className="flex items-center justify-end gap-2 px-4 py-3 bg-cream-50 border-t border-cream-300">
+            {(products.length > 1 || product.savedId) && (
+              <button
+                type="button"
+                onClick={() => removeProduct(product.entryId)}
+                className="inline-flex items-center gap-1.5 text-sm text-danger-600 hover:bg-danger-50 px-3 py-1.5 rounded-lg"
+              >
+                <Trash2 className="w-4 h-4" /> {product.savedId ? "Delete" : "Remove"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => saveProduct(product.entryId)}
+              disabled={product.saving || (!!product.savedId && !product.dirty)}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-50 px-4 py-1.5 rounded-lg"
+              title="Save this product to the database"
+            >
+              {product.saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {product.saving ? "Saving…" : product.savedId ? "Update" : "Save"}
+            </button>
           </div>
         </div>
       ))}

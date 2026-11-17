@@ -713,11 +713,49 @@ const A185_FLY_CATCHERS: { no: string; location: string }[] = [
   { no: "21", location: "Dock Area" },
 ];
 
-/** Starting rows for a new sheet — A185's catcher list, or blanks elsewhere. */
-const initialFlyRows = (warehouse: string): FlyRow[] =>
-  warehouse === "A185"
-    ? A185_FLY_CATCHERS.map((c, i) => ({ ...eFC(i + 1), location: c.location, flyCatcherNo: c.no }))
+/**
+ * W202's installed fly catchers, in the order its F.37 sheet lists them.
+ * Pre-filled the same way as A185's list above.
+ */
+const W202_FLY_CATCHERS: { no: string; location: string }[] = [
+  { no: "1",     location: "LB" },
+  { no: "2",     location: "LB" },
+  { no: "3",     location: "UB" },
+  { no: "4",     location: "UB" },
+  { no: "5",     location: "STORE AREA" },
+  { no: "6",     location: "STORE AREA" },
+  { no: "7",     location: "STORE AREA" },
+  { no: "8",     location: "STORE AREA" },
+  { no: "9",     location: "STORE AREA" },
+  { no: "10",    location: "FF" },
+  { no: "11",    location: "FF" },
+  { no: "12",    location: "FF" },
+  { no: "13",    location: "FM" },
+  { no: "14",    location: "FM" },
+  { no: "15",    location: "FM" },
+  { no: "16",    location: "SF" },
+  { no: "17",    location: "SF" },
+  { no: "18",    location: "SF" },
+  { no: "19",    location: "SF" },
+  { no: "20",    location: "SMF" },
+  { no: "21",    location: "SMF" },
+  { no: "22",    location: "TERRACE" },
+  { no: "23",    location: "TERRACE" },
+  { no: "FK-01", location: "OFFICE ENTRY" },
+];
+
+const FLY_CATCHERS_BY_PLANT: Record<string, { no: string; location: string }[]> = {
+  A185: A185_FLY_CATCHERS,
+  W202: W202_FLY_CATCHERS,
+};
+
+/** Starting rows for a new sheet — the plant's catcher list, or blanks elsewhere. */
+const initialFlyRows = (warehouse: string): FlyRow[] => {
+  const catchers = FLY_CATCHERS_BY_PLANT[warehouse];
+  return catchers
+    ? catchers.map((c, i) => ({ ...eFC(i + 1), location: c.location, flyCatcherNo: c.no }))
     : Array.from({ length: 8 }, (_, i) => eFC(i + 1));
+};
 
 /** Per-row signatory dropdown, filtered to the current plant's staff. */
 function FlyRowSignSelect({
@@ -805,18 +843,19 @@ export function DailyFlyCatcherCheck({ initialData, onSubmit, isEdit, confirmRea
   const [success, setSuccess] = useState(false);
   // Ids come from the highest in use, not the row count: `length + 1` repeats an
   // id once a middle row is removed, and then editing one row edits both.
-  // A new row starts with the first row's date and verifier, same as the rest.
+  // A new row starts with the first row's date, glue pad and verifier, same as the rest.
   const add = () => setRows((p) => {
     const row = eFC(p.reduce((max, r) => Math.max(max, r.id), 0) + 1);
-    if (p[0]) { row.date = p[0].date; row.verifiedBy = p[0].verifiedBy; }
+    if (p[0]) { row.date = p[0].date; row.gluePadStatus = p[0].gluePadStatus; row.verifiedBy = p[0].verifiedBy; }
     return [...p, row];
   });
   const rm = (id: number) => { if (rows.length > 1) setRows((p) => p.filter((r) => r.id !== id)); };
-  // The whole round is usually one date and one verifier, so setting either on
-  // the first row fills the column. A row given its own value keeps it: only
-  // rows still blank or still matching the first row's old value follow along.
+  // The whole round is usually one date, one glue pad status and one verifier,
+  // so setting any of them on the first row fills the column. A row given its
+  // own value keeps it: only rows still blank or still matching the first row's
+  // old value follow along.
   const up = (id: number, f: keyof FlyRow, v: string) => setRows((p) => {
-    if (p[0]?.id === id && (f === "date" || f === "verifiedBy")) {
+    if (p[0]?.id === id && (f === "date" || f === "gluePadStatus" || f === "verifiedBy")) {
       const prev = p[0][f];
       return p.map((r) => (r.id === id || r[f] === "" || r[f] === prev ? { ...r, [f]: v } : r));
     }

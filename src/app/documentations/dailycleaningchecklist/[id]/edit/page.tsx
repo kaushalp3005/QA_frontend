@@ -34,6 +34,9 @@ export default function EditDailyCleaningChecklist() {
           revDate: n.revDate,
           revNo: n.revNo,
           defaultArea: def?.defaultArea,
+          // Without this the form treats a Floor checklist as single-area and
+          // hides the floor picker, so floors could not be changed on edit.
+          multiFloor: def?.multiFloor,
           parameters: n.parameters,
         });
         setInitialMonth(n.month);

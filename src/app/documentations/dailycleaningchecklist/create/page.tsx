@@ -53,6 +53,8 @@ export default function DailyCleaningChecklistCreatePage() {
           revDate: n.revDate,
           revNo: n.revNo,
           defaultArea: def?.defaultArea,
+          // Keeps the floor picker on a duplicated Floor checklist.
+          multiFloor: def?.multiFloor,
           parameters: n.parameters,
         });
         setDupMonth(n.month);

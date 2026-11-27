@@ -14,7 +14,30 @@ import type { WarehouseCode } from '@/lib/warehouseAccess'
 /** Cell codes, from the format's own legend. */
 export const PEST_STATUS_CODES = ['T', 'A', 'D', 'M'] as const
 
-export type PestStatus = (typeof PEST_STATUS_CODES)[number] | ''
+/**
+ * The "No.s" option: instead of a letter, the inspector types how many pests
+ * were sighted. The cell then stores that number as digits ("5"), which the
+ * print page prints as-is.
+ *
+ * PEST_COUNT_PENDING marks a cell where No.s was chosen but no number typed
+ * yet — it keeps the number box open while editing and is dropped on save.
+ */
+export const PEST_COUNT_OPTION = 'N'
+export const PEST_COUNT_PENDING = PEST_COUNT_OPTION
+export const PEST_COUNT_LABEL = 'No.s'
+
+/** A legend code, a count as digits, the pending-count marker, or '' for blank. */
+export type PestStatus = string
+
+/** Whether a cell is in No.s mode (a typed count, or No.s chosen and awaiting one). */
+export function isPestCount(value: string | undefined | null): boolean {
+  return !!value && (value === PEST_COUNT_PENDING || /^\d+$/.test(value))
+}
+
+/** Whether a cell holds something worth saving / counting as recorded. */
+export function isPestRecorded(value: string | undefined | null): boolean {
+  return !!value && value !== PEST_COUNT_PENDING
+}
 
 /** What each code stands for — the dropdown shows these, the sheet prints the letter. */
 export const PEST_STATUS_LABELS: Record<string, string> = {
@@ -22,6 +45,14 @@ export const PEST_STATUS_LABELS: Record<string, string> = {
   A: 'Absent',
   D: 'Damaged',
   M: 'Missing',
+}
+
+/** Human-readable meaning of a cell value, for tooltips. */
+export function pestCellLabel(value: string): string {
+  if (!value) return ''
+  if (value === PEST_COUNT_PENDING) return `${PEST_COUNT_LABEL} — enter a number`
+  if (/^\d+$/.test(value)) return `${value} No.s`
+  return PEST_STATUS_LABELS[value] ?? value
 }
 
 /** The heading printed above the grid, legend and all, exactly as on the paper form. */

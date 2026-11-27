@@ -19,13 +19,19 @@ import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import { HYGIENE_CHECKED_BY_OPTIONS, QC_VERIFIED_BY_OPTIONS } from "@/lib/signatures";
 import {
   A185_PEST_TYPES,
+  PEST_COUNT_LABEL,
+  PEST_COUNT_OPTION,
+  PEST_COUNT_PENDING,
   PEST_NOTE_ROWS,
   PEST_SECTION_TITLE,
   PEST_STATUS_CODES,
   PEST_STATUS_LABELS,
   PEST_TYPE_SECTION_TITLE,
   hasPestTypeGrid,
+  isPestCount,
+  isPestRecorded,
   pestAreasFor,
+  pestCellLabel,
   pestDaysInMonth,
   pestDocMetaFor,
   type PestNoteKey,
@@ -47,7 +53,7 @@ import {
 
 const FORM_TYPE = "daily-pest-inspection";
 
-/** row (area or pest type) → day → legend code. Day keys are strings: they survive a JSON round trip. */
+/** row (area or pest type) → day → legend code or No.s count (digits). Day keys are strings: they survive a JSON round trip. */
 type Cells = Record<string, Record<string, PestStatus>>;
 /** The Correction / Remark rows, each a day → free text map. */
 type Notes = Record<PestNoteKey, Record<string, string>>;
@@ -102,8 +108,15 @@ function prunedGrid<T>(rows: Record<string, Record<string, T>>): Record<string, 
 
 /** A grid in the shape it is stored: { cells, correction, remark }. */
 function storedGrid(grid: DayGrid): Record<string, any> {
+  // A No.s cell with no number typed yet is saved as blank.
+  const cells: Cells = Object.fromEntries(
+    Object.entries(grid.cells).map(([row, days]) => [
+      row,
+      Object.fromEntries(Object.entries(days).filter(([, v]) => isPestRecorded(v))),
+    ])
+  );
   return {
-    cells: prunedGrid(grid.cells),
+    cells: prunedGrid(cells),
     ...Object.fromEntries(PEST_NOTE_ROWS.map(({ key }) => [key, prunedRow(grid.notes[key])])),
   };
 }
@@ -121,7 +134,7 @@ type Target = [string, number];
 export function firstCode(cells: Cells, targets: Target[]): PestStatus {
   for (const [row, day] of targets) {
     const value = cells[row]?.[String(day)];
-    if (value) return value;
+    if (isPestRecorded(value)) return value;
   }
   return "";
 }
@@ -176,7 +189,14 @@ const CODE_STYLE: Record<string, { on: string; cell: string }> = {
   T: { on: "bg-warning-500 border-warning-500 text-white", cell: "bg-warning-50 text-warning-700 border-warning-200" },
   D: { on: "bg-danger-600 border-danger-600 text-white", cell: "bg-danger-50 text-danger-700 border-danger-200" },
   M: { on: "bg-ink-600 border-ink-600 text-white", cell: "bg-ink-50 text-ink-600 border-ink-200" },
+  [PEST_COUNT_OPTION]: { on: "bg-sky-600 border-sky-600 text-white", cell: "bg-sky-50 text-sky-700 border-sky-200" },
 };
+
+/** Style for any cell value: a letter code, or a No.s count. */
+const styleFor = (value: string) => CODE_STYLE[isPestCount(value) ? PEST_COUNT_OPTION : value];
+
+/** Keep only digits (max 4) from a typed count; an empty box stays in No.s mode. */
+const countValue = (raw: string): PestStatus => raw.replace(/\D/g, "").slice(0, 4) || PEST_COUNT_PENDING;
 
 type GridView = "day" | "grid";
 
@@ -188,7 +208,8 @@ function todayInMonth(month: string): number | null {
 }
 
 /**
- * One daily code grid: `rows` × the month's days, a T/A/D/M code per cell,
+ * One daily code grid: `rows` × the month's days, a T/A/D/M code or a No.s
+ * count per cell,
  * and the Correction / Remark rows. Section 1 (areas) and Section 2 (pest
  * types) are both this.
  *
@@ -234,11 +255,11 @@ function DayCodeGridSection({
 
   const total = rows.length * days.length;
   const recorded = useMemo(
-    () => rows.reduce((sum, row) => sum + days.filter((d) => cells[row]?.[String(d)]).length, 0),
+    () => rows.reduce((sum, row) => sum + days.filter((d) => isPestRecorded(cells[row]?.[String(d)])).length, 0),
     [cells, rows, days]
   );
   const pct = total ? Math.round((recorded / total) * 100) : 0;
-  const filledOn = (d: number) => rows.filter((row) => cells[row]?.[String(d)]).length;
+  const filledOn = (d: number) => rows.filter((row) => isPestRecorded(cells[row]?.[String(d)])).length;
 
   const setCell = (row: string, d: number, value: PestStatus) =>
     onChange((prev) => ({
@@ -275,7 +296,7 @@ function DayCodeGridSection({
       const next = { ...prev.cells };
       for (const row of rows) {
         const code = prev.cells[row]?.[String(d - 1)];
-        if (code) next[row] = { ...(next[row] ?? {}), [String(d)]: code };
+        if (isPestRecorded(code)) next[row] = { ...(next[row] ?? {}), [String(d)]: code };
       }
       return { ...prev, cells: next };
     });
@@ -338,6 +359,11 @@ function DayCodeGridSection({
               {code} <span className="font-normal">{PEST_STATUS_LABELS[code]}</span>
             </span>
           ))}
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${CODE_STYLE[PEST_COUNT_OPTION].cell}`}
+          >
+            {PEST_COUNT_LABEL} <span className="font-normal">Number sighted</span>
+          </span>
         </div>
       </div>
 
@@ -430,7 +456,7 @@ function DayCodeGridSection({
                     <span className="mr-1.5 text-xs text-ink-400">{i + 1}.</span>
                     {row}
                   </span>
-                  <div className="grid grid-cols-4 gap-1.5 sm:flex">
+                  <div className="grid grid-cols-5 gap-1.5 sm:flex sm:items-center">
                     {PEST_STATUS_CODES.map((code) => (
                       <button
                         key={code}
@@ -447,6 +473,31 @@ function DayCodeGridSection({
                         {code}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      onClick={() => setCell(row, day, isPestCount(value) ? "" : PEST_COUNT_PENDING)}
+                      aria-pressed={isPestCount(value)}
+                      title="Number of pests sighted"
+                      className={`h-10 min-w-[44px] rounded-lg border px-1.5 text-sm font-bold transition-colors ${
+                        isPestCount(value)
+                          ? CODE_STYLE[PEST_COUNT_OPTION].on
+                          : "border-cream-300 bg-cream-50 text-ink-500 hover:border-brand-400"
+                      }`}
+                    >
+                      {PEST_COUNT_LABEL}
+                    </button>
+                    {isPestCount(value) && (
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoFocus={value === PEST_COUNT_PENDING}
+                        value={value === PEST_COUNT_PENDING ? "" : value}
+                        onChange={(e) => setCell(row, day, countValue(e.target.value))}
+                        placeholder="No."
+                        aria-label={`${row}, day ${day}, number sighted`}
+                        className="col-span-5 h-10 w-full rounded-lg border border-sky-300 bg-white px-2 text-center text-sm font-bold text-sky-700 focus:outline-none focus:ring-1 focus:ring-sky-500 sm:col-span-1 sm:w-20"
+                      />
+                    )}
                   </div>
                 </li>
               );
@@ -511,7 +562,7 @@ function DayCodeGridSection({
               </thead>
               <tbody>
                 {rows.map((row) => {
-                  const done = days.filter((d) => cells[row]?.[String(d)]).length;
+                  const done = days.filter((d) => isPestRecorded(cells[row]?.[String(d)])).length;
                   return (
                     <tr key={row} className="group">
                       <td className="sticky left-0 z-10 border-b border-r border-cream-200 bg-white px-3 py-1.5 text-[11px] font-medium text-ink-600 group-hover:bg-cream-50">
@@ -538,22 +589,44 @@ function DayCodeGridSection({
                             key={d}
                             className={`border-b border-cream-200 px-0.5 py-1 ${d === today ? "bg-brand-50/40" : ""}`}
                           >
-                            <select
-                              value={value}
-                              onChange={(e) => setCell(row, d, e.target.value as PestStatus)}
-                              title={`${row} — ${d}${value ? ` — ${PEST_STATUS_LABELS[value]}` : ""}`}
-                              aria-label={`${row}, day ${d}`}
-                              className={`w-full min-w-[36px] cursor-pointer appearance-none rounded border px-0.5 py-1 text-center text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-brand-500 ${
-                                value ? CODE_STYLE[value].cell : "border-cream-300 bg-white text-ink-300"
-                              }`}
-                            >
-                              <option value="">—</option>
-                              {PEST_STATUS_CODES.map((code) => (
-                                <option key={code} value={code}>
-                                  {code}
-                                </option>
-                              ))}
-                            </select>
+                            {isPestCount(value) ? (
+                              // No.s chosen: the cell becomes a number box. Clearing
+                              // it and leaving the box returns the cell to the dropdown.
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                autoFocus={value === PEST_COUNT_PENDING}
+                                value={value === PEST_COUNT_PENDING ? "" : value}
+                                onChange={(e) => setCell(row, d, countValue(e.target.value))}
+                                onBlur={() => {
+                                  if (value === PEST_COUNT_PENDING) setCell(row, d, "");
+                                }}
+                                placeholder="No."
+                                title={`${row} — ${d} — ${pestCellLabel(value)} (clear and click away to change)`}
+                                aria-label={`${row}, day ${d}, number sighted`}
+                                className={`w-full min-w-[36px] rounded border px-0.5 py-1 text-center text-[11px] font-bold placeholder:font-normal placeholder:text-sky-300 focus:outline-none focus:ring-1 focus:ring-sky-500 ${
+                                  styleFor(value).cell
+                                }`}
+                              />
+                            ) : (
+                              <select
+                                value={value}
+                                onChange={(e) => setCell(row, d, e.target.value as PestStatus)}
+                                title={`${row} — ${d}${value ? ` — ${pestCellLabel(value)}` : ""}`}
+                                aria-label={`${row}, day ${d}`}
+                                className={`w-full min-w-[36px] cursor-pointer appearance-none rounded border px-0.5 py-1 text-center text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                                  value ? styleFor(value).cell : "border-cream-300 bg-white text-ink-300"
+                                }`}
+                              >
+                                <option value="">—</option>
+                                {PEST_STATUS_CODES.map((code) => (
+                                  <option key={code} value={code}>
+                                    {code}
+                                  </option>
+                                ))}
+                                <option value={PEST_COUNT_PENDING}>{PEST_COUNT_LABEL}</option>
+                              </select>
+                            )}
                           </td>
                         );
                       })}

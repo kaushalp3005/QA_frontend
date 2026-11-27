@@ -13,6 +13,7 @@ import {
   HardHat,
   Printer,
   PhoneCall,
+  ScanLine,
   type LucideIcon,
 } from 'lucide-react'
 import { TRAINING_PAGES } from '@/config/training-nav'
@@ -69,6 +70,8 @@ export const NAVIGATION: NavItem[] = [
   // (mt_pm_work_order). view = see them, edit = approve or send back.
   { name: 'Maintenance Work', href: '/maintenance-work', icon: HardHat,        moduleCode: 'maintenance_work' },
   { name: 'Printing Label',  href: '/printing-label',  icon: Printer,         moduleCode: 'section_1' },
+  // Photograph a printed pack label and check it against its order (Textract).
+  { name: 'Batch Detection', href: '/batch-detection', icon: ScanLine,        moduleCode: 'batch_detection' },
   // AI voice-agent call log (quality calls + every safety issue). Its module
   // code is deliberately absent from QC_MODULES: the backend allows QC
   // super-admins only, so no one else can be granted it and the sidebar

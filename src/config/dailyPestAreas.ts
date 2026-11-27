@@ -124,3 +124,36 @@ export function pestDaysInMonth(month: string | null | undefined): number {
   const days = new Date(Number(match[1]), Number(match[2]), 0).getDate()
   return Number.isFinite(days) && days > 0 ? days : MAX_PEST_DAYS
 }
+
+// ── A185 Section 2: Pest Inspection Record by pest type ─────────────────────
+//
+// A185 records a second grid, the pest types of its "Pest Inspection Record"
+// (CFPLB.C4.RA.04, docs/Daily pest control.pdf), kept DAILY in the same
+// format as Section 1: one row per pest type, one column per day of the
+// month, a T/A/D/M code per cell, and Correction / Remark rows below.
+// W202 has no such grid. Stored in the record's `grid` JSON as
+//     grid.pest_types = { cells: { "<pest type>": { "1": "A", … } },
+//                         correction: { "1": "…" }, remark: { "1": "…" } }
+
+/** Pest types, in the order they are printed on the sheet. */
+export const A185_PEST_TYPES = [
+  'Rodents (Observed out of Roda Box)',
+  'Rodent excreta',
+  'Lizards',
+  'Cockroaches',
+  'Cobwebs',
+  'Flies',
+  'Insects / Ants',
+  'Birds / Sparrows / Pigeon',
+  'Birds Dropping',
+  'Other Animals',
+  'Rodent trapped in Rodaboxes',
+]
+
+export const PEST_TYPE_SECTION_TITLE =
+  '2. PEST INSPECTION RECORD (Daily Record- Trap-T Absent-A Damaged- D Missing -M)'
+
+/** Whether this plant files the Section 2 pest-type grid. */
+export function hasPestTypeGrid(warehouse: string | null | undefined): boolean {
+  return warehouse === 'A185'
+}

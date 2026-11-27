@@ -6,8 +6,11 @@ import { ArrowLeft, Loader2, Printer } from "lucide-react";
 import { docsApi } from "@/lib/api/documentations";
 import { getStoredWarehouse } from "@/components/ui/WarehouseSelector";
 import {
+  A185_PEST_TYPES,
   PEST_NOTE_ROWS,
   PEST_SECTION_TITLE,
+  PEST_TYPE_SECTION_TITLE,
+  hasPestTypeGrid,
   pestAreasFor,
   pestDaysInMonth,
   pestDocMetaFor,
@@ -21,7 +24,11 @@ import {
  * and both come from config/dailyPestAreas.ts so the printed rows are the rows
  * the form offered. The footer is the format's own "Prepared by: FST /
  * Approved By: FSTL" — the record's Checked By / Verified By are bookkeeping
- * this app adds and are deliberately not printed onto a controlled document.
+ * this app adds and are deliberately not printed onto the area sheet.
+ *
+ * A185 prints a second landscape page, Section 2 PEST INSPECTION RECORD: the
+ * pest types of CFPLB.C4.RA.04 × every day, in the same grid format as the
+ * area sheet, ending with that format's "Checked By - QA / Name" line.
  */
 
 const FORM_TYPE = "daily-pest-inspection";
@@ -68,21 +75,81 @@ function DocHeader({ meta }: { meta: PestDocMeta }) {
   );
 }
 
-function PestSheet({ record }: { record: Record<string, any> }) {
-  // The record's own plant decides the sheet, not whichever one the selector is
-  // showing — printing a W202 record from A185 must not relabel its rows.
-  const warehouse = record?.warehouse || getStoredWarehouse();
-  const meta = pestDocMetaFor(warehouse);
-  const areas = pestAreasFor(warehouse);
-
-  const grid = record?.grid && typeof record.grid === "object" ? record.grid : {};
+/** One daily code grid as printed: rows × days, then Correction / Remark. */
+function DayGridTable({
+  rowHeader,
+  rows,
+  grid,
+  days,
+  rowHeaderWidth = 108,
+}: {
+  rowHeaderWidth?: number;
+  rowHeader: string;
+  rows: string[];
+  grid: Record<string, any>;
+  days: number[];
+}) {
   const cells: Record<string, Record<string, string>> = grid.cells || {};
-  const month: string = record?.month || "";
-  const days = Array.from({ length: pestDaysInMonth(month) }, (_, i) => i + 1);
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+      <thead>
+        <tr>
+          <th style={{ ...th, width: `${rowHeaderWidth}px`, textAlign: "left" }}>{rowHeader}</th>
+          {days.map((day) => (
+            <th key={day} style={th}>
+              {day}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row}>
+            <td style={{ ...td, textAlign: "left", fontWeight: 600 }}>{row}</td>
+            {days.map((day) => (
+              <td key={day} style={td}>
+                {cells[row]?.[String(day)] || ""}
+              </td>
+            ))}
+          </tr>
+        ))}
+        {PEST_NOTE_ROWS.map(({ key, label }) => {
+          const notes: Record<string, string> = grid[key] || {};
+          return (
+            <tr key={key}>
+              <td style={{ ...td, textAlign: "left", fontWeight: 600 }}>{label}</td>
+              {days.map((day) => (
+                <td key={day} style={{ ...td, fontSize: "7px" }}>
+                  {notes[String(day)] || ""}
+                </td>
+              ))}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
 
+/** One landscape page: header, section title + month, grid, footer. */
+function SheetPage({
+  meta,
+  title,
+  month,
+  children,
+  footerExtra,
+  className = "",
+}: {
+  meta: PestDocMeta;
+  title: string;
+  month: string;
+  children: React.ReactNode;
+  footerExtra?: React.ReactNode;
+  className?: string;
+}) {
   return (
     <div
-      className="dpi-sheet mx-auto my-6 bg-white print:my-0 print:w-full print:shadow-none"
+      className={`dpi-sheet mx-auto my-6 bg-white print:my-0 print:w-full print:shadow-none ${className}`}
       style={{
         width: "297mm",
         maxWidth: "100%",
@@ -95,53 +162,65 @@ function PestSheet({ record }: { record: Record<string, any> }) {
       <DocHeader meta={meta} />
 
       <div style={{ marginTop: "8px", marginBottom: "4px", fontSize: "11px", fontWeight: "bold" }}>
-        {PEST_SECTION_TITLE}
+        {title}
         {month && <span style={{ marginLeft: "24px" }}>Month: {monthLabel(month)}</span>}
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-        <thead>
-          <tr>
-            <th style={{ ...th, width: "108px", textAlign: "left" }}>Area //Date</th>
-            {days.map((day) => (
-              <th key={day} style={th}>
-                {day}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {areas.map((area) => (
-            <tr key={area}>
-              <td style={{ ...td, textAlign: "left", fontWeight: 600 }}>{area}</td>
-              {days.map((day) => (
-                <td key={day} style={td}>
-                  {cells[area]?.[String(day)] || ""}
-                </td>
-              ))}
-            </tr>
-          ))}
-          {PEST_NOTE_ROWS.map(({ key, label }) => {
-            const row: Record<string, string> = grid[key] || {};
-            return (
-              <tr key={key}>
-                <td style={{ ...td, textAlign: "left", fontWeight: 600 }}>{label}</td>
-                {days.map((day) => (
-                  <td key={day} style={{ ...td, fontSize: "7px" }}>
-                    {row[String(day)] || ""}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {children}
+
+      {footerExtra}
 
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "14px", fontSize: "10px" }}>
         <span>Prepared by: FST</span>
         <span>Approved By: FSTL</span>
       </div>
     </div>
+  );
+}
+
+function PestSheets({ record }: { record: Record<string, any> }) {
+  // The record's own plant decides the sheet, not whichever one the selector is
+  // showing — printing a W202 record from A185 must not relabel its rows.
+  const warehouse = record?.warehouse || getStoredWarehouse();
+  const meta = pestDocMetaFor(warehouse);
+  const areas = pestAreasFor(warehouse);
+
+  const grid = record?.grid && typeof record.grid === "object" ? record.grid : {};
+  const pestGrid = grid.pest_types && typeof grid.pest_types === "object" ? grid.pest_types : {};
+  const month: string = record?.month || "";
+  const days = Array.from({ length: pestDaysInMonth(month) }, (_, i) => i + 1);
+
+  return (
+    <>
+      <SheetPage meta={meta} title={PEST_SECTION_TITLE} month={month}>
+        <DayGridTable rowHeader="Area //Date" rows={areas} grid={grid} days={days} />
+      </SheetPage>
+
+      {hasPestTypeGrid(warehouse) && (
+        <SheetPage
+          meta={meta}
+          title={PEST_TYPE_SECTION_TITLE}
+          month={month}
+          className="dpi-page-break"
+          footerExtra={
+            <div style={{ marginTop: "14px", fontSize: "11px", fontWeight: "bold" }}>
+              Checked By - QA / Name:{" "}
+              <span style={{ fontWeight: "normal", borderBottom: "1px solid #000", padding: "0 18px" }}>
+                {record?.checked_by || " ".repeat(10)}
+              </span>
+            </div>
+          }
+        >
+          <DayGridTable
+            rowHeader="Type Of Pest //Date"
+            rows={A185_PEST_TYPES}
+            grid={pestGrid}
+            days={days}
+            rowHeaderWidth={150}
+          />
+        </SheetPage>
+      )}
+    </>
   );
 }
 
@@ -204,7 +283,7 @@ export default function DailyPestInspectionPrintPage() {
       </div>
 
       {record ? (
-        <PestSheet record={record} />
+        <PestSheets record={record} />
       ) : (
         <div className="py-20 text-center text-gray-500">No record found to print.</div>
       )}
@@ -216,6 +295,7 @@ export default function DailyPestInspectionPrintPage() {
           @page { size: A4 landscape; margin: 6mm; }
           .print\\:w-full { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
           .dpi-sheet { break-inside: avoid; }
+          .dpi-page-break { break-before: page; }
         }
       `}</style>
     </div>

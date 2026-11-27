@@ -184,6 +184,9 @@ export const A185_PEST_TYPES = [
 export const PEST_TYPE_SECTION_TITLE =
   '2. PEST INSPECTION RECORD (Daily Record- Trap-T Absent-A Damaged- D Missing -M)'
 
+/** Section 2 heading on the printed sheet, without the status-code legend. */
+export const PEST_TYPE_SECTION_PRINT_TITLE = '2. PEST INSPECTION RECORD'
+
 /** Whether this plant files the Section 2 pest-type grid. */
 export function hasPestTypeGrid(warehouse: string | null | undefined): boolean {
   return warehouse === 'A185'

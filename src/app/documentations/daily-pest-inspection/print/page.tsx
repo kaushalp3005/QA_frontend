@@ -9,7 +9,7 @@ import {
   A185_PEST_TYPES,
   PEST_NOTE_ROWS,
   PEST_SECTION_TITLE,
-  PEST_TYPE_SECTION_TITLE,
+  PEST_TYPE_SECTION_PRINT_TITLE,
   hasPestTypeGrid,
   pestAreasFor,
   pestDaysInMonth,
@@ -199,7 +199,7 @@ function PestSheets({ record }: { record: Record<string, any> }) {
       {hasPestTypeGrid(warehouse) && (
         <SheetPage
           meta={meta}
-          title={PEST_TYPE_SECTION_TITLE}
+          title={PEST_TYPE_SECTION_PRINT_TITLE}
           month={month}
           className="dpi-page-break"
           footerExtra={
